@@ -20,6 +20,17 @@ The coordinator writes a one-page scenario contract before these three branches 
 
 Use draft PRs early to expose work without merging incomplete code. Avoid direct pushes to `main` after this initialization. Use squash merges for a clear history. Keep one integration window at least every 2–3 hours; do not let four branches drift until the final hour.
 
+For a second agent on the same computer, create an isolated worktree from an up-to-date `main`:
+
+```bash
+git fetch origin
+git switch main
+git pull --ff-only
+git worktree add ../junction-2-environment -b feat/2-environment main
+```
+
+Run that agent only inside `../junction-2-environment`. Use a different directory and branch for each additional agent. Before opening a PR, push the branch with `git push -u origin feat/2-environment`.
+
 ## Conflict and context rules
 
 - One owner per task and file surface. The coordinator resolves shared interface changes first.

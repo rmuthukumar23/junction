@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Use **Python 3.11** for the deterministic environment, reference policies, evaluation, and MCP adapter. Keep the core dependency-free. Add the official MCP Python SDK only when the AfterQuery starter kit confirms its expected version and transport. Use **GitHub + Actions** for code and integration, **separate worktrees** for people and agents, and **Entire** for session/context handoff. Use **Modal** for optional parallel episode evaluation and a public demo URL. Use **Verda** only for a genuine large rollout or GPU fine-tuning experiment after the core benchmark is valid.
+Use **Python 3.11** (recorded in `.python-version`) for the deterministic environment, reference policies, evaluation, and MCP adapter. Keep the core dependency-free. Add the official MCP Python SDK only when the AfterQuery starter kit confirms its expected version and transport. Use **GitHub + Actions** for code and integration, **separate worktrees** for people and agents, and **Entire** for session/context handoff. Use **Modal** for optional parallel episode evaluation and a public demo URL. Use **Verda** only for a genuine large rollout or GPU fine-tuning experiment after the core benchmark is valid.
 
 The first command is `bash scripts/check.sh`; it works without cloud accounts, packages, Docker, or a database. When the adapter introduces external Python dependencies, add them to `pyproject.toml`, generate and commit `uv.lock`, and use `uv sync --locked` in CI and setup. Do not hand-edit the lockfile. The final judge command must match the official starter kit and be demonstrated from a clean clone.
 

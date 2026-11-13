@@ -28,6 +28,15 @@ The command compiles the code, runs deterministic contract tests, and checks a t
 
 The first real scenario should be selected after a quick feasibility review: a clear objective, a plausible strong reference, a frontier failure worth explaining, and a reward that cannot be won by stopping or exploiting bookkeeping.
 
+## First assignments
+
+- Coordinator: [freeze the scenario contract](https://github.com/rmuthukumar23/junction/issues/1) and [own sponsor integration](https://github.com/rmuthukumar23/junction/issues/5).
+- Developer A: [deterministic environment and reward](https://github.com/rmuthukumar23/junction/issues/2).
+- Developer B: [official MCP/Harbor adapter](https://github.com/rmuthukumar23/junction/issues/3).
+- Developer C: [reference, baselines, and gap evidence](https://github.com/rmuthukumar23/junction/issues/4).
+
+Claim each issue before starting an agent. The harness and evaluation owners can start on the toy stub while the coordinator and environment owner freeze the real scenario contract.
+
 ## Acceptance gates, in order
 
 1. **Scenario contract:** action/observation schema, terminal conditions, seed handling, scoring rule, and invalid-action behavior are written down.
