@@ -46,4 +46,4 @@ Claim each issue before starting an agent. The harness and evaluation owners can
 5. **Gap:** run the frontier agent repeatedly on held-out seeds; record scores, trajectories, and failure analysis.
 6. **Submission:** a fresh clone can run the official judge path with one documented command and without team-specific cloud state.
 
-See [the team workflow](docs/WORKFLOW.md), [stack decision](docs/STACK.md), [harness checklist](docs/HARNESS.md), [experiment log](docs/EXPERIMENTS.md), and [sponsor plan](docs/SPONSORS.md).
+See [the team workflow](docs/WORKFLOW.md), [stack decision](docs/STACK.md), [Entire setup](docs/ENTIRE.md), [harness checklist](docs/HARNESS.md), [experiment log](docs/EXPERIMENTS.md), and [sponsor plan](docs/SPONSORS.md).
