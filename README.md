@@ -38,4 +38,3 @@ The first real scenario should be selected after a quick feasibility review: a c
 6. **Submission:** a fresh clone can run the official judge path with one documented command and without team-specific cloud state.
 
 See [the team workflow](docs/WORKFLOW.md), [stack decision](docs/STACK.md), [harness checklist](docs/HARNESS.md), [experiment log](docs/EXPERIMENTS.md), and [sponsor plan](docs/SPONSORS.md).
-
