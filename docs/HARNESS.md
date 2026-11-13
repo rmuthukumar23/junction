@@ -1,6 +1,6 @@
 # AfterQuery harness integration checklist
 
-The pasted brief identifies Harbor running OpenCode via MCP, but does not supply the starter kit, exact tool schema, or scoring skeleton. The harness owner must obtain those materials and record their versions or commit hashes here before implementing the adapter.
+The pasted brief identifies Harbor running OpenCode via MCP, but does not supply the starter kit, exact tool schema, or scoring skeleton. Whoever claims the harness issue must obtain those materials and record their versions or commit hashes here before implementing the adapter.
 
 1. Run the starter kit unchanged once. Save the exact command and observed output.
 2. Map official `reset`/observation/action/termination/scoring semantics to `junction_env.contracts`. Keep the real scenario core independent of MCP and cloud clients.

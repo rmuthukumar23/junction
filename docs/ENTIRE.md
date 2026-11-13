@@ -1,6 +1,6 @@
 # Entire setup and handoff proof
 
-Entire is a context layer for the GitHub workflow in `WORKFLOW.md`. Each developer installs it in their own clone and enables capture for the coding agent they actually use. The coordinator should perform one teammate retrieval test before relying on it for handoffs.
+Entire is a context layer for the GitHub workflow in `WORKFLOW.md`. Each developer installs it in their own clone and enables capture for the coding agent they actually use. Any two teammates should perform a retrieval test before relying on it for handoffs.
 
 ## Setup in a real clone
 
@@ -21,8 +21,8 @@ Graph and Brain setup generate `.entire/agent-guide.md` and managed blocks in `A
 
 ## Prove shared context
 
-1. Developer A starts an agent session on an issue, makes a small scoped change, and commits it. Accept Entire's prompt to link the session; verify with `entire checkpoint list`.
-2. Developer A writes the reviewed architectural choice in `docs/DECISIONS.md` and, if Brain is set up, records a concise memory with `entire brain remember "<decision>" --path decisions.<name>`.
+1. One teammate starts an agent session on an issue, makes a small scoped change, and commits it. Accept Entire's prompt to link the session; verify with `entire checkpoint list`.
+2. That teammate writes the reviewed architectural choice in `docs/DECISIONS.md` and, if Brain is set up, records a concise memory with `entire brain remember "<decision>" --path decisions.<name>`.
 3. Connect Brain to a hosted Entire repository with `entire brain connect` if the team wants memory sync. Local memories are local until connected. Verify a second developer can retrieve the decision with `entire brain recall "<topic>"` and can find related code with Graph. Record the two-person proof in the PR.
 4. Keep the issue/PR handoff and decision file as the durable fallback. A session checkpoint is evidence and context, not a substitute for a runnable test or clear acceptance criteria.
 

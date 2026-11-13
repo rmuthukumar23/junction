@@ -39,7 +39,7 @@ The MCP adapter must follow the official kit's schema. Current MCP Python SDK do
 - **Modal:** `Function.map`/`spawn_map` is a good fit for many independent seeded episodes; use a public endpoint only if it helps judges inspect the result. Measure local versus Modal throughput on the same seeds.
 - **Verda:** choose a GPU instance for iterative fine-tuning, or batch jobs when there is a containerized long-running workload. Log the GPU/model, training recipe, data split, cost/credits, and held-out before/after scores. Verda's inference API is useful only if an open model is part of the experiment; calling it once is not a credible compute story.
 - **Entire:** initialize Sessions and Graph after the repository has meaningful code. Checkpoint handoffs and explicitly test Brain sharing. Trails may add review evidence, but GitHub PRs remain the merge gate so the team keeps one canonical history.
-- **Codex:** use issue-scoped coding and review tasks with isolated worktrees. The coordinator reviews and merges; no central computer dispatches every agent or holds shared mutable working files.
+- **Codex:** use issue-scoped coding and review tasks with isolated worktrees on any team machine. Rotate PR review/integration; no central computer dispatches every agent or holds shared mutable working files.
 
 ## Sources checked on 2026-11-14
 

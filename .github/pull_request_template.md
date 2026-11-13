@@ -6,8 +6,8 @@ Agent/worktree:
 
 ## Contract and files
 
-Interface changed? If yes, link the coordinator-approved contract change.
-Files owned by this PR:
+Interface changed? If yes, link the reviewed contract decision.
+Files reserved by this PR:
 
 ## Evidence
 

@@ -16,26 +16,27 @@ The command compiles the code, runs deterministic contract tests, and checks a t
 
 ## Repository map
 
-| Path | Purpose | First-wave owner |
-| --- | --- | --- |
-| `src/junction_env/contracts.py` | Frozen local environment interface | Coordinator |
-| `src/junction_env/` | Real scenario state and transitions | Environment developer |
-| `examples/` | Toy contract smoke test; remove from demo claims | Coordinator |
-| `tests/` | Determinism, fairness, reward integrity | Environment + evaluation developers |
-| `docs/HARNESS.md` | Official MCP/Harbor adapter plan | Harness developer |
-| `docs/EXPERIMENTS.md` | Reproduction commands and result summaries | Evaluation developer |
-| `.github/` | CI and PR handoff | Coordinator |
+| Path | Purpose |
+| --- | --- |
+| `src/junction_env/contracts.py` | Shared local environment interface |
+| `src/junction_env/` | Real scenario state and transitions |
+| `examples/` | Toy contract smoke test; remove from demo claims |
+| `tests/` | Determinism, fairness, reward integrity |
+| `docs/HARNESS.md` | Official MCP/Harbor adapter plan |
+| `docs/EXPERIMENTS.md` | Reproduction commands and result summaries |
+| `.github/` | CI and PR handoff |
 
 The first real scenario should be selected after a quick feasibility review: a clear objective, a plausible strong reference, a frontier failure worth explaining, and a reward that cannot be won by stopping or exploiting bookkeeping.
 
-## First assignments
+## First work queue
 
-- Coordinator: [freeze the scenario contract](https://github.com/rmuthukumar23/junction/issues/1) and [own sponsor integration](https://github.com/rmuthukumar23/junction/issues/5).
-- Developer A: [deterministic environment and reward](https://github.com/rmuthukumar23/junction/issues/2).
-- Developer B: [official MCP/Harbor adapter](https://github.com/rmuthukumar23/junction/issues/3).
-- Developer C: [reference, baselines, and gap evidence](https://github.com/rmuthukumar23/junction/issues/4).
+- [Freeze the scenario contract](https://github.com/rmuthukumar23/junction/issues/1).
+- [Implement deterministic environment and reward](https://github.com/rmuthukumar23/junction/issues/2).
+- [Integrate the official MCP/Harbor adapter](https://github.com/rmuthukumar23/junction/issues/3).
+- [Build reference, baselines, and gap evidence](https://github.com/rmuthukumar23/junction/issues/4).
+- [Integrate sponsor technologies where they help](https://github.com/rmuthukumar23/junction/issues/5).
 
-Claim each issue before starting an agent. The harness and evaluation owners can start on the toy stub while the coordinator and environment owner freeze the real scenario contract.
+Any teammate can claim any issue, including the coordinator. This machine can run implementation agents as well as integration work. Claims reserve a task and its files only while that work is active; they are not permanent roles. The harness and evaluation tasks can start on the toy stub while the real scenario contract is drafted.
 
 ## Acceptance gates, in order
 
