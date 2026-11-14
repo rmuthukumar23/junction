@@ -104,9 +104,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 out = runs.replay(run_id)
-            except FileNotFoundError as exc:
-                self._json(422, {"error": str(exc)})
-                return
             except Exception as exc:
                 sys.stderr.write(traceback.format_exc())
                 self._json(500, {"error": f"replay failed: {type(exc).__name__}: {exc}"})

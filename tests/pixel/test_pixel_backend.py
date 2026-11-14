@@ -93,7 +93,7 @@ def test_http_api(http):
     agent = next(r for r in runs if r["kind"] == "agent")
     st, _, body = get(base + "/api/runs/" + agent["id"])
     rep = json.loads(body)
-    assert st == 200 and set(rep) == {"meta", "frames", "actions", "events", "alarms", "daily"}
+    assert st == 200 and set(rep) == {"meta", "frames", "actions", "events", "alarms", "daily", "replayable"}
     st, _, body = get(base + "/api/runs/policy:reference:s1")
     assert st == 200 and json.loads(body)["meta"]["replay_verified"] is True
     assert get(base + "/api/runs/nope")[0] == 404
