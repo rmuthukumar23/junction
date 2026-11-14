@@ -27,6 +27,23 @@ You own everything about running the business: the market, orders that arrive da
 
 What you consume: `HarvestResult` (from Lucas) and `Metered` (from Emre). Write tests with hand-made instances; you don't need their code.
 
+## Now (14 Nov): test and benchmark the base version on `max/locked-crops`
+
+**This comes before everything below.** Max builds the day/night shift in parallel on his own branch; you make the base version (no round 3) solid and measured.
+
+**What changed** (DECISIONS, "Locked crop set"; the notes below list the edits to your files):
+- The crops are locked for the whole hackathon: lettuce, broccoli microgreens, radish microgreens (`data/crops/`, values in `docs/CROPS.md`). Basil is deleted. No germination phase; microgreen seed is the `seedlings:<crop>` item, priced per seed.
+- The main scenario `normal-winter` runs `data/facilities/nl_three_compartment.toml`: A and B broccoli (12 days), C radish (8 days), start batches at staggered ages. `smoke` uses the same setup for 1 day. A scenario chooses each compartment's crop in its facility file.
+- The reference and rule-based policies were fixed for short, by-weight cycles; not run on 42 days yet.
+
+**Your tasks, in order:**
+1. `git fetch && git switch max/locked-crops` (or `main` once merged), then `bash scripts/quick.sh`. It last passed on the crops commit; the scenario commit is untested. Fix what breaks.
+2. One cheap model on the smoke task on Modal (docs/MODAL.md, "Smoke checks").
+3. **Benchmark checks: you are authorised to run these** (the user asked for them for this task, overriding the AGENTS.md default): `ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q`, `uv run --no-sync envkit build normal-winter`, `uv run --no-sync envkit audit`. Record seed, command, scores and failures in the PR.
+4. Check the ladder: reference > rule-based > naive > do-nothing (0), every policy inside 400 calls (the reference's daily seed orders add about two calls a day), and no exploit above the reference.
+5. **Balance (yours):** microgreens earn about 16 times lettuce per m², and any amount sells at list price. Add a daily demand cap per microgreen in `config/market.py` and the market file (list price up to the cap, a surplus price above), or lower the prices, so that the reference does not score by just maximising area and lamps. Microgreens have no upper light limit, so lamps flat out costs only electricity.
+6. You may edit `policies/reference.py` for this work (shared with Max). Don't touch the shift clock, `env.py` or `sim.py`: Max is changing them for day/night.
+
 ## Tasks, in order
 
 1. **Schemas** for market and event files (spec 3.4, 3.5). Test: the files load; bad keys fail.
@@ -52,6 +69,8 @@ Tasks 1–6 are on `main`. Max wired them into the simulator with `world/busines
 6. **Reference planner** with Max once the real facility lands.
 
 ## Next steps (round 3: damage, contractors, parts, news)
+
+**Deferred (14 Nov):** storms, damage, contractors, parts and news are not in the base version. Don't start them; the day/night shift is Max's.
 
 Round 2 is on `main` (#14). Read context section 0 (especially 0.3, 0.5 and 0.7) and spec sections 14.2, 14.3 and 14.5. Start with the data and schemas now; wire them to the new contract types once Max's contracts PR lands (within the hour).
 
@@ -88,4 +107,4 @@ They crashed the first runs on the real game, so Max fixed them directly instead
 
 ## Prompt for your coding agent
 
-> Read `AGENTS.md`, `docs/collaboration/README.md`, `docs/collaboration/rowan.md`, sections 3.4, 3.5, 5, 7, 8 and 9 of `docs/GREENHOUSE_SPEC.md`, and `src/greenhouse/contracts.py`, `src/greenhouse/config/base.py`. I own only the files listed in rowan.md. Do the tasks in rowan.md in order, test first, using `unittest`. Every price, lead time, wage and event rate goes in `data/` TOML files with a source comment, read through `Table`. No numbers in Python. Randomness only from named `Rng` streams. Policies use only the tool client, never simulator internals. Don't edit files I don't own. If you need a change to `contracts.py`, stop and tell me. Run `uv run --no-sync python -m pytest tests -q` before saying a task is done.
+> Read `AGENTS.md`, `docs/collaboration/README.md`, `docs/collaboration/rowan.md` (start with "Now (14 Nov)"), `docs/CROPS.md`, the "Locked crop set" entries in `docs/DECISIONS.md`, `scenarios/normal-winter.toml`, `data/facilities/nl_three_compartment.toml`, and `src/greenhouse/policies/reference.py`. Work on branch `max/locked-crops` (or `main` once merged) in your own worktree. Do the tasks under "Now (14 Nov)" in order. For this task the benchmark checks in step 3 are authorised. Every price and cap goes in `data/` TOML files with a source comment, read through `Table`; no numbers in Python. Policies use only the tool client. Don't edit `env.py`, `sim.py` or `contracts.py` (Max is changing them for day/night). Run `bash scripts/quick.sh` after every change, and end with a PR handoff: state, commands and results, remaining risk.
