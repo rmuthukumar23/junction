@@ -60,7 +60,7 @@ shell/file/protocol exploit session before submission.
 
 ## Commands
 
-See README for `scripts/judge.sh`, which runs `envkit eval --scenario shift-planner`.
+See README for `scripts/judge.sh`, which runs `envkit eval --scenario root-cause` and reads the model id and key from `.env`.
 `--smoke` runs the legal reference without model keys. Without `--model` it runs
 reference, do-nothing and stop-early. Full mode adds three OpenCode attempts.
 Each scripted run must reproduce its calibrated score exactly.

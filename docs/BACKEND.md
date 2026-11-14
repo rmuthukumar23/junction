@@ -1,6 +1,6 @@
 # Evaluation backend (`envkit`)
 
-`src/envkit/` is the one backend that serves, records and grades an environment as a Harbor task. It knows nothing about a particular environment. Shift Planner runs on it through `src/junction_env/scheduling/envkit_binding.py`; `src/envs/depot/` is a second, self-contained example that exercises the features Shift Planner does not use (windows, scripted events, calibrated composite score).
+`src/envkit/` is the one backend that serves, records and grades an environment as a Harbor task. It knows nothing about a particular environment. The greenhouse (`src/rootcause/env.py`) is the submitted environment. Two test fixtures exercise the features the greenhouse does not use: `src/envs/depot/` (multi-operation windows, scripted events, a calibrated composite score; scenario `tests/envkit/fixtures/depot-basic.toml`) and `src/envs/strict.py` (a fixed tool list, exact JSON types, charged invalid calls).
 
 The design follows AfterQuery's [StoreBench](https://github.com/AfterQuery/storebench): time metered in tool operations, a world behind an MCP tool surface, and scores calibrated against scripted anchor policies. StoreBench publishes its task format and scorer but not its engine, so the engine here is written from scratch.
 
@@ -36,27 +36,29 @@ All commands run in the locked environment (`uv sync --locked --extra eval --ext
 | `envkit play SCENARIO --record FILE` | Play by hand in the terminal; the session is a replayable trace |
 | `envkit replay SCENARIO TRACE` | Regrade a trace without containers |
 | `envkit serve SCENARIO` | Run the MCP server on localhost |
-| `envkit eval --scenario S --output DIR [--model M] [--smoke]` | Judging protocol through Harbor; `scripts/judge.sh` wraps this for Shift Planner |
+| `envkit eval --scenario S --output DIR [--model M] [--smoke]` | Judging protocol through Harbor; `scripts/judge.sh` wraps this for the greenhouse |
 | `envkit report DIR` | Summarize Harbor trials under a directory |
 
 `tasks/` is generated and committed so that `harbor run -p tasks/<name>` works from a clean clone. Each task carries three copies of the code it needs (sidecar, verifier, oracle) because a Harbor task must stand alone. **After changing anything under `src/` or `scenarios/`, run `envkit build` and commit the result;** `scripts/check.sh` fails in the locked environment if it is stale. Do not run `envkit build` while a Harbor run on a committed task is in flight.
 
 ## Engine rules
 
+- **Call limit.** `[shift] max_calls` (optional) caps the requests an episode takes, accepted or refused. Reaching it ends the episode as if the player had stopped (`end_reason = "call_limit"`): every remaining window runs unattended. It bounds the wall-clock length of a run.
+
 - **Operations.** Each accepted tool call spends its cost (one by default) from the current window's budget. Spending the last operation, or calling `end_window`, closes the window and advances the world. Time depends only on the action sequence.
 - **Stopping.** When the agent stops for any reason, every remaining window runs with nobody acting, and the environment's `on_finish` settles what is in flight. The score is taken after that.
 - **Termination.** `Environment.terminated()` is checked after every operation and at every window close.
-- **Rejected calls.** A call the engine rejects before it reaches a tool (unknown tool, malformed arguments) is free by default. An environment whose contract charges invalid requests overrides `on_invalid_call`; Shift Planner does.
-- **Arguments.** Tool schemas come from type hints. Loose number encodings (`"5"`, `5.0`) are accepted unless the environment sets `strict_arguments = True`; Shift Planner does.
-- **Built-in tools.** `end_window` and `read_alerts` are offered unless the environment sets `builtin_tools = ()`; Shift Planner exposes exactly its four contract tools.
+- **Rejected calls.** A call the engine rejects before it reaches a tool (unknown tool, malformed arguments) is free by default. An environment whose contract charges invalid requests overrides `on_invalid_call`; the strict fixture does.
+- **Arguments.** Tool schemas come from type hints. Loose number encodings (`"5"`, `5.0`) are accepted unless the environment sets `strict_arguments = True`; the strict fixture does.
+- **Built-in tools.** `end_window` and `read_alerts` are offered unless the environment sets `builtin_tools = ()`; the greenhouse does (`advance_day` replaces `end_window`).
 - **Events.** A scenario's `[[events]]` reach the agent by channel: announced (an alert states the change), rumored (only the rumor text), or silent (no alert).
 
 ## Scoring
 
 `reward = sum(weight × component)`, each component in [0, 1], configured per scenario in `[scoring]`.
 
-- `mean`: the mean of ledger rates already in [0, 1]. An undefined rate is ignored, and if all are undefined the component is 0. Shift Planner uses one such component with weight 1: the contract's on-time value fraction.
-- `anchored`: `clip01((raw - zero) / scale)`. `zero` is the best raw result among the do-nothing-style anchors; `scale` maps the best scripted judgment anchor to 0.70, leaving headroom above it. Depot uses 0.7 anchored business + 0.2 reliability + 0.1 continuity, StoreBench's weights.
+- `mean`: the mean of ledger rates already in [0, 1]. An undefined rate is ignored, and if all are undefined the component is 0. The greenhouse uses one such component with weight 1: `normalized_profit`, which it computes itself against instance-defined bounds.
+- `anchored`: `clip01((raw - zero) / scale)`. `zero` is the best raw result among the do-nothing-style anchors; `scale` maps the best scripted judgment anchor to 0.70, leaving headroom above it. The depot fixture uses 0.7 anchored business + 0.2 reliability + 0.1 continuity, StoreBench's weights.
 
 `calibration.json` holds the constants and each anchor policy's score per scenario and seed. `envkit eval` requires every scripted Harbor run to reproduce its calibrated score exactly.
 
@@ -72,7 +74,7 @@ All commands run in the locked environment (`uv sync --locked --extra eval --ext
 ## Adding or changing an environment
 
 1. Subclass `envkit.core.Environment`: `setup`, tools marked with `@tool` (the docstring is the description the agent reads), `on_window_end`, `on_finish`, `ledger`, and `apply_event` if the scenario scripts events. `src/envs/depot/world.py` is a complete example.
-2. Register scripted policies in `Environment.policies()`. A policy receives only a client with `tools()` and `call()`, so it cannot see anything the agent cannot. An environment written against `junction_env.contracts` can wrap its observation-to-action policies with `ContractPolicy`, as Shift Planner does.
+2. Register scripted policies in `Environment.policies()`. A policy receives only a client with `tools()` and `call()`, so it cannot see anything the agent cannot.
 3. Write `scenarios/<id>.toml`: prompt, clock, environment configuration, events and scoring. The format is documented in `src/envkit/scenario.py`.
 4. Run `envkit build`, `envkit audit` and `bash scripts/check.sh`.
 
@@ -86,14 +88,14 @@ Rules that keep an environment gradeable:
 ## Recorded human play
 
 ```bash
-uv run --no-sync envkit play shift-planner --record traces/alice.jsonl
+uv run --no-sync envkit play root-cause --record traces/alice.jsonl
 ```
 
 A person at the console has the same tools, budget and information as an agent. Setting `reference = "replay:traces/alice.jsonl"` in a scenario and rebuilding makes the Harbor oracle replay that session through MCP. The console drives the same client interface as the policies, so a browser front end needs only `tools()` and `call()`.
 
 ## Reading a run
 
-Each Harbor trial directory contains `verifier/reward.txt`, `verifier/score.json` (components, ledger, replay check, per-window timeline; for Shift Planner the timeline carries the per-job outcome table), and `artifacts/var/lib/envkit/trace.jsonl` (every call with its arguments and the response the agent received).
+Each Harbor trial directory contains `verifier/reward.txt`, `verifier/score.json` (components, ledger including the greenhouse's `fm_*` failure-mode fields, replay check, per-window timeline), and `artifacts/var/lib/envkit/trace.jsonl` (every call with its arguments and the response the agent received).
 
 ## Limits
 

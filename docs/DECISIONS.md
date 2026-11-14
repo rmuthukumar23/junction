@@ -58,6 +58,19 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - Modal does not need local Docker or Podman; only the Docker/Podman backends do.
 - Provider-side errors (for example a retired model) are not agent scores; exclude them.
 
+## Lettuce incident-response redesign · 2026-11-14 (branch feat/lettuce-greenhouse)
+
+- **One environment.** Shift Planner is removed: it was fully observable and a deadline-first heuristic matched its solver, so there was no gap to show. Depot stays only as a backend test fixture (`tests/envkit/fixtures/`), next to a new strict-contract fixture (`src/envs/strict.py`). Integrity tests now run on the committed greenhouse task.
+- **Scope: a single incident.** There are 3 NFT lettuce benches over 6 days. On day 1 the mains moves to a brackish backup source, announced by a vague notice. The day-0 bench composition is published, so the only unknown is the incident. This replaces the 14-day tomato version, whose known weakness was that one test made the state exactly trackable.
+- **Why NFT.** A small recirculating tank shows a change in the source water within days; a deep-water raft pond would buffer it away.
+- **The remedy has a price.** The clean reserve costs 4× mains (€0.04/L), so a planner that ignores the notice has no reason to use it. A free reserve made the blind planner match the reference (measured, then changed).
+- **Reward = clamp((profit − default) / (informed − default)).** `informed` is the same planner told the backup salinity at the notice. Reasons: 1.0 is explainable ("knew the root cause at once"), the bound is instance-only and computed in the verifier, and the reference's gap to 1.0 measures the cost of diagnosing. The proven upper bound is still reported as `profit_upper_bound_eur`.
+- **Outcome-only reward; diagnosis is evidence.** Failure modes (`fm_*` in the ledger) are computed from hidden state after the run and never rewarded, so testing or explaining cannot be gamed.
+- **Runtime.** The design keeps runs far from the limits: a season is 20–40 calls. Safety nets: `[shift] max_calls = 120` (a new optional envkit feature; reaching it equals stopping), agent timeout 420 s, verifier timeout 120 s.
+- **Audit change.** A cut-short reference may tie the full reference only if every omitted call is listed in `[audit] clock_tools` (`advance_day`), because that day runs the already-submitted plan anyway.
+- **Credentials.** `scripts/judge.sh` loads `GEMINI_API_KEY` and `AFTERQUERY_MODEL` from a gitignored `.env` (template `.env.example`).
+- **Not done, by decision.** The browser app (`src/rootcause_app`) is not ported yet, and its tests are removed until the UI is reworked for the demo.
+
 ## Remaining event decisions
 
 - AfterQuery starter-kit/scoring-skeleton version and any differences from candidate Harbor task.
