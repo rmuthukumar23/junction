@@ -85,16 +85,18 @@ a compose frontend (`podman compose` or `podman-compose`).
 ## Modal compatibility gate
 
 Use native `harbor run --env modal`, CPU only. No custom scheduler or GPU.
-Harbor's multi-container example states that Compose sidecars are not supported
-on cloud providers, so expect this gate to fail until Harbor says otherwise.
-Run one reference smoke before a full suite (three concurrent frontier attempts).
+Harbor's multi-container docs list `modal` under Docker-in-Docker Compose. **Gate
+result 2026-11-14 (Windows, Harbor 0.26.0):** the reference, do-nothing and stop-early
+runs passed on Modal with sidecar collection and separate verification, and three
+concurrent OpenCode + Gemini attempts completed on seed 0 (details: [MODAL.md](MODAL.md)).
+This is not the official event kit. Run one reference smoke before a full suite.
 Timebox event-kit compatibility to 45 minutes. Both service collection and separate
 verification must work; fail closed if either is unsupported. If blocked, retain
 the Docker judge path and defer Modal. Do not replace trusted evidence with an
 agent-written file to make a cloud demo work.
 
-Current workstation lacks Docker, Modal configuration and frontier credentials.
-No local/cloud equality or cloud performance result has been claimed. Replay
+Local/cloud score equality was checked only for scripted policies and checkers games;
+no cloud performance result against a frontier model has been claimed. Replay
 identical actions locally and in Modal before claiming equality; stochastic
 frontier responses need not match. Report batch time including cold startup,
 rate limits, failed trials and provider cleanup.

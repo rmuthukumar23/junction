@@ -97,7 +97,22 @@ The 100-run claim above is eight jobs. No construction witness is read by CP-SAT
 - CI tested PR merge SHA `a85d0fafc2a59b88c29507e62413e212404c3edd` for source head `b69719510066ba5ce327bfc1a98676911ab47415`. Docker trial 73.143 s; entire Harbor invocation 80.705 s including setup. This is not a Modal timing.
 - Downloaded the CI sidecar artifact and independently replayed it locally: 1.0, matching instance `eb85920cd8fffb6e504179970b350967d48f966b40f91ec9c19aec848a3e94f2`.
 - Earlier CI runs [43536868023](https://github.com/rmuthukumar23/junction/actions/runs/43536868023) and [43536872234](https://github.com/rmuthukumar23/junction/actions/runs/43536872234) failed trusted artifact collection with `RewardFileNotFoundError`. The sidecar record on tmpfs could not be retrieved by Docker's copy path. Moving it to the sidecar's private filesystem fixed collection. Both failures were reported as infrastructure failures with no agent score; no failed attempt is omitted from this handoff.
-- This workstation has no Docker, Modal configuration or frontier credentials.
+- This workstation had no Docker, Modal configuration or frontier credentials when the CI results above were taken.
+
+## Modal and Gemini development pilot (2026-11-14, Windows 11, seed 0 only)
+
+Harbor 0.26.0, OpenCode 1.19.5, local checkout of `main` after 4aff1fa plus the changes in
+this PR. Commands and tables are in [MODAL.md](MODAL.md).
+
+- Scripted reference/do-nothing/stop-early passed on Modal (`--env modal`, Compose sidecar,
+  separate verification): 1.0, 0.0, 0.0, 389 s sequentially.
+- `google/gemini-4-hydrogen`, 3 concurrent attempts: Modal 1.0, 1.0, 1.0 in 223 s; local
+  Docker 1.0 plus two `AgentSetupTimeoutError` infrastructure failures (not agent failures) in 486 s.
+- `google/gemini-3.1-flash-lite`, 3 concurrent attempts, Modal: 1.0, 1.0, 1.0 in 220 s.
+- `gemini-2.5-flash-lite` was rejected by the API (not available to new users); those
+  zeros are excluded.
+- Seed 0 does not separate models, so **no performance gap has been shown**. Held-out seeds
+  100-102 were not run; the official kit and frontier models were not used.
 - **No official frontier evaluation, repeated gap, cloud timing, local/cloud equality
   or frontier failure analysis has been recorded.** No sponsor runtime claim is made.
 

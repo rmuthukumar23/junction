@@ -33,6 +33,19 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - Podman is accepted as a local backend next to Docker.
 - `src/envs/depot` and `scenarios/depot-basic.toml` stay as the worked example for windows, scripted events and calibrated composite scoring. They are not part of the submission.
 
+## Windows and OpenCode findings (2026-11-14)
+
+- Generated task files are always written with LF (`_write` in `src/envkit/harbor.py`),
+  and `.gitattributes` forces LF for scripts, Dockerfiles, compose files and `tasks/`.
+  Why: CRLF makes `#!/bin/bash` fail in the Linux container with
+  `cannot execute: required file not found`, which looked like an agent/infrastructure failure.
+- OpenCode's Google provider reads only `GOOGLE_GENERATIVE_AI_API_KEY`. `envkit eval` now
+  forwards the host variable (`GEMINI_API_KEY` by default for `google/` and `gemini/` models)
+  with `--ae GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}`, a template Harbor expands, so
+  the key value never appears on a command line. `--credential-env` selects a different host variable.
+- Modal does not need local Docker or Podman; only the Docker/Podman backends do.
+- Provider-side errors (for example a retired model) are not agent scores; exclude them.
+
 ## Remaining event decisions
 
 - AfterQuery starter-kit/scoring-skeleton version and any differences from candidate Harbor task.

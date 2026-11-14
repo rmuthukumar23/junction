@@ -1,0 +1,6 @@
+# Scripts and container build files run inside Linux containers; CRLF breaks them
+# ("cannot execute: required file not found") on Windows checkouts.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yaml text eol=lf
+tasks/** text eol=lf

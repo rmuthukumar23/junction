@@ -95,8 +95,9 @@ bash scripts/judge.sh --backend modal --model "$AFTERQUERY_MODEL" --output artif
 
 Use one smoke trial before three concurrent frontier attempts. Docker/Modal must
 pass trusted sidecar collection and separate verification. The task uses a Compose
-sidecar, which Harbor documents as unsupported on its cloud sandboxes, so treat
-Modal as unverified. No Verda training, Entire setup, database or UI is required.
+sidecar; on 2026-11-14 the scripted runs and three concurrent OpenCode + Gemini
+attempts passed on Modal (see [docs/MODAL.md](docs/MODAL.md)). That is not the official
+event kit. No Verda training, Entire setup, database or UI is required.
 
 ## Repository map
 

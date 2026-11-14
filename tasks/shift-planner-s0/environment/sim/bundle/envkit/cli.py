@@ -266,8 +266,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model", help="provider/model for the agent runs; omit to run the scripted runs only")
     p.add_argument("--agent", default="opencode")
     p.add_argument("--opencode-version", default="1.19.5")
-    p.add_argument("--credential-env", default="OPENAI_API_KEY",
-                   help="name of the environment variable that must hold the model credential")
+    p.add_argument("--credential-env", default=None,
+                   help="name of the environment variable that must hold the model credential "
+                        "(default: GEMINI_API_KEY for google/gemini models, else OPENAI_API_KEY)")
     p.add_argument("--runs", type=int, default=3, help="number of agent runs per seed")
     p.add_argument("--smoke", action="store_true", help="one reference run per seed; no model credentials")
     p.add_argument("--backend", choices=["auto", "docker", "podman", "modal"], default="auto",

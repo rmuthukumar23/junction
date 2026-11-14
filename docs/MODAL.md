@@ -1,19 +1,28 @@
 # Modal handoff (Windows-friendly)
 
 Status (2026-11-14): Modal connectivity, fan-out and determinism are verified with
-standalone scripts in `test/`. **Harbor `--env modal` with the envkit Compose sidecar is
-still unrun.** Modal is not wired into envkit or `scripts/judge.sh`.
+standalone scripts in `test/`, and the Harbor judge's three scripted policies pass on
+`--env modal` including the Compose sidecar (see the Harbor section below). Model-driven
+runs and the official event kit are still untested.
 
 ## Setup (each teammate, once)
 
-1. Accept the invite to the `hackjunction` Modal workspace.
-2. `python -m pip install --upgrade modal`. Modal 1.6.1 failed with an image-builder
+The workspace is out of seats, so teammates without one use the team's shared API token
+(token ID `ak-...` plus secret `as-...`), which Max hands out privately. This is for the
+hackathon only.
+
+1. `python -m pip install --upgrade modal`. Modal 1.6.1 failed with an image-builder
    `VersionError`; 1.6.4 works.
-3. `python -m modal setup` and sign in with your own account (writes `~\.modal.toml`).
-   **Never share or commit that token.** Do not give it to teammates; each person
-   authenticates separately.
+2. Get the token ID and secret from Max. If you have a seat, accept the invite and run
+   `python -m modal setup` instead.
+3. `python -m modal token set --token-id ak-... --token-secret as-... --profile hackjunction`
+   (writes `~\.modal.toml`). Or set `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` in your
+   shell to write nothing to disk. Don't commit the token or paste it into prompts.
 4. `python -m modal profile current` must print `hackjunction`; otherwise
    `python -m modal profile activate hackjunction`.
+
+Everyone on the shared token appears as one user, so prefix your app names with your
+initials to tell runs apart.
 
 Use `python`, not `python3`, on Windows. The `WindowsSelectorEventLoopPolicy`
 DeprecationWarnings are harmless. If output shows odd characters, set `PYTHONIOENCODING=utf-8`.
@@ -27,7 +36,7 @@ python -m modal run test/checkers_sim.py --games 16 --depth 6 --local-games 1
 
 Cost is a few cents of CPU. Both scripts are throwaway load tests, independent of envkit.
 `checkers_sim.py` plays scripted checkers agents (random, greedy, minimax). It calls no
-AI model, because no model credentials or Modal secrets exist yet.
+AI model. For model runs through the real judge path, see "Gemini agent runs" below.
 
 ## Visibility
 
@@ -62,11 +71,68 @@ Read from docs.harborframework.com by a subagent; unverified by us.
   egress policy for all services.
 - Run flag: `--env modal`; concurrency `-n/--n-concurrent`. Provider credentials stay in
   the Harbor process environment. The docs gave no Modal-specific auth steps.
-- Open question: DinD may not provide the trusted sidecar artifact collection and
-  separate verification our judge requires. That is the thing to test.
+- The sidecar collection and separate verification question is answered by the smoke
+  tests below: both worked on Modal for the scripted policies.
 
-## Next gate (not done)
+## Harbor judge on Modal: tested 2026-11-14 (Windows 11, Git Bash, Harbor from `uv.lock`)
 
-`bash scripts/judge.sh --backend modal --smoke --output artifacts/modal-smoke`
-(Git Bash or WSL, plus Harbor). Pass only if sidecar collection and separate
-verification both work; otherwise keep the Docker judge path.
+Code base: `main` at 2fd57ee plus an uncommitted LF fix in `src/envkit/harbor.py`.
+
+| Command | Result |
+|---|---|
+| `bash scripts/judge.sh --smoke --output artifacts/docker-smoke` | reference reward 1.0000, 163 s total, after the fix below |
+| `bash scripts/judge.sh --backend modal --smoke --output artifacts/modal-smoke` | reference reward 1.0000, 161 s; sidecar `trace.jsonl` (16 lines) collected; separate verifier produced the reward |
+| `bash scripts/judge.sh --backend modal --output artifacts/modal-full` | reference 1.0000, do-nothing 0.0000, stop-early 0.0000, 389 s for three sequential runs |
+
+So Modal runs the Compose sidecar task, with sidecar artifact collection and separate
+verification, for the three scripted policies. No Modal containers remained afterwards.
+Not covered: the official event kit, local-versus-Modal score equality beyond the
+scripted rewards, and held-out seeds. Model runs are in the next section.
+
+## Gemini agent runs on Modal (development seed 0 only)
+
+Put `GEMINI_API_KEY=...` in a git-ignored `.env` at the repo root (never commit it or
+paste it into a chat). Then, from Git Bash. No Docker needed for `--backend modal`:
+
+```bash
+set -a; . ./.env; set +a
+bash scripts/judge.sh --backend modal --model google/gemini-4-hydrogen   --runs 3 --seeds 0 --output artifacts/judge-gemini-modal
+```
+
+`envkit eval` forwards the key to OpenCode as `GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}`
+(a template Harbor expands, so the value never appears in a command line or log). Use
+`--credential-env NAME` if your key lives in another variable. Verified end to end on
+2026-11-14: reference 1.0, agent 1.0/1.0/1.0, do-nothing 0.0, stop-early 0.0, 12 min 16 s
+for the whole set; no key found in the output folder.
+
+Gotchas found:
+- OpenCode's Google provider reads only `GOOGLE_GENERATIVE_AI_API_KEY`; Harbor does not
+  map `GEMINI_API_KEY` onto it. Before the forwarding fix, the agent failed with
+  `ProviderAuthError` and 0 tool calls. The raw `harbor run` equivalent needs
+  `--ae 'GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}'` (single quotes).
+- List models your key can use with a `GET` to `/v1beta/models`; some are refused
+  (`gemini-2.5-flash-lite`: "no longer available to new users"). Those zeros are API
+  errors, not agent scores.
+
+| Model | Where | Rewards | Wall time |
+|---|---|---|---|
+| `gemini-4-hydrogen` x3 concurrent | Modal | 1.0, 1.0, 1.0 | 223 s |
+| `gemini-4-hydrogen` x3 concurrent | local Docker | 1.0 and two infrastructure failures (agent setup timeout at 360 s) | 486 s |
+| `gemini-3.1-flash-lite` x3 concurrent | Modal | 1.0, 1.0, 1.0 | 220 s |
+
+Seed 0 is solved by every working model attempt, even Flash-Lite, so it does not
+separate models. No performance gap has been shown.
+
+**Windows bug found and fixed.** The first Docker run failed with
+`/tests/test.sh: cannot execute: required file not found`. `_write` in
+`src/envkit/harbor.py` used `Path.write_text`, which writes CRLF on Windows, so the
+`#!/bin/bash` line broke inside the Linux container. It now writes LF. After this change
+run `uv run --no-sync envkit build` and commit the regenerated `tasks/` and
+`calibration.json`.
+
+**Known Windows test failures.** `scripts/check.sh` needs `python3`, which does not exist
+on Windows. Run its steps with `uv run --no-sync python`. Two tests in
+`tests/test_shift_backend.py` (`test_real_mcp_episode_against_the_sidecar_server`,
+`test_server_has_no_reset_state_or_score_routes`) fail with a `PermissionError` deleting a
+temp `trace.jsonl` still held open; they fail identically without the LF change.
+`envkit check` (tasks up to date) and `envkit audit` pass.
