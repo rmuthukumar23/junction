@@ -1,5 +1,47 @@
 # Experiment evidence
 
+## Backend merge check · 2026-11-14
+
+Measured code: `b5bdf44033127d2bf7696cda3120da35cde07f9f`, clean working tree,
+fresh clone. Python 3.12.16, OR-Tools 9.15.6755, MCP SDK 2.3.0, Harbor 0.26.0,
+uv 0.13.8 for the locked install, Podman 5.8.9 with podman-compose 1.6.0.
+No model or model credentials.
+
+```bash
+bash scripts/check.sh                                   # Python 3.12, no packages
+uv sync --locked --extra eval --extra mcp --extra harbor
+uv run --no-sync bash scripts/check.sh
+uv run --no-sync python -m junction_env.evaluation --verify-count 100 --output artifacts/reference-100
+bash scripts/judge.sh --output artifacts/judge          # no --model: scripted runs only
+```
+
+- Without packages: 33 tests, 3 skipped, toy example passed.
+- Locked environment: 33 unittest tests and 59 backend pytest tests passed;
+  committed `tasks/` and `calibration.json` matched the source; reward audit
+  passed for `shift-planner` seed 0 and `depot-basic` seed 7.
+- Reference seeds 0–99 on the local runner: **100/100 at reward 1.0**, at most
+  **16/64 actions**, 1.928 seconds on this workstation.
+- Backend scores equal the local runner for the earliest-deadline and
+  stop-early policies on seeds 0–4 at 8, 10 and 12 jobs (test).
+- Harbor on Podman, Shift Planner seed 0, through the `envkit` sidecar and
+  separate verifier:
+
+| Run | Harbor agent | Reward | Calls | Trial seconds | Status |
+|---|---|---:|---:|---:|---|
+| reference | oracle | 1.0 | 15 (14 actions + one free observe) | 93.8 | completed |
+| do-nothing | nop | 0.0 | 0 | 82.3 | interrupted |
+| stop-early | oracle, `ENVKIT_POLICY=stop-early` | 0.0 | 3 | 75.6 | completed |
+
+  Each run reproduced its calibrated score; sidecar trace collection and
+  replay verification completed for all three. Batch 274.0 seconds.
+- Before commit, on the same code with a dirty tree: `judge.sh --smoke` passed,
+  and `depot-basic` seed 7 scored reference 0.8451, do-nothing 0.0, stop-early 0.2042.
+
+**Not run on this path:** Docker (this workstation has Podman only), GitHub CI,
+OpenCode with any model, Modal, seeds other than 0 through Harbor, held-out
+seeds. The difficulty risk below is unchanged: the earliest-deadline heuristic
+still matches the reference on development seeds.
+
 ## Local implementation check · 2026-11-14
 
 Measured code: `ede974d5389090a3c65b3ae1fc57cb28a029ad7b`, clean working tree.
@@ -50,6 +92,7 @@ The 100-run claim above is eight jobs. No construction witness is read by CP-SAT
 
 - Harbor 0.26 task schema validates against the installed package.
 - Local MCP transport tested with MCP SDK 2.3.0.
+- The Docker and CI results in this list were measured on the previous adapter (HTTP service and stdio bridge), before the backend merge.
 - **Docker reference smoke passed** in [CI run 43537261501](https://github.com/rmuthukumar23/junction/actions/runs/43537261501): seed 0, reward 1.0, 14 actions; separate verification and trusted sidecar collection both completed.
 - CI tested PR merge SHA `a85d0fafc2a59b88c29507e62413e212404c3edd` for source head `b69719510066ba5ce327bfc1a98676911ab47415`. Docker trial 73.143 s; entire Harbor invocation 80.705 s including setup. This is not a Modal timing.
 - Downloaded the CI sidecar artifact and independently replayed it locally: 1.0, matching instance `eb85920cd8fffb6e504179970b350967d48f966b40f91ec9c19aec848a3e94f2`.
