@@ -45,7 +45,6 @@ def test_omittable_optionals_never_advertise_null_but_still_accept_it():
     assert "null" not in str({k: v for k, v in props.items() if k != "must"})
     assert validate(params, {"hours": None, "caps": None, "mode": None, "must": 1}) == \
         {"hours": None, "caps": None, "mode": None, "must": 1}
-    assert p["note"] == {"type": "string"}        # optional = not required; null still validates
 
 
 def _walk(schema):

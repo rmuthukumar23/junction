@@ -38,8 +38,9 @@ jobs:
         with:
           version: '0.13.8'
       # Skipped until a submitted scenario exists (the greenhouse is being rebuilt).
-      - if: hashFiles('scenarios/*.toml') != ''
-        run: bash scripts/judge.sh --smoke --output artifacts/harbor-smoke
+      # The 1-day smoke scenario: checks the Harbor chain without playing the 42-day task.
+      - if: hashFiles('scenarios/smoke.toml') != ''
+        run: ENVKIT_SCENARIO=smoke bash scripts/judge.sh --smoke --output artifacts/harbor-smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:

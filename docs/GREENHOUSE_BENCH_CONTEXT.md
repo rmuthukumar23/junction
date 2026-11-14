@@ -111,7 +111,7 @@ Replaces the single generic "request a repair" action.
 
 **Replanting, two ways.** Buy plugs from a propagator: dearer per plant, grown to order, so ordered about 2 to 3 weeks ahead (design assumption), longer in winter. Or sow in-house: cheap seed, but propagation space, lamps and worker-hours, 11 to 14 days then transplant. (Real grounding: Dutch propagators such as Beekenkamp grow to order from growers' schedules; one Dutch lettuce grower started propagating in-house under LED because extra winter orders took longer.) Kept: a batch may only be planted if it can reach sellable weight before the episode ends.
 
-**Pluggable crops.** Each crop file has propagation days, production days at reference DLI and temperature, growth response to light, CO2 and temperature, harvest type, climate targets and stress limits, quality effects (tipburn, bolting, disease, pest damage), plant density, minimum sellable weight, price per unit by grade, and seasonal pest susceptibility. Lettuce (butterhead, about 24 days at DLI 17, 24/19 °C day/night targets) is the main crop. Arugula and spinach are optional later; tomato and cucumber are out of scope. *Agreed refinement:* basil stays in v1 (it is already built and tests the repeated-cut path).
+**Pluggable crops.** Each crop file has propagation days, production days at reference DLI and temperature, growth response to light, CO2 and temperature, harvest type, climate targets and stress limits, quality effects (tipburn, bolting, disease, pest damage), plant density, minimum sellable weight, price per unit by grade, and seasonal pest susceptibility. Lettuce (butterhead, about 24 days at DLI 17, 24/19 °C day/night targets) is the main crop. Arugula and spinach are optional later; tomato and cucumber are out of scope. *Locked crop set (14 Nov 2026):* lettuce, broccoli microgreens and radish microgreens, nothing else; values and sources in [CROPS.md](CROPS.md). Basil leaves the set (its file stays only as a repeated-cut test fixture).
 
 **Seasons** change inputs, not code. Winter (v1): very low light, lamps decide cycle length, heating is the main cost, CO2 plentiful from the CHP, low bolting risk, lower but non-zero pest pressure, EU nitrate limit 5,000 mg/kg. Summer (later): shade screens, cooling by venting, CO2 scarce with the CHP off, high bolting risk, thrips pressure, nitrate limit 4,000 mg/kg.
 
@@ -130,12 +130,12 @@ Replaces the single generic "request a repair" action.
 
 | v1 (build now) | Later (after the first model comparison) |
 |---|---|
-| Netherlands, normal winter, 42 days, 2 compartments (A lettuce, B basil) | Summer scenario, other seasons |
+| Netherlands, normal winter, 42 days, 2 compartments (crops from the locked set: lettuce, broccoli and radish microgreens) | Summer scenario, other seasons |
 | Day shift, hourly night schedule, thermostat with available sources, morning report | Urgent same-day bookings |
 | Weather and price forecasts; news signals for storm, cold snap and gas price, with false alarms | CO2/fertiliser supply news, grid congestion |
 | Persistent damage; 2 contractors (glazier, heating installer); 2 parts (glass, boiler parts); storm surge; express delivery | The other 5 contractors and parts |
 | Plugs from a propagator with a 2–3 week lead time | Sowing in-house (propagation area) |
-| Lettuce at 24 days scaling with light; basil; frost damage on near-ready batches | Spinach, arugula; pests and scouting; sensor drift; fertigation |
+| Lettuce at 21 days from transplant scaling with light; broccoli (12 days) and radish (8 days) microgreens sown from seed; frost damage on near-ready batches | Spinach, arugula; pests and scouting; sensor drift; fertigation |
 
 ---
 

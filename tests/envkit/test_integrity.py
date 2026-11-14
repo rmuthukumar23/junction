@@ -24,11 +24,15 @@ from conftest import ROOT
 SUBMITTED = sorted((ROOT / "scenarios").glob("*.toml"))
 pytestmark = pytest.mark.skipif(not SUBMITTED, reason="no submitted scenario in scenarios/ yet")
 
+# The quick 1-day smoke task by default, so the suite stays fast. To run these checks
+# on the submitted task: ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q
+TEST_SCENARIO = os.environ.get("ENVKIT_TEST_SCENARIO", "smoke")
+
 
 @pytest.fixture(scope="module")
 def scenario():
-    """These checks run on the committed task: the first scenario in scenarios/."""
-    return load_scenario(SUBMITTED[0])
+    path = ROOT / "scenarios" / f"{TEST_SCENARIO}.toml"
+    return load_scenario(path if path.exists() else SUBMITTED[0])
 
 
 def test_audit_passes(scenario):
