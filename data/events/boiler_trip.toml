@@ -8,6 +8,9 @@ duration_h = {min = 6, max = 30}    # published as a range; the drawn value is h
 signal = "alarm"                    # the agent sees an alarm in get_status and the advance result
 effect = { target = "boiler", capacity_factor = 0.0 }
 # A service call: the call-out is charged when requested; the work uses worker-hours.
-# Once the work is done the boiler is back within shortens_to_h hours.
+# Once the work is done the boiler is back within shortens_to_h hours. Emergency winter
+# boiler call-outs cost several times a routine service ("a half-hour service job becomes
+# a weekend callout at five times the cost", HortiDaily, "Proactive maintenance doesn't
+# mean over-maintaining"), hence a high fee. The rate has no public source: illustrative.
 repair = { cost_eur = 1200.0, worker_hours = 4.0, shortens_to_h = 3.0 }
 pinned_hours = []
