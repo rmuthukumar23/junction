@@ -16,7 +16,15 @@ from envkit.trace import read_trace, write_trace
 from envkit.verify import grade
 from envkit.verify import main as verify_main
 
+from envkit.scenario import load_scenario
+
 from conftest import ROOT
+
+
+@pytest.fixture(scope="module")
+def scenario():
+    """These checks run on the committed task: the greenhouse."""
+    return load_scenario(ROOT / "scenarios" / "root-cause.toml")
 
 
 def test_audit_passes(scenario):

@@ -1,7 +1,7 @@
 [project]
 name = "junction-agent-environment"
 version = "0.3.0"
-description = "AfterQuery environments (Root Cause, Shift Planner) and their evaluation backend for Junction 2026"
+description = "Root Cause: a lettuce greenhouse AfterQuery environment and its evaluation backend for Junction 2026"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -14,7 +14,6 @@ harbor = ["harbor[modal]==0.26.0"]
 dev = ["pytest==9.0.3"]
 
 [project.scripts]
-shift-planner = "junction_env.evaluation:main"
 envkit = "envkit.cli:main"
 
 [build-system]

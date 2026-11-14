@@ -3,12 +3,11 @@ import json
 
 import pytest
 
-from envkit.calibrate import calibrate, entry_for, load_calibration
+from envkit.calibrate import calibrate
 from envkit.clients import run_inprocess
 from envkit.policies import make_policy
 from envkit.scoring import anchored, fit_anchor, mean_rate, score
 
-from conftest import ROOT
 
 
 def test_composite_matches_storebench_published_example():
@@ -51,8 +50,9 @@ def test_anchor_ordering(scenario):
         assert a["rule-based"]["components"]["business"] == pytest.approx(0.70, abs=1e-3)
 
 
-def test_committed_calibration_is_reproducible(scenario):
-    committed = load_calibration(ROOT)
+def test_calibration_is_reproducible(scenario):
+    # The fixture scenario is not a committed task; its calibration must still be a
+    # pure function of (scenario, seed). Committed scenarios are covered by `envkit check`.
     for seed in scenario.seeds:
-        fresh = json.loads(json.dumps(calibrate(scenario, seed)))
-        assert entry_for(committed, scenario.id, seed) == fresh, "run `envkit build`"
+        first = json.loads(json.dumps(calibrate(scenario, seed)))
+        assert first == json.loads(json.dumps(calibrate(scenario, seed)))

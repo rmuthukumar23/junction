@@ -1,0 +1,20 @@
+# Backend test fixture: a strict contract (see src/envs/strict.py). Not a task.
+
+[task]
+id = "strict-fixture"
+title = "Strict contract fixture"
+env = "envs.strict:Counter"
+seeds = [0]
+reference = "do-nothing"
+prompt = "Test fixture."
+
+[shift]
+windows = 1
+window_hours = 24
+ops_per_window = 64
+
+[[scoring.components]]
+name = "progress"
+weight = 1.0
+kind = "mean"
+metrics = ["progress"]

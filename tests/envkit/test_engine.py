@@ -134,15 +134,15 @@ def test_policies_see_only_the_client(scenario):
 # -- switches an environment's contract can set ----------------------------------
 
 def _strict_scenario():
-    """Shift Planner fixes its tool list, uses exact JSON types and charges invalid requests."""
+    """A fixture contract that fixes its tool list, uses exact JSON types and charges invalid requests."""
     from envkit.scenario import load_scenario
     from conftest import ROOT
-    return load_scenario(ROOT / "scenarios" / "shift-planner.toml")
+    return load_scenario(ROOT / "tests" / "envkit" / "fixtures" / "strict.toml")
 
 
 def test_builtin_tools_can_be_switched_off():
     ep = Episode(_strict_scenario(), 0)
-    assert set(ep.tools) == {"observe", "start_job", "advance", "finish"}
+    assert set(ep.tools) == {"observe", "advance", "finish"}
 
 
 def test_strict_arguments_reject_loose_number_encodings():

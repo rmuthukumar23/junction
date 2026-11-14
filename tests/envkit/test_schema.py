@@ -63,7 +63,7 @@ def test_tools_need_docstrings_and_type_hints():
 
 
 def _edited(old: str, new: str) -> str:
-    text = (ROOT / "scenarios" / "depot-basic.toml").read_text()
+    text = (ROOT / "tests" / "envkit" / "fixtures" / "depot-basic.toml").read_text()
     assert old in text
     return text.replace(old, new)
 

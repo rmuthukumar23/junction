@@ -21,11 +21,10 @@ jobs:
           version: '0.13.8'
       - run: uv sync --locked --extra eval --extra mcp --extra harbor
       - run: uv run --no-sync bash scripts/check.sh
-      - run: uv run --no-sync python -m junction_env.evaluation --verify-count 100 --output artifacts/reference-100
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-reference
+          name: local-check
           path: artifacts/
   harbor-smoke:
     runs-on: ubuntu-latest
