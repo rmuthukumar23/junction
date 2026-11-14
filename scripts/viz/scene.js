@@ -1,338 +1,365 @@
-// The pixel-art greenhouse. Everything is drawn on a 320x180 grid, then scaled up with no smoothing.
+// The greenhouse site in 3D: an orthographic (isometric) camera, rendered at low resolution
+// and scaled up without smoothing for a voxel/pixel look. Drag to rotate, scroll to zoom.
 const Scene = (() => {
-  const W = 320, H = 180, WALL = 90, FLOOR = 132, APEX = 64;
-  const HOUSE = { A: { x: 6, w: 116 }, B: { x: 128, w: 116 } };
-  const EC = { x: 252, y: 100, w: 38 };
-  const buf = document.createElement("canvas"); buf.width = W; buf.height = H;
-  const g = buf.getContext("2d");
-  let out, octx, meta = {}, t = 0;
+  const PIX = 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
+  const SLOPE = Math.atan2(2.2, 5);              // roof pitch: RIDGE over half the width
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, k) => a + (b - a) * k;
+  const col = (h) => new THREE.Color(h);
+  const mixc = (a, b, k) => col(a).lerp(col(b), clamp(k, 0, 1));
+  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-  // ---------- tiny 3x5 bitmap font ----------
-  const GL = {
-    A:"010101111101101",B:"110101110101110",C:"011100100100011",D:"110101101101110",E:"111100110100111",
-    F:"111100110100100",G:"011100101101011",H:"101101111101101",I:"111010010010111",J:"001001001101010",
-    K:"101101110101101",L:"100100100100111",M:"101111111101101",N:"110101101101101",O:"010101101101010",
-    P:"110101110100100",Q:"010101101110011",R:"110101110101101",S:"011100010001110",T:"111010010010010",
-    U:"101101101101111",V:"101101101101010",W:"101101111111101",X:"101101010101101",Y:"101101010010010",
-    Z:"111001010100111","0":"111101101101111","1":"010110010010111","2":"110001010100111","3":"110001010001110",
-    "4":"101101111001001","5":"111100110001110","6":"011100111101111","7":"111001010010010","8":"111101111101111",
-    "9":"111101111001110"," ":"000000000000000",":":"000010000010000",".":"000000000000010","-":"000000111000000",
-    "+":"000010111010000","%":"101001010100101","!":"010010010000010","/":"001001010100100","€":"011100111100011",
-    "°":"010101010000000",",":"000000000010100","(":"010100100100010",")":"010001001001010","?":"110001010000010",
+  let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
+  let az = Math.PI / 4, zoom = 1, layerLbl, bubbles = [], workers = [], lastHour = -1;
+  const lambert = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
+  const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
+  const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+
+  // ---------------- building the world ----------------
+  function init(cv) {
+    canvas = cv; stage = cv.parentElement;
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setPixelRatio(1);
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(-10, 10, 10, -10, -200, 400);
+    world.amb = new THREE.AmbientLight(0xffffff, 0.4); scene.add(world.amb);
+    world.hemi = new THREE.HemisphereLight(0xbfdfff, 0x3a5030, 0.35); scene.add(world.hemi);
+    world.sun = new THREE.DirectionalLight(0xfff2d0, 0.9); world.sun.position.set(-30, 40, 20); scene.add(world.sun);
+    layerLbl = document.createElement("div"); layerLbl.className = "scene-labels"; stage.appendChild(layerLbl);
+    // drag to rotate, wheel to zoom; a click without a drag opens details
+    let down = null;
+    canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, az, moved: false }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 3) down.moved = true; az = down.az - dx * 0.008; });
+    canvas.addEventListener("pointerup", (e) => { if (down && !down.moved) canvas.dispatchEvent(new CustomEvent("scenepick", { detail: pick(e) })); down = null; });
+    const qz = +new URLSearchParams(location.search).get("zoom"); if (qz) zoom = clamp(qz, 0.6, 3);
+    canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoom = clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 3); }, { passive: false });
+  }
+
+  function clearWorld() {
+    while (scene.children.length > 3) scene.remove(scene.children[3]);
+    layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; lastHour = -1;
+  }
+
+  function setData(m) {
+    meta = m; ids = Object.keys(m.compartments).sort(); clearWorld();
+    const span = ids.length * HW + (ids.length - 1) * GAP;
+    world.x0 = -span / 2 - 6; world.span = span + 22;
+    // ground, path and road
+    world.ground = new THREE.Mesh(new THREE.BoxGeometry(world.span + 30, 1, 46), lambert(0x3d5a3a)); world.ground.position.set(world.x0 + world.span / 2, -0.5, 2); scene.add(world.ground);
+    const road = box(world.span + 30, 0.06, 4, lambert(0x3c3f48)); road.position.set(world.x0 + world.span / 2, 0.03, ROAD_Z); scene.add(road);
+    for (let x = world.x0 - 12; x < world.x0 + world.span + 14; x += 3) { const d = box(1.4, 0.07, 0.18, basic(0x9a9da6)); d.position.set(x, 0.05, ROAD_Z); scene.add(d); }
+    const path = box(world.span, 0.04, 1.6, lambert(0x7a6a52)); path.position.set(world.x0 + world.span / 2, 0.02, HD / 2 + 3.2); scene.add(path);
+    ids.forEach((id, i) => buildHouse(id, world.x0 + 6 + i * (HW + GAP) + HW / 2));
+    buildEnergy(world.x0 + 6 + span + 6.5);
+    // main heat pipe along the front of the houses
+    world.pipe = box(span + 7, 0.25, 0.25, lambert(0x40454f, { emissive: 0x000000 }));
+    world.pipe.position.set(world.x0 + 6 + span / 2 + 3, 0.15, HD / 2 + 1.2); scene.add(world.pipe);
+    // weather particles
+    const n = 700, pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { pos[i * 3] = world.x0 - 10 + rnd() * (world.span + 20); pos[i * 3 + 1] = rnd() * 22; pos[i * 3 + 2] = -20 + rnd() * 44; }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    world.flakes = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false })); scene.add(world.flakes);
+    // truck
+    const tr = new THREE.Group();
+    const cargo = box(3.6, 1.8, 1.8, lambert(0xe8eef4)); cargo.position.set(0, 1.3, 0); tr.add(cargo);
+    const cab = box(1.3, 1.4, 1.8, lambert(0xd84a3a)); cab.position.set(2.5, 1.1, 0); tr.add(cab);
+    const glass = box(0.1, 0.6, 1.5, basic(0x9cd0f0)); glass.position.set(3.16, 1.4, 0); tr.add(glass);
+    for (const wx of [-1.1, 1.0, 2.5]) for (const wz of [-0.9, 0.9]) { const w = box(0.7, 0.7, 0.2, lambert(0x1a1d24)); w.position.set(wx, 0.35, wz); tr.add(w); }
+    tr.visible = false; tr.position.z = ROAD_Z; scene.add(tr); world.truck = tr;
+  }
+
+  function buildHouse(id, cx) {
+    const h = { id, cx, group: new THREE.Group() }; h.group.position.set(cx, 0, 0); scene.add(h.group);
+    const G = h.group, frameMat = new THREE.LineBasicMaterial({ color: 0xdfeee9 });
+    const floor = box(HW, 0.1, HD, lambert(0x4a3a2c)); floor.position.y = 0.05; G.add(floor);
+    // glass walls and gable roof (ridge runs front to back)
+    const glass = lambert(0xbfe6ff, { transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
+    const walls = box(HW, WALL, HD, glass); walls.position.y = WALL / 2; G.add(walls);
+    const shape = new THREE.Shape([new THREE.Vector2(-HW / 2, 0), new THREE.Vector2(HW / 2, 0), new THREE.Vector2(0, RIDGE)]);
+    const roofG = new THREE.ExtrudeGeometry(shape, { depth: HD, bevelEnabled: false }); roofG.translate(0, WALL, -HD / 2);
+    G.add(new THREE.Mesh(roofG, glass));
+    G.add(new THREE.LineSegments(new THREE.EdgesGeometry(walls.geometry), frameMat).translateY(WALL / 2));
+    G.add(new THREE.LineSegments(new THREE.EdgesGeometry(roofG), frameMat));
+    for (let z = -HD / 2 + 2; z < HD / 2; z += 2) {           // mullions and rafters
+      const pts = [[-HW / 2, 0, z], [-HW / 2, WALL, z], [0, WALL + RIDGE, z], [HW / 2, WALL, z], [HW / 2, 0, z]].map((p) => new THREE.Vector3(...p));
+      G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xdfeee9, transparent: true, opacity: 0.45 })));
+    }
+    // air tint volume, energy screen, roof vent
+    h.tint = box(HW - 0.2, WALL - 0.2, HD - 0.2, basic(0x5aa0ff, { transparent: true, opacity: 0, depthWrite: false })); h.tint.position.y = WALL / 2; G.add(h.tint);
+    h.screen = box(HW - 0.1, 0.05, HD - 0.1, lambert(0xd8c79a, { transparent: true, opacity: 0.4, depthWrite: false })); h.screen.position.y = WALL - 0.08; G.add(h.screen);
+    // roof vents: small glass windows hinged at the ridge, lying flush on the slope when shut
+    h.vents = [];
+    const ventMat = lambert(0xcfe9f2, { transparent: true, opacity: 0.55 }), ventEdge = new THREE.LineBasicMaterial({ color: 0xdfeee9 });
+    [[-4.5, 1], [0, -1], [4.5, 1]].forEach(([vz, side]) => {
+      const pivot = new THREE.Group(); pivot.position.set(0, WALL + RIDGE + 0.03, vz);
+      const pane = box(1.8, 0.06, 2.2, ventMat); pane.position.x = side * 0.95; pivot.add(pane);
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(pane.geometry), ventEdge); edge.position.copy(pane.position); pivot.add(edge);
+      pivot.userData.side = side; G.add(pivot); h.vents.push(pivot);
+    });
+    // lamps with light cones and one point light
+    h.lampMat = basic(0x3a3f48); const housing = lambert(0x2b2f38);
+    h.coneMat = basic(0xffe680, { transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    for (const lx of [-2.5, 2.5]) for (const lz of [-4.5, 0, 4.5]) {
+      const l = box(0.8, 0.14, 0.36, housing); l.position.set(lx, WALL - 0.45, lz); G.add(l);
+      const bulb = box(0.6, 0.04, 0.22, h.lampMat); bulb.position.set(lx, WALL - 0.54, lz); G.add(bulb);
+      const c = new THREE.Mesh(new THREE.ConeGeometry(1.6, WALL - 0.4, 6, 1, true), h.coneMat); c.position.set(lx, (WALL - 0.4) / 2, lz); G.add(c);
+    }
+    h.light = new THREE.PointLight(0xffe7a0, 0, 14); h.light.position.set(0, WALL - 0.6, 0); G.add(h.light);
+    // heating pipes along both walls
+    h.pipeMat = lambert(0x40454f, { emissive: 0x000000 });
+    for (const px of [-HW / 2 + 0.35, HW / 2 - 0.35]) { const p = box(0.2, 0.2, HD - 0.6, h.pipeMat); p.position.set(px, 0.25, 0); G.add(p); }
+    // plants: one instanced voxel per spot, re-laid out every hour
+    h.plants = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), lambert(0xffffff), MAXV); h.plants.count = 0;
+    h.plants.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXV * 3).fill(1), 3); G.add(h.plants);
+    h.beds = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), lambert(0x6b4630), 12); h.beds.count = 0; G.add(h.beds);
+    h.crates = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.45, 0.5), lambert(0xa0703c), 12); h.crates.count = 0; G.add(h.crates);
+    h.marks = []; for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), basic(0xffd84a)); m.visible = false; G.add(m); h.marks.push(m); }
+    // CO2 particles
+    const pos = new Float32Array(60 * 3); for (let i = 0; i < 60; i++) { pos[i * 3] = (rnd() - 0.5) * (HW - 1); pos[i * 3 + 1] = 0.8 + rnd() * (WALL - 1.2); pos[i * 3 + 2] = (rnd() - 0.5) * (HD - 1); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    h.co2 = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xbcd7ff, size: 2, sizeAttenuation: false })); G.add(h.co2);
+    h.hit = box(HW, WALL + RIDGE, HD, basic(0, { visible: false })); h.hit.position.y = (WALL + RIDGE) / 2; h.hit.userData.pick = id; G.add(h.hit);
+    // label
+    h.lbl = document.createElement("div"); h.lbl.className = "lbl"; layerLbl.appendChild(h.lbl);
+    houses[id] = h;
+  }
+
+  function buildEnergy(x) {
+    const G = new THREE.Group(); G.position.set(x, 0, -1); scene.add(G); ec.group = G; ec.x = x;
+    const b = box(6, 4, 6, lambert(0x8a4b3a)); b.position.y = 2; G.add(b);
+    const roof = box(6.6, 0.4, 6.6, lambert(0x3a2a26)); roof.position.y = 4.2; G.add(roof);
+    ec.winMat = basic(0x9cc8e0); for (const wx of [-1.6, 0.2]) { const w = box(1.2, 0.9, 0.05, ec.winMat); w.position.set(wx, 2.8, 3.03); G.add(w); }
+    const door = box(1.1, 2, 0.05, lambert(0x3a2a26)); door.position.set(1.8, 1, 3.03); G.add(door);
+    const ch = box(0.9, 5, 0.9, lambert(0x6e3b2e)); ch.position.set(1.8, 6.6, -1.5); G.add(ch);
+    ec.chimneyTop = new THREE.Vector3(x + 1.8, 9.2, -2.5);
+    ec.beacon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 4), basic(0x5ee06a)); ec.beacon.position.set(-2.5, 4.7, 2.5); G.add(ec.beacon);
+    // CHP unit with a spinning fan
+    const chp = box(2.4, 1.6, 2, lambert(0x5a6270)); chp.position.set(-1.6, 0.8, 4.3); G.add(chp);
+    ec.fan = box(1.4, 0.12, 0.25, lambert(0xc0c8d4)); ec.fan.position.set(-1.6, 1.0, 5.32); G.add(ec.fan);
+    // tanks: hot-water buffer (orange) and CO2 (blue)
+    const tank = (tx, r, h, fill) => {
+      const shell = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 10), lambert(0x2b313c, { transparent: true, opacity: 0.45 })); shell.position.set(tx, h / 2, 0); G.add(shell);
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.85, r * 0.85, 1, 10), lambert(fill, { emissive: fill, emissiveIntensity: 0.25 })); f.position.set(tx, 0, 0); G.add(f);
+      return { f, h };
+    };
+    ec.buffer = tank(4.8, 1.1, 5.5, 0xff8a3c); ec.co2 = tank(7.4, 0.9, 4.2, 0x7cc4ff);
+    // power pole and wire
+    const pole = box(0.3, 9, 0.3, lambert(0x4a4036)); pole.position.set(9.5, 4.5, -4); G.add(pole);
+    const pts = []; for (let i = 0; i <= 30; i++) { const k = i / 30; pts.push(new THREE.Vector3(lerp(9.5, 0, k), lerp(8.8, 4.4, k) - Math.sin(Math.PI * k) * 1.2, lerp(-4, -1, k))); }
+    ec.wire = pts; G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x22262e })));
+    ec.sparks = []; for (let i = 0; i < 4; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.18, 4, 3), basic(0xffe066)); G.add(s); ec.sparks.push(s); }
+    // smoke puffs
+    ec.smoke = []; for (let i = 0; i < 36; i++) { const s = box(0.6, 0.6, 0.6, basic(0xd2d4da, { transparent: true, opacity: 0 })); s.visible = false; scene.add(s); ec.smoke.push({ m: s, life: 1 }); }
+    ec.fault = []; for (let i = 0; i < 14; i++) { const s = box(0.15, 0.15, 0.15, basic(0xffb040)); s.visible = false; scene.add(s); ec.fault.push({ m: s, v: new THREE.Vector3(), life: 0 }); }
+    ec.hit = box(14, 9, 9, basic(0, { visible: false })); ec.hit.position.set(3, 4, 0); ec.hit.userData.pick = "energy"; G.add(ec.hit);
+    ec.lbl = document.createElement("div"); ec.lbl.className = "lbl"; ec.lbl.textContent = "ENERGY"; layerLbl.appendChild(ec.lbl);
+  }
+
+  // ---------------- per-hour layout: beds and plants ----------------
+  // Voxel models of one plant at full size: [size xyz, position xyz, tilt about z, colour, grows-late].
+  // A "late" part (a radish bulb, broccoli florets) only appears as the plant matures.
+  const MAXV = 2600, PLANT = 2.1;          // PLANT: models are drawn this many times life-size so they read
+  const MODELS = {
+    broccoli: { step: 1.5, parts: [
+      [[0.16, 0.42, 0.16], [0, 0.21, 0], 0, 0xb5d48a],
+      [[0.34, 0.05, 0.12], [0.2, 0.26, 0], -0.4, 0x5fa04e], [[0.34, 0.05, 0.12], [-0.2, 0.3, 0], 0.4, 0x5fa04e],
+      [[0.24, 0.22, 0.24], [0, 0.55, 0], 0, 0x2f7a3a, 1], [[0.2, 0.2, 0.2], [0.15, 0.49, 0.06], 0, 0x2a6e34, 1],
+      [[0.2, 0.2, 0.2], [-0.15, 0.5, -0.05], 0, 0x357f3c, 1], [[0.2, 0.2, 0.2], [0.03, 0.48, 0.16], 0, 0x2a6e34, 1],
+      [[0.2, 0.2, 0.2], [-0.02, 0.5, -0.17], 0, 0x3a8a42, 1]] },
+    radish: { step: 1.15, parts: [
+      [[0.3, 0.26, 0.3], [0, 0.13, 0], 0, 0xd8335c, 1], [[0.12, 0.1, 0.12], [0, -0.02, 0], 0, 0xf2e6ea, 1],
+      [[0.22, 0.06, 0.22], [0, 0.28, 0], 0, 0xb02a4c, 1],
+      [[0.08, 0.42, 0.05], [0.07, 0.5, 0], -0.35, 0x5bb04a], [[0.08, 0.38, 0.05], [-0.07, 0.48, 0.02], 0.4, 0x4fa040],
+      [[0.07, 0.34, 0.05], [0, 0.47, -0.06], 0.05, 0x68bc55]] },
+    lettuce: { step: 1.5, parts: [
+      [[0.4, 0.3, 0.4], [0, 0.17, 0], 0, 0x8fd456], [[0.5, 0.12, 0.2], [0, 0.1, 0.18], 0, 0x9be05a],
+      [[0.5, 0.12, 0.2], [0, 0.1, -0.18], 0, 0x9be05a], [[0.2, 0.12, 0.5], [0.18, 0.1, 0], 0, 0x7cc44a],
+      [[0.2, 0.12, 0.5], [-0.18, 0.1, 0], 0, 0x7cc44a]] },
+    other: { step: 1.0, parts: [[[0.1, 0.5, 0.1], [0, 0.25, 0], 0, 0x3f8f3a], [[0.3, 0.06, 0.14], [0, 0.45, 0], 0, 0x5fae4a]] },
   };
-  function text(s, x, y, color, shadow = "#000") {
-    s = String(s).toUpperCase();
-    for (const pass of shadow ? [0, 1] : [1]) {
-      g.fillStyle = pass ? color : shadow;
-      let cx = x + (pass ? 0 : 1), cy = y + (pass ? 0 : 1);
-      for (const ch of s) {
-        const gl = GL[ch] || GL["?"];
-        for (let i = 0; i < 15; i++) if (gl[i] === "1") g.fillRect(cx + (i % 3), cy + ((i / 3) | 0), 1, 1);
-        cx += 4;
+  function growth(b) { return b.st === "ready" ? 1 : b.ready != null ? clamp(b.age / (b.age + b.ready), 0.05, 1) : clamp(b.w / (meta.maxW[b.crop] || 1), 0.05, 1); }
+  function layout(f) {
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
+    const rq = new THREE.Quaternion(), plantM = new THREE.Matrix4(), partM = new THREE.Matrix4(), pq = new THREE.Quaternion(), v = new THREE.Vector3(), w = new THREE.Vector3();
+    const UP = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1), TAN = new THREE.Color(0xb8a050);
+    for (const id of ids) {
+      const h = houses[id], list = f.b.filter((b) => b.c === id && b.st !== "harvested");
+      const total = list.reduce((a, b) => a + b.area, 0) + f.c[id].free, usable = HD - 1;
+      let z = -usable / 2, pi = 0, bi = 0, ci = 0, mi = 0;
+      h.marks.forEach((mk) => (mk.visible = false));
+      for (const b of list) {
+        const d = (b.area / total) * usable, g = growth(b), crop = b.crop.split("_")[0];
+        const qk = b.qual >= 0.85 ? 0 : b.qual >= 0.6 ? 0.4 : 0.75, model = MODELS[crop] || MODELS.other;
+        m.compose(p.set(0, 0.2, z + d / 2), q, s.set(HW - 1.4, 0.3, Math.max(0.2, d - 0.25))); h.beds.setMatrixAt(bi++, m);
+        const size = PLANT * (0.45 + 0.55 * g), late = clamp((g - 0.35) / 0.65, 0, 1), step = model.step;
+        for (let x = -HW / 2 + 1.2; x <= HW / 2 - 1.2; x += step) for (let zz = z + step / 2; zz < z + d - 0.2; zz += step) {
+          if (pi + model.parts.length > MAXV) break;
+          const jit = ((x * 73 + zz * 131) % 1 + 1) % 1;                      // stable per-spot variety
+          plantM.compose(p.set(x + (jit - 0.5) * 0.15, 0.35, zz), rq.setFromAxisAngle(UP, jit * 6.28), s.set(size, size * (0.85 + jit * 0.3), size));
+          for (const [sz, ps, tilt, hex, lateOnly] of model.parts) {
+            const k = lateOnly ? late : 1; if (k < 0.05) continue;
+            partM.compose(v.set(...ps), pq.setFromAxisAngle(Z, tilt), w.set(sz[0] * k, sz[1] * k, sz[2] * k));
+            h.plants.setMatrixAt(pi, m.multiplyMatrices(plantM, partM));
+            c.set(hex).lerp(TAN, qk).offsetHSL(0, 0, (jit - 0.5) * 0.06); h.plants.setColorAt(pi++, c);
+          }
+        }
+        if (b.st === "ready" && mi < 6) { const mk = h.marks[mi++]; mk.visible = true; mk.position.set(0, 2.2, z + d / 2); }
+        if (b.q && ci < 12) for (const cx of [-2, 0, 2]) { if (ci >= 12) break; m.compose(p.set(cx, 0.6, z + d / 2), q, s.set(1, 1, 1)); h.crates.setMatrixAt(ci++, m); }
+        z += d;
       }
+      h.plants.count = pi; h.beds.count = bi; h.crates.count = ci;
+      h.plants.instanceMatrix.needsUpdate = h.beds.instanceMatrix.needsUpdate = h.crates.instanceMatrix.needsUpdate = true;
+      if (h.plants.instanceColor) h.plants.instanceColor.needsUpdate = true;
     }
   }
-  const textW = (s) => String(s).length * 4 - 1;
 
-  // ---------- helpers ----------
-  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x | 0, y | 0, w | 0, h | 0); };
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const lerp = (a, b, k) => a + (b - a) * k;
-  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-  const mix = (a, b, k) => { const A = hex(a), B = hex(b);
-    return "#" + A.map((v, i) => Math.round(lerp(v, B[i], clamp(k, 0, 1))).toString(16).padStart(2, "0")).join(""); };
-  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-
-  const stars = Array.from({ length: 46 }, () => ({ x: (rnd() * W) | 0, y: (rnd() * 70) | 0, p: rnd() * 6.3 }));
-  const clouds = Array.from({ length: 7 }, (_, i) => ({ x: rnd() * W, y: 8 + rnd() * 40, w: 16 + ((rnd() * 22) | 0), k: i }));
-  let flakes = [], smoke = [], co2 = { A: [], B: [] }, bubbles = [], workers = [], sparks = [];
-
-  function reset() { smoke = []; co2 = { A: [], B: [] }; bubbles = []; sparks = []; workers = []; }
-
-  // ---------- sky, weather, ground ----------
-  function sky(f, hd) {
-    const day = daylight(f, hd);
-    const twi = (hd > 7 && hd < 10) || (hd > 15 && hd < 18) ? clamp(1 - Math.abs(day - 0.12) * 5, 0, 1) : 0;
-    const top = mix("#0a1030", "#4f8fd8", day), hor = mix(mix("#1b2550", "#b9dcf2", day), "#f0a060", twi * 0.7);
-    for (let i = 0; i < 12; i++) R(0, i * 11, W, 11, mix(top, hor, i / 11));
-    const night = 1 - day;
-    if (night > 0.3) for (const s of stars) if (Math.sin(t * 2 + s.p) > -0.3) R(s.x, s.y, 1, 1, `rgba(255,255,230,${(night - 0.3) * 1.2})`);
-    // sun on a low winter arc, moon at night
-    if (hd > 8.3 && hd < 17) {
-      const k = (hd - 8.3) / 8.7, sx = lerp(14, 300, k), sy = 58 - Math.sin(Math.PI * k) * 34;
-      disc(sx, sy, 6, mix("#ffd27a", "#fff3b0", day)); disc(sx, sy, 4, "#fff8d0");
-    } else {
-      const k = ((hd + 7) % 24) / 15, mx = lerp(20, 300, clamp(k, 0, 1)), my = 40 - Math.sin(Math.PI * clamp(k, 0, 1)) * 26;
-      disc(mx, my, 5, "#e8ecf4"); disc(mx + 2, my - 1, 4, mix(top, hor, 0.3));
+  // ---------------- people ----------------
+  const SHIRTS = [0xe85d4a, 0x4a90e8, 0xf2b33d, 0x9b6be0, 0x3dbf8a, 0xe06aa8, 0xffffff, 0x8bc34a];
+  function updateWorkers(f, hd, dt, speed) {
+    while (workers.length < f.staff) {
+      const i = workers.length, g = new THREE.Group();
+      const body = box(0.5, 0.8, 0.35, lambert(SHIRTS[i % 8])); body.position.y = 0.75; g.add(body);
+      const head = box(0.38, 0.38, 0.38, lambert(0xf0c8a0)); head.position.y = 1.35; g.add(head);
+      const legs = box(0.45, 0.4, 0.3, lambert(0x2a2f3a)); legs.position.y = 0.2; g.add(legs);
+      const crate = box(0.6, 0.35, 0.4, lambert(0xa0703c)); crate.position.set(0, 0.85, 0.35); g.add(crate);
+      g.position.set(world.x0 - 8 - i, 0, HD / 2 + 3.2); scene.add(g); workers.push({ g, crate, i });
     }
-    // clouds: more when it's humid, faster in wind
-    const n = clamp(Math.round((f.out.rh - 62) / 5), 0, clouds.length);
-    const cc = mix("#3a4260", "#f2f5f8", day), cs = mix("#262c44", "#c9d2dc", day);
-    for (let i = 0; i < n; i++) {
-      const c = clouds[i]; c.x += (0.6 + f.out.wind * 0.35) * 0.016 * (1 + i * 0.1);
-      if (c.x > W + 30) c.x = -c.w - 10;
-      R(c.x, c.y + 2, c.w, 5, cs); R(c.x + 3, c.y, c.w - 6, 5, cc); R(c.x + 7, c.y - 2, c.w * 0.45, 3, cc);
-    }
+    while (workers.length > f.staff) scene.remove(workers.pop().g);
+    const on = hd >= meta.shift[0] && hd < meta.shift[1], task = f.tasks.find((k) => k.st !== "done");
+    workers.forEach((w, i) => {
+      let tx, tz, carry = false;
+      if (!on) { tx = world.x0 - 10 - i * 1.2; tz = HD / 2 + 3.2; }
+      else if (task && (task.kind === "harvest" || task.kind === "plant")) {
+        const hid = ids.includes(task.target[0]) ? task.target[0] : ids.includes(task.target) ? task.target : ids[0];
+        tx = houses[hid].cx - 3 + ((i * 1.7) % 6); tz = -4 + ((i * 2.3) % 8); carry = task.kind === "harvest";
+      } else if (task && task.kind === "repair") { tx = ec.x - 1 + i; tz = 3.5; }
+      else { tx = world.x0 + 8 + i * 4 + Math.sin(t * 0.3 + i) * 2; tz = HD / 2 + 3.2; }
+      const p = w.g.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz), v = 6 * Math.min(speed, 4) * dt;
+      if (d > 25) { p.x = tx; p.z = tz; } else if (d > 0.05) { p.x += (dx / d) * Math.min(v, d); p.z += (dz / d) * Math.min(v, d); w.g.rotation.y = Math.atan2(dx, dz); }
+      p.y = d > 0.05 ? Math.abs(Math.sin(t * 10 + i)) * 0.12 : 0;
+      w.crate.visible = carry; w.g.visible = p.x > world.x0 - 6;
+    });
   }
-  // Daylight from the clock (a dull winter day is still day) brightened by measured sun.
+
+  // ---------------- every frame ----------------
   function daylight(f, hd) {
     const clockK = hd > 8.3 && hd < 17 ? Math.sin(Math.PI * (hd - 8.3) / 8.7) : 0;
     return clamp(Math.max(clamp(clockK * 1.6, 0, 1) * 0.7, f.out.sun / 120), 0, 1);
   }
-  function disc(cx, cy, r, c) { for (let dy = -r; dy <= r; dy++) { const hw = Math.round(Math.sqrt(r * r - dy * dy)); R(cx - hw, cy + dy, hw * 2 + 1, 1, c); } }
-
-  function ground(f, snowy) {
-    R(0, 134, W, 46, snowy ? "#dfe8ee" : "#33503a");
-    for (let x = 0; x < W; x += 6) R(x + ((x * 7) % 4), 136 + ((x * 13) % 5), 2, 1, snowy ? "#c5d2db" : "#2a4430");
-    R(0, 158, W, 14, "#3c3f48"); for (let x = (-t * 6) % 16; x < W; x += 16) R(x, 164, 7, 1, "#8a8d96");
-    R(0, 157, W, 1, snowy ? "#b9c6cf" : "#26392b");
-  }
-
-  function weather(f, dt) {
-    const snow = f.out.t <= 0.5 && f.out.rh >= 82, rain = !snow && f.out.rh >= 94;
-    const want = snow ? 90 : rain ? 70 : 0;
-    while (flakes.length < want) flakes.push({ x: rnd() * W, y: rnd() * H, s: 0.6 + rnd() });
-    if (flakes.length > want) flakes.length = want;
-    for (const p of flakes) {
-      if (snow) { p.y += 14 * p.s * dt; p.x += (f.out.wind * 2 + Math.sin(t + p.s * 9) * 4) * dt; R(p.x, p.y, 1, 1, "#ffffff"); }
-      else { p.y += 120 * p.s * dt; p.x += f.out.wind * 3 * dt; R(p.x, p.y, 1, 3, "rgba(170,200,255,.55)"); }
-      if (p.y > H) { p.y = -2; p.x = rnd() * W; } if (p.x > W) p.x = 0;
+  function render(f, hf, dt, speed) {
+    if (!ids.length) return;
+    t += dt;
+    const hd = hf % 24, day = daylight(f, hd), dark = 1 - day, h = Math.floor(hf);
+    if (h !== lastHour) { layout(f); lastHour = h; }
+    // sky and light
+    const twi = (hd > 7 && hd < 10) || (hd > 15 && hd < 18) ? clamp(1 - Math.abs(day - 0.15) * 4, 0, 1) : 0;
+    renderer.setClearColor(mixc("#0b1230", "#7fb2e0", day).lerp(col(0xf0a060), twi * 0.35));
+    world.amb.intensity = 0.18 + day * 0.35; world.amb.color = mixc("#7080c0", "#ffffff", day);
+    world.hemi.intensity = 0.15 + day * 0.35; world.sun.intensity = day * 0.85;
+    const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(-Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25);
+    const snowy = meta.snowAt[h] === 1; world.ground.material.color = col(snowy ? 0xdfe8ee : 0x3d5a3a);
+    // houses
+    for (const id of ids) {
+      const H = houses[id], c = f.c[id], lampK = clamp(c.lamp / (meta.maxLamp[id] || 1), 0, 1);
+      H.lampMat.color = col(lampK > 0.02 ? 0xffd25a : 0x3a3f48); H.coneMat.opacity = 0.1 * lampK; H.light.intensity = lampK * 1.4;
+      H.screen.visible = !!c.screen;
+      const open = clamp(c.vent / 100, 0, 1) * 0.7;
+      for (const v of H.vents) v.rotation.z = -v.userData.side * (SLOPE - open);
+      const cold = clamp((c.sp_night - 1 - c.t) / 6, 0, 0.3), hot = clamp((c.t - c.sp_day - 3) / 8, 0, 0.25);
+      H.tint.material.color = col(cold > 0 ? 0x5aa0ff : 0xff5a3c); H.tint.material.opacity = Math.max(cold, hot);
+      const hk = clamp(c.heat / (meta.maxHeat[id] || 1), 0, 1) * (0.85 + 0.15 * Math.sin(t * 4));
+      H.pipeMat.emissive = mixc("#000000", "#ff4a20", hk);
+      H.co2.geometry.setDrawRange(0, clamp(Math.round((c.co2 - 380) / 12), 0, 60)); H.co2.rotation.y = Math.sin(t * 0.2) * 0.02;
+      H.marks.forEach((m, i) => { m.rotation.y = t * 2; m.position.y = 2.2 + Math.sin(t * 4 + i) * 0.2; });
     }
-  }
-
-  // ---------- greenhouse ----------
-  function roofRows(x, w, fn) { const cx = x + w / 2; for (let y = APEX; y < WALL; y++) { const hw = Math.round(((y - APEX) / (WALL - APEX)) * (w / 2)); fn(y, cx - hw, hw * 2); } }
-
-  function house(id, f, dark, dt) {
-    const { x, w } = HOUSE[id], c = f.c[id], cx = x + w / 2;
-    const lampK = clamp(c.lamp / (meta.maxLamp[id] || 1), 0, 1);
-    // interior air
-    const inside = mix("#0e1a14", "#2a4a38", clamp(1 - dark + lampK * 0.6, 0, 1));
-    roofRows(x, w, (y, rx, rw) => R(rx, y, rw, 1, inside));
-    R(x, WALL, w, FLOOR - WALL + 2, inside);
-    // temperature tint: blue when below night target, red when far above day target
-    const cold = clamp((c.sp_night - 1 - c.t) / 6, 0, 0.35), hot = clamp((c.t - c.sp_day - 3) / 8, 0, 0.3);
-    if (cold > 0) R(x, WALL, w, FLOOR - WALL, `rgba(90,160,255,${cold})`);
-    if (hot > 0) R(x, WALL, w, FLOOR - WALL, `rgba(255,90,60,${hot})`);
-    // lamp cones
-    const lamps = 5;
-    for (let i = 0; i < lamps; i++) {
-      const lx = x + 12 + i * ((w - 24) / (lamps - 1));
-      if (lampK > 0.02) {
-        for (let y = WALL + 3; y < FLOOR; y += 1) { const hw = 1 + (y - WALL) * 0.28; R(lx - hw, y, hw * 2 + 1, 1, `rgba(255,226,120,${0.07 * lampK})`); }
-      }
-      R(lx - 2, WALL + 1, 5, 2, "#2b2f38"); R(lx - 1, WALL + 3, 3, 1, lampK > 0.02 ? "#fff1a0" : "#4a4f5a");
-    }
-    // energy screen (a cloth under the roof)
-    if (c.screen) { for (let i = 0; i < w; i++) R(x + i, WALL - 1, 1, 2, i % 4 < 2 ? "#d8c79a" : "#bfae82"); }
-    // beds and plants
-    beds(id, f, x, w);
-    // heating pipe glows with heat demand
-    const hk = clamp(c.heat / (meta.maxHeat[id] || 1), 0, 1);
-    R(x + 1, FLOOR + 1, w - 2, 1, mix("#3b404b", "#ff5a36", hk * (0.85 + 0.15 * Math.sin(t * 4))));
-    // CO2 in the air
-    const want = clamp(Math.round((c.co2 - 380) / 35), 0, 24), list = co2[id];
-    while (list.length < want) list.push({ x: x + 3 + rnd() * (w - 6), y: WALL + 6 + rnd() * 26, v: rnd() * 6.3 });
-    if (list.length > want) list.length = want;
-    for (const p of list) { p.v += dt; p.x += Math.sin(p.v) * 0.12; p.y += Math.cos(p.v * 0.7) * 0.08; R(p.x, p.y, 1, 1, "rgba(190,215,255,.75)"); }
-    // workers inside are drawn before the glass
-    for (const wk of workers) if (wk.inside === id && wk.visible) person(wk);
-    // glass and frame
-    const glass = "rgba(185,228,255,0.13)", frame = mix("#5f7480", "#d6e6ee", 1 - dark * 0.6);
-    roofRows(x, w, (y, rx, rw) => { R(rx, y, rw, 1, glass); R(rx, y, 1, 1, frame); R(rx + rw - 1, y, 1, 1, frame); });
-    R(x, WALL, w, FLOOR - WALL + 2, glass);
-    R(x, WALL, 1, FLOOR - WALL + 2, frame); R(x + w - 1, WALL, 1, FLOOR - WALL + 2, frame); R(x, WALL, w, 1, frame);
-    for (let mx = x + 14; mx < x + w - 4; mx += 14) R(mx, WALL, 1, FLOOR - WALL, "rgba(214,230,238,.35)");
-    for (let i = 0; i < 6; i++) R(x + 8 + i * 2, WALL + 4 + i * 3, 1, 2, "rgba(255,255,255,.25)");
-    R(cx, APEX, 1, WALL - APEX, frame);
-    // roof vents lift open
-    const lift = Math.round(clamp(c.vent / 100, 0, 1) * 5);
-    for (const vx of [cx - 14, cx + 6]) { R(vx, APEX + 7 - lift, 8, 2, frame); if (lift) R(vx, APEX + 9 - lift, 8, lift, "rgba(10,20,30,.55)"); }
-    // sign on the ground
-    const crop = (meta.compartments[id] || {}).crop || "";
-    text(`${id} ${crop.split("_")[0]}`, x + 2, 140, "#ffffff");
-    const tc = c.t < c.sp_night - 1 ? "#7cc4ff" : c.t > c.sp_day + 3 ? "#ff8a70" : "#b8f0a8";
-    const tt = `${c.t.toFixed(1)}°`; text(tt, x + w - textW(tt) - 2, 140, tc);
-  }
-
-  function beds(id, f, x, w) {
-    const list = f.b.filter((b) => b.c === id && b.st !== "harvested");
-    const total = list.reduce((s, b) => s + b.area, 0) + f.c[id].free;
-    const inner = w - 6; let bx = x + 3;
-    const slots = list.map((b) => ({ b, a: b.area })); if (f.c[id].free > 1) slots.push({ b: null, a: f.c[id].free });
-    slots.forEach((s, i) => {
-      const bw = i === slots.length - 1 ? x + 3 + inner - bx : Math.max(6, Math.round((s.a / total) * inner));
-      R(bx, FLOOR - 2, bw - 1, 3, "#5b3a29"); R(bx, FLOOR - 2, bw - 1, 1, "#7a5038");
-      if (s.b) plants(s.b, bx, bw - 1);
-      else if (bw > 14) text("EMPTY", bx + ((bw - 20) >> 1), FLOOR - 8, "#6b5444", null);
-      bx += bw;
-    });
-  }
-
-  function plants(b, bx, bw) {
-    const gr = clamp(b.w / (meta.maxW[b.crop] || 1), 0, 1), q = b.qual;
-    const lettuce = b.crop.startsWith("lettuce");
-    const base = q >= 0.85 ? (lettuce ? ["#9be05a", "#62a83a"] : ["#4fae4a", "#2f7a32"]) :
-      q >= 0.6 ? ["#c8cf5a", "#8f9a3a"] : ["#a88a4a", "#6f5a32"];
-    const step = lettuce ? 6 : 4;
-    for (const row of [0, 1]) {
-      const y0 = FLOOR - 3 - row * 2, light = row ? base[1] : base[0], dark = row ? "#2c5a26" : base[1];
-      for (let px = bx + 2 + row * (step >> 1); px < bx + bw - 2; px += step) {
-        if (lettuce) {
-          const r = gr < 0.08 ? 0 : 1 + Math.round(gr * 2.2);
-          if (r === 0) { R(px, y0, 1, 1, light); continue; }
-          for (let dy = 0; dy <= r; dy++) { const hw = Math.round(Math.sqrt(r * r - dy * dy) * 1.25); R(px - hw, y0 - dy, hw * 2 + 1, 1, dy === r ? light : dy ? light : dark); }
-          R(px, y0 - r + 1, 1, 1, dark);
-        } else {
-          const h = 1 + Math.round(gr * 8), sway = Math.round(Math.sin(t * 1.5 + px) * 0.4);
-          R(px, y0 - h + 1, 1, h, "#2a5a24");
-          for (let k = 2; k < h; k += 2) { R(px - 1 + sway, y0 - k, 1, 1, light); R(px + 1 + sway, y0 - k + 1, 1, 1, light); }
-          R(px - 1 + sway, y0 - h, 3, 1, light);
-        }
-      }
-    }
-    if (b.st === "ready" && Math.sin(t * 6) > 0) { const sx = bx + (bw >> 1); R(sx, FLOOR - 22, 1, 3, "#ffd84a"); R(sx - 1, FLOOR - 21, 3, 1, "#ffd84a"); }
-    if (b.q) for (let i = 0; i < Math.min(3, (bw / 9) | 0); i++) { const cx = bx + 3 + i * 8; R(cx, FLOOR - 6, 5, 3, "#a0703c"); R(cx, FLOOR - 6, 5, 1, "#c8925a"); }
-  }
-
-  // ---------- energy centre ----------
-  function energy(f, dark, dt) {
-    const e = f.ec, broken = f.faults.length > 0, { x, y, w } = EC;
-    // power line from the pole to the roof; dots show electricity direction
-    const px = 314, py = 64, ex = x + w - 4, ey = y;
-    R(px, py, 2, 72, "#4a4036"); R(px - 4, py, 10, 2, "#4a4036");
-    const pts = []; for (let i = 0; i <= 40; i++) { const k = i / 40; pts.push([lerp(px, ex, k), lerp(py + 1, ey, k) + Math.sin(Math.PI * k) * 8]); }
-    for (const [lx, ly] of pts) R(lx, ly, 1, 1, "#22262e");
+    // energy centre
+    const e = f.ec, broken = f.faults.length > 0, heatK = clamp(e.heat / (meta.maxHeatAll || 1), 0, 1);
+    world.pipe.material.emissive = mixc("#000000", "#ff5a2a", heatK * 0.9);
+    ec.winMat.color = col(dark > 0.4 ? 0xffd977 : 0x9cc8e0);
+    ec.beacon.material.color = col(broken ? (Math.sin(t * 10) > 0 ? 0xff3b30 : 0x5a1410) : 0x5ee06a);
+    if (e.chp > 0) ec.fan.rotation.z += dt * 20;
+    const setTank = (tk, k) => { const hh = Math.max(0.01, (tk.h - 0.2) * k); tk.f.scale.y = hh; tk.f.position.y = 0.1 + hh / 2; };
+    setTank(ec.buffer, clamp(e.buffer / (meta.maxBuffer || 1), 0, 1));
+    const co2k = clamp(e.co2 / (meta.maxCO2 || 1), 0, 1); setTank(ec.co2, co2k);
+    ec.co2.f.material.color = col(co2k < 0.15 && Math.sin(t * 6) > 0 ? 0xff5a4a : 0x7cc4ff);
     const flow = e.imp > 0.5 ? 1 : e.exp > 0.5 ? -1 : 0;
-    if (flow) for (let j = 0; j < 4; j++) { let k = ((t * 0.6 + j / 4) % 1); if (flow < 0) k = 1 - k; const [lx, ly] = pts[Math.round(k * 40)]; R(lx - 1, ly - 1, 2, 2, flow > 0 ? "#ffe066" : "#7bd88f"); }
-    // chimney and smoke (smoke rate follows gas burnt)
-    R(x + 26, y - 26, 6, 26, "#6e3b2e"); R(x + 25, y - 28, 8, 2, "#4a2820");
-    if (Math.random() < clamp(e.gas / 40, 0, 1) * dt * 22) smoke.push({ x: x + 28 + rnd() * 2, y: y - 30, r: 1, a: 0.75 });
-    for (const s of smoke) { s.y -= 7 * dt; s.x += (f.out.wind * 1.6 + 1) * dt; s.r += 1.1 * dt; s.a -= 0.16 * dt;
-      const c = Math.round(s.r); R(s.x - c, s.y - c, c * 2 + 1, c * 2 + 1, `rgba(${dark > 0.5 ? "150,150,160" : "210,212,218"},${Math.max(0, s.a)})`); }
-    smoke = smoke.filter((s) => s.a > 0 && s.y > -8);
-    // building
-    R(x, y, w, 36, "#8a4b3a"); for (let by = y + 3; by < y + 36; by += 4) for (let bx = x + ((by >> 2) % 2) * 3; bx < x + w; bx += 6) R(bx, by, 4, 1, "#7a4032");
-    R(x - 2, y - 2, w + 4, 3, "#3a2a26");
-    const win = dark > 0.4 ? "#ffd977" : "#9cc8e0"; R(x + 4, y + 6, 6, 5, win); R(x + 14, y + 6, 6, 5, win);
-    R(x + 24, y + 22, 8, 14, "#3a2a26");
-    // boiler light: green when fine, flashing red when broken
-    const lamp = broken ? (Math.sin(t * 10) > 0 ? "#ff3b30" : "#5a1410") : "#5ee06a";
-    R(x + 34, y + 4, 2, 2, lamp);
-    if (broken) { text("!", x + 16, y - 9, Math.sin(t * 8) > 0 ? "#ff5a4a" : "#ffd84a");
-      if (Math.random() < dt * 8) sparks.push({ x: x + 6 + rnd() * 20, y: y + 16, vx: (rnd() - 0.5) * 30, vy: -20 - rnd() * 20, a: 1 }); }
-    for (const s of sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; s.a -= 1.6 * dt; R(s.x, s.y, 1, 1, `rgba(255,${180 + ((rnd() * 70) | 0)},60,${Math.max(0, s.a)})`); }
-    sparks = sparks.filter((s) => s.a > 0);
-    // CHP engine box with a fan that spins when running
-    R(x + 3, y + 23, 16, 13, "#5a6270"); R(x + 4, y + 24, 14, 1, "#7a8494");
-    const fanOn = e.chp > 0; const fp = fanOn ? Math.floor(t * 12) % 2 : 0;
-    R(x + 7, y + 27, 7, 7, "#2a2f38"); if (fp) { R(x + 10, y + 28, 1, 5, "#c0c8d4"); } else { R(x + 8, y + 30, 5, 1, "#c0c8d4"); }
-    text("CHP", x + 4, y + 17, fanOn ? "#ffffff" : "#9aa3b2", null);
-    // tanks: hot-water buffer and CO2
-    tank(x + w + 4, y - 4, 9, 40, clamp(e.buffer / (meta.maxBuffer || 1), 0, 1), "#ff8a3c", "HEAT");
-    const co2k = clamp(e.co2 / (meta.maxCO2 || 1), 0, 1);
-    tank(x + w + 15, y + 6, 9, 30, co2k, co2k < 0.15 ? (Math.sin(t * 6) > 0 ? "#ff5a4a" : "#7a2a24") : "#7cc4ff", "CO2");
-    // main heat pipe to the houses
-    const heatK = clamp(e.heat / (meta.maxHeatAll || 1), 0, 1);
-    R(4, 135, x - 4, 2, mix("#40454f", "#ff6a3c", heatK)); R(4, 135, x - 4, 1, mix("#5a5f6a", "#ffa070", heatK));
-    text("ENERGY", x + 4, 142, "#ffffff");
-  }
-  function tank(x, y, w, h, k, c, label) {
-    R(x, y, w, h, "#2b313c"); R(x + 1, y + 1, w - 2, h - 2, "#151a22");
-    const fh = Math.round((h - 2) * k); R(x + 1, y + h - 1 - fh, w - 2, fh, c);
-    R(x + 1, y + 1, 1, h - 2, "rgba(255,255,255,.18)"); R(x - 1, y - 1, w + 2, 2, "#4a5262");
-  }
-
-  // ---------- people and trucks ----------
-  function person(wk) {
-    const leg = wk.moving ? (Math.floor(t * 8 + wk.id) % 2) : 0, x = Math.round(wk.x), y = Math.round(wk.y);
-    R(x, y - 7, 3, 2, "#f0c8a0"); R(x, y - 8, 3, 1, wk.hair); R(x, y - 5, 3, 3, wk.shirt);
-    R(x + (leg ? 0 : 0), y - 2, 1, 2, "#2a2f3a"); R(x + 2, y - 2 + (leg ? -1 : 0), 1, 2 - (leg ? 0 : 0), "#2a2f3a");
-    if (wk.carry) { const bob = Math.round(Math.sin(t * 5 + wk.id)); R(x - 1, y - 5 + bob, 5, 2, "#a0703c"); R(x - 1, y - 6 + bob, 5, 1, "#62a83a"); }
-  }
-  const SHIRTS = ["#e85d4a", "#4a90e8", "#f2b33d", "#9b6be0", "#3dbf8a", "#e06aa8", "#ffffff", "#8bc34a"];
-  function updateWorkers(f, hd, dt, speed, shift) {
-    const n = f.staff;
-    while (workers.length < n) { const i = workers.length; workers.push({ id: i, x: -8 - i * 6, y: 152, tx: 0, ty: 152, shirt: SHIRTS[i % 8], hair: i % 2 ? "#3a2418" : "#d8a050", visible: true, inside: null, carry: false, moving: false }); }
-    workers.length = n;
-    const onShift = hd >= shift[0] && hd < shift[1];
-    const task = f.tasks.find((k) => k.st !== "done");
-    workers.forEach((wk, i) => {
-      let tx, ty, inside = null, carry = false;
-      if (!onShift) { tx = -12 - i * 5; ty = 152; }
-      else if (task && (task.kind === "harvest" || task.kind === "plant")) {
-        const hid = task.target[0] in HOUSE ? task.target[0] : (task.target in HOUSE ? task.target : "A");
-        const hx = HOUSE[hid]; tx = hx.x + 10 + ((i * 37) % (hx.w - 20)); ty = FLOOR - 1; inside = hid; carry = task.kind === "harvest";
-      } else if (task && task.kind === "repair") { tx = EC.x + 4 + i * 5; ty = 140; }
-      else { tx = 60 + i * 18 + Math.sin(t * 0.3 + i) * 14; ty = 152; }
-      const dx = tx - wk.x, dy = ty - wk.y, d = Math.hypot(dx, dy), v = 40 * Math.min(speed, 4) * dt;
-      wk.moving = d > 0.6;
-      if (d > 30 && Math.abs(wk.y - ty) > 4) { wk.x = tx; wk.y = ty; } // teleport between inside and outside paths
-      else if (d > 0.6) { wk.x += (dx / d) * Math.min(v, d); wk.y += (dy / d) * Math.min(v, d); }
-      wk.inside = Math.abs(wk.y - (FLOOR - 1)) < 1 ? inside : null; wk.carry = carry && !!wk.inside;
-      wk.visible = wk.x > -6;
-    });
-  }
-
-  function truck(f, hf) {
+    ec.sparks.forEach((s, j) => { s.visible = !!flow; let k = (t * 0.5 + j / 4) % 1; if (flow < 0) k = 1 - k; s.position.copy(ec.wire[Math.round(k * 30)]); s.material.color = col(flow > 0 ? 0xffe066 : 0x7bd88f); });
+    const rate = clamp(e.gas / 40, 0, 1) * dt * 14;
+    for (const s of ec.smoke) {
+      if (s.life >= 1 && Math.random() < rate) { s.life = 0; s.m.visible = true; s.m.position.copy(ec.chimneyTop); }
+      if (s.life < 1) { s.life += dt * 0.35; s.m.position.y += dt * 2.2; s.m.position.x += dt * (0.6 + f.out.wind * 0.4); const sc = 1 + s.life * 2.5; s.m.scale.set(sc, sc, sc);
+        s.m.material.opacity = 0.7 * (1 - s.life); s.m.material.color = col(dark > 0.5 ? 0x8a8a96 : 0xd8dae0); }
+      else s.m.visible = false;
+    }
+    for (const s of ec.fault) {
+      if (broken && s.life <= 0 && Math.random() < dt * 3) { s.life = 1; s.m.visible = true; s.m.position.set(ec.x + (rnd() - 0.5) * 4, 2.5, 2); s.v.set((rnd() - 0.5) * 4, 4 + rnd() * 3, (rnd() - 0.5) * 4); }
+      if (s.life > 0) { s.life -= dt * 1.3; s.v.y -= 12 * dt; s.m.position.addScaledVector(s.v, dt); } else s.m.visible = false;
+    }
+    // truck on delivery
+    world.truck.visible = false;
     for (const d of meta.deliveries) {
       const k = (hf - (d - 4)) / 7; if (k < 0 || k > 1) continue;
-      const stop = EC.x - 30, x = k < 0.4 ? lerp(-34, stop, k / 0.4) : k < 0.65 ? stop : lerp(stop, W + 40, (k - 0.65) / 0.35);
-      const y = 160;
-      R(x, y - 10, 22, 10, "#e8eef4"); R(x + 1, y - 9, 20, 1, "#ffffff"); text("CO2", x + 5, y - 7, "#2a6ab8", null);
-      R(x + 22, y - 7, 7, 7, "#d84a3a"); R(x + 24, y - 6, 4, 3, "#9cd0f0");
-      R(x + 3, y, 4, 3, "#1a1d24"); R(x + 18, y, 4, 3, "#1a1d24"); R(x + 24, y, 4, 3, "#1a1d24");
+      const a = world.x0 - 20, stop = ec.x - 5, b = world.x0 + world.span + 20;
+      world.truck.visible = true; world.truck.position.x = k < 0.4 ? lerp(a, stop, k / 0.4) : k < 0.65 ? stop : lerp(stop, b, (k - 0.65) / 0.35);
     }
+    updateWorkers(f, hd, dt, speed);
+    // snow or rain
+    const snow = f.out.t <= 0.5 && f.out.rh >= 82, rain = !snow && f.out.rh >= 94, fl = world.flakes;
+    fl.visible = snow || rain; fl.material.color = col(snow ? 0xffffff : 0x9cc0ff);
+    if (fl.visible) { const a = fl.geometry.attributes.position, v = snow ? 3 : 18;
+      for (let i = 0; i < a.count; i++) { let y = a.getY(i) - v * dt; if (y < 0) y += 22; a.setY(i, y); a.setX(i, a.getX(i) + f.out.wind * 0.15 * dt); }
+      a.needsUpdate = true; }
+    placeCamera(); resize();
+    renderer.render(scene, camera);
+    labels(f, dt);
   }
 
-  // ---------- speech bubbles ----------
+  function placeCamera() {
+    const cx = world.x0 + world.span / 2, el = 0.6, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    camera.position.set(cx + Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d);
+    camera.lookAt(cx, 2, 0);
+    const halfW = (world.span * 0.52) / zoom, halfH = halfW / aspect;
+    camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH; camera.updateProjectionMatrix();
+  }
+  function resize() {
+    const w = Math.max(1, Math.round(canvas.clientWidth / PIX)), h = Math.max(1, Math.round(canvas.clientHeight / PIX));
+    if (canvas.width !== w || canvas.height !== h) renderer.setSize(w, h, false);
+  }
+
+  // ---------------- HTML labels and speech bubbles ----------------
+  const v3 = new THREE.Vector3();
+  function toScreen(x, y, z) { v3.set(x, y, z).project(camera); return [(v3.x + 1) / 2 * canvas.clientWidth, (1 - v3.y) / 2 * canvas.clientHeight]; }
+  function labels(f, dt) {
+    for (const id of ids) {
+      const H = houses[id], c = f.c[id], crop = (meta.compartments[id].crop || "").split("_")[0];
+      const cls = c.t < c.sp_night - 1 ? "cold" : c.t > c.sp_day + 3 ? "hot" : "ok";
+      const html = `${id} ${crop.toUpperCase()} <b class="${cls}">${c.t.toFixed(1)}°</b>`;
+      if (H.lbl.innerHTML !== html) H.lbl.innerHTML = html;
+      const [x, y] = toScreen(H.cx, 0, HD / 2 + 1.6); H.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, 0)`;
+    }
+    const [ex, ey] = toScreen(ec.x + 2, 0, 5); ec.lbl.style.transform = `translate(${ex}px, ${ey}px) translate(-50%, 0)`;
+    bubbles = bubbles.filter((b) => { b.life += dt; if (b.life > 3.2) { b.el.remove(); return false; }
+      const [x, y] = toScreen(...b.at); b.el.style.transform = `translate(${x}px, ${y - b.lvl * 26 - Math.min(b.life, 0.3) * 30}px) translate(-50%, -100%)`;
+      b.el.style.opacity = b.life > 2.7 ? (3.2 - b.life) / 0.5 : 1; return true; });
+  }
   function bubble(where, msg, color) {
-    const at = { A: [HOUSE.A.x + 58, 58], B: [HOUSE.B.x + 58, 58], energy: [EC.x + 18, 64], co2: [EC.x + 44, 84], road: [EC.x - 20, 140] }[where] || [160, 50];
-    bubbles.push({ x: at[0], y: at[1], msg: msg.toUpperCase().slice(0, 26), color, life: 0 });
-    if (bubbles.length > 4) bubbles.shift();
-  }
-  function drawBubbles(dt) {
-    const stacked = {};
-    for (const b of bubbles) {
-      b.life += dt; const key = `${b.x}`; const lvl = (stacked[key] = (stacked[key] || 0) + 1) - 1;
-      const w = textW(b.msg) + 6, bx = clamp(Math.round(b.x - w / 2), 1, W - w - 1), by = Math.round(b.y - lvl * 11 - Math.min(b.life, 0.3) * 10);
-      R(bx, by, w, 9, "#0d1016"); R(bx, by, w, 1, b.color); R(bx, by + 8, w, 1, b.color); R(bx, by, 1, 9, b.color); R(bx + w - 1, by, 1, 9, b.color);
-      R(Math.round(b.x) - 1, by + 9, 3, 1, b.color); R(Math.round(b.x), by + 10, 1, 1, b.color);
-      text(b.msg, bx + 3, by + 2, "#ffffff", null);
-    }
-    bubbles = bubbles.filter((b) => b.life < 3.2);
+    if (!ids.length) return;
+    let at;
+    if (houses[where]) at = [houses[where].cx, WALL + RIDGE + 0.5, 0];
+    else if (where === "co2") at = [ec.x + 8.4, 5, -1]; else if (where === "road") at = [ec.x - 5, 3, ROAD_Z]; else at = [ec.x, 6, -1];
+    const lvl = bubbles.filter((b) => b.at[0] === at[0] && b.life < 3).length;
+    const el = document.createElement("div"); el.className = "bubble"; el.textContent = msg.toUpperCase(); el.style.borderColor = color; el.style.color = color;
+    layerLbl.appendChild(el); bubbles.push({ el, at, lvl, life: 0 });
+    while (bubbles.length > 6) bubbles.shift().el.remove();
   }
 
-  // ---------- public ----------
-  function init(canvas) { out = canvas; octx = out.getContext("2d"); }
-  function setData(m) { meta = m; reset(); }
-  function render(f, hf, dt, speed) {
-    t += dt;
-    const hd = hf % 24, dark = 1 - daylight(f, hd);
-    sky(f, hd);
-    ground(f, meta.snowAt[Math.floor(hf)] === 1);
-    updateWorkers(f, hd, dt, speed, meta.shift);
-    house("A", f, dark, dt); house("B", f, dark, dt);
-    energy(f, dark, dt);
-    for (const wk of workers) if (!wk.inside && wk.visible) person(wk);
-    truck(f, hf);
-    weather(f, dt);
-    if (dark > 0.3) R(0, 0, W, H, `rgba(5,8,25,${(dark - 0.3) * 0.25})`);
-    drawBubbles(dt);
-    // scale up crisply
-    const s = Math.max(1, Math.floor(Math.min(out.clientWidth * devicePixelRatio / W, out.clientHeight * devicePixelRatio / H)));
-    const cw = Math.round(out.clientWidth * devicePixelRatio), ch = Math.round(out.clientHeight * devicePixelRatio);
-    if (out.width !== cw || out.height !== ch) { out.width = cw; out.height = ch; }
-    octx.imageSmoothingEnabled = false; octx.fillStyle = "#000"; octx.fillRect(0, 0, cw, ch);
-    const sw = cw / W, sh = ch / H, k = Math.min(sw, sh) >= s + 1 ? Math.min(sw, sh) : Math.min(sw, sh);
-    const dw = W * k, dh = H * k; octx.drawImage(buf, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pick(e) {
+    const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const targets = [...ids.map((id) => houses[id].hit), ec.hit].filter(Boolean);
+    const hit = ray.intersectObjects(targets, false)[0];
+    return hit ? hit.object.userData.pick : "weather";
   }
-  function hit(px, py) {
-    const x = (px / out.clientWidth) * W, y = (py / out.clientHeight) * H;
-    for (const id of ["A", "B"]) { const h = HOUSE[id]; if (x >= h.x && x <= h.x + h.w && y >= APEX && y <= 146) return id; }
-    if (x >= EC.x - 2 && x <= W && y >= 60 && y <= 150) return "energy";
-    if (y < 60) return "weather";
-    return null;
-  }
-  return { init, setData, render, bubble, hit, reset };
+  function reset() { bubbles.forEach((b) => b.el.remove()); bubbles = []; }
+  return { init, setData, render, bubble, reset };
 })();
