@@ -1,0 +1,99 @@
+# Greenhouse Bench, quick version: the same game, data, events and scoring as normal-winter,
+# cut to 14 days so one model run takes minutes, for testing a model fast. normal-winter is
+# the benchmark; use this to check a model works and to compare before a full run.
+# Greenhouse Bench: a normal Dutch winter, 42 days, three compartments on one energy centre:
+# two of broccoli microgreens and one of radish microgreens.
+# Format: src/envkit/scenario.py. Data files: docs/GREENHOUSE_SPEC.md section 3.
+# A benchmark task: its tasks/ and calibration are generated at benchmark time only
+# (`uv run --no-sync envkit build normal-winter`), never by the quick commands.
+
+[task]
+id = "quick-winter"
+title = "Greenhouse Bench (quick): run a winter greenhouse facility for 14 days"
+env = "greenhouse.env:GreenhouseBench"
+benchmark = true
+# Development seeds. Evaluation seeds 101-108 use separate recorded weather and price
+# windows and are run with `--seeds`; nothing is tuned on them.
+seeds = [1, 2, 3]
+reference = "reference"
+prompt = """
+You run a commercial greenhouse facility in the Netherlands for ${horizon_days} winter days.
+
+One energy centre (a gas CHP, a gas boiler, a heat buffer, a CO2 store and a grid
+connection) serves three compartments. Compartments A and B grow broccoli microgreens
+and compartment C grows radish microgreens, each in several batches of different ages.
+You also run the business: you order CO2, seed and spare parts, which arrive days
+later; you hire and release staff; sowing and harvesting use your crew's worker-hours;
+damage is repaired by contractors you book.
+
+Your goal is the highest net profit in EUR at the end of the last hour: harvest revenue
+plus electricity sold, minus gas, electricity bought, CO2, wages, hiring, contractors,
+parts and orders. Crop still standing and parts left in stock at the end are worth nothing.
+
+How it works:
+- You take one turn a day, at 06:00. Below is everything you are shown before your
+  first call: every rule (mechanisms, formulas, prices, lead times, crop rules, event
+  rates, news signals, the published ranges of hidden facility parameters) and this
+  morning's briefing. There are no tools to read anything.
+- Each day you make exactly one call, `submit_day`, with up to ${actions_per_day} actions
+  (`rules.turn.actions` lists them); a list of harvests, plantings or orders is one
+  action. A refused action changes nothing and the others still apply.
+- The call then runs the day (06:00-18:00, the crew at work) on your day settings and the
+  night (18:00-06:00) on your night schedule (`set_night_schedule`), with nobody acting.
+  Its result is the next morning's briefing: what happened overnight, the status now,
+  news and the forecast.
+- Settings stand until you change them. The facility starts on an anti-freeze baseline
+  (5 C, no CO2, lamps off) by day and by night.
+- Damage (a failed boiler, glass broken by a storm) stays until a contractor repairs it
+  with the parts on site. Forecasts and news give warnings; some are false alarms.
+- You have ${max_calls} tool calls in total. If you stop calling tools or they are used
+  up, the remaining days run with your last settings and nobody acting: nothing more is
+  ordered, planted, harvested or repaired.
+- The episode lasts ${windows} hours and starts on day 1 at 06:00. Plan the whole
+  horizon: several decisions only pay off days later, and some cannot be made late.
+"""
+
+[shift]
+windows = 336             # 14 days x 24 hours
+window_hours = 1
+ops_per_window = 1        # `submit_day` is the only tool: one call is one day
+max_calls = 400           # spec D4: the same budget for every model; a day takes at most 6 calls
+
+[env]
+facility = "data/facilities/nl_three_compartment.toml"
+climate = "data/climates/nl_january.toml"
+energy_prices = "data/energy_prices/nl_winter.toml"
+market = "data/markets/nl_winter.toml"
+crops = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml", "data/crops/radish_micro.toml"]
+events = ["data/events/late_delivery.toml", "data/events/boiler_trip.toml", "data/events/storm.toml"]
+news = ["data/news/storm.toml", "data/news/frost.toml", "data/news/gas_price.toml"]
+horizon_days = 14
+actions_per_day = 5       # the daily turn (round 3): at most this many actions a day
+
+# One number: net profit. 0 is what happens when nobody acts; the reference planner sits
+# at 0.8, which leaves headroom above it.
+[[scoring.components]]
+name = "profit"
+weight = 1.0
+kind = "anchored"
+metric = "profit_eur"
+zero_anchors = ["do-nothing", "absentee"]
+top_anchors = ["reference"]
+target = 0.8
+
+# The rest of the ladder (spec 9), recorded in calibration.json next to the anchors.
+[calibration]
+anchors = [
+  "naive", "rule-based",
+  "exploit:harvest-early", "exploit:cut-heat-late", "exploit:chp-flat-out", "exploit:extreme-climate",
+  "exploit:spam-repairs", "exploit:spam-orders", "exploit:plant-late", "exploit:never-harvest",
+]
+
+[audit]
+# Reads and the clock decide nothing: a reference run cut off before only these calls
+# may tie the full run.
+clock_tools = []
+
+[harbor]
+agent_timeout_sec = 3600    # a safety net, not a rule
+verifier_timeout_sec = 600
