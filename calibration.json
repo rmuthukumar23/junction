@@ -1,0 +1,244 @@
+{
+ "tasks": {
+  "depot-basic": {
+   "7": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "business": 0.0,
+       "continuity": 1.0,
+       "reliability": 0.0
+      },
+      "ledger": {
+       "business_raw": -9466.06,
+       "calls": 30,
+       "continuity": 1.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 834.66,
+       "net_assets": -5466.06,
+       "on_time_rate": 0.0,
+       "ops_used": 0,
+       "penalties": 9539.5,
+       "purchases": 0.0,
+       "rejected": 0,
+       "revenue": 0.0,
+       "salvage": 908.1,
+       "seed": 7,
+       "stopped_early": false,
+       "units_cancelled": 1363,
+       "units_ordered": 1415,
+       "units_shipped": 0,
+       "windows_acted": 30,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.1
+     },
+     "do-nothing": {
+      "components": {
+       "business": 0.0,
+       "continuity": 0.0,
+       "reliability": 0.0
+      },
+      "ledger": {
+       "business_raw": -9466.06,
+       "calls": 0,
+       "continuity": 0.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 834.66,
+       "net_assets": -5466.06,
+       "on_time_rate": 0.0,
+       "ops_used": 0,
+       "penalties": 9539.5,
+       "purchases": 0.0,
+       "rejected": 0,
+       "revenue": 0.0,
+       "salvage": 908.1,
+       "seed": 7,
+       "stopped_early": true,
+       "units_cancelled": 1363,
+       "units_ordered": 1415,
+       "units_shipped": 0,
+       "windows_acted": 0,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.0
+     },
+     "random:1": {
+      "components": {
+       "business": 0.3037,
+       "continuity": 1.0,
+       "reliability": 0.3852
+      },
+      "ledger": {
+       "business_raw": 902.95,
+       "calls": 184,
+       "continuity": 1.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 1233.6,
+       "net_assets": 4902.95,
+       "on_time_rate": 0.3852,
+       "ops_used": 157,
+       "penalties": 4838.25,
+       "purchases": 13659.0,
+       "rejected": 0,
+       "revenue": 18805.0,
+       "salvage": 1828.8,
+       "seed": 7,
+       "stopped_early": false,
+       "units_cancelled": 818,
+       "units_ordered": 1415,
+       "units_shipped": 545,
+       "windows_acted": 30,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.3896
+     },
+     "reference": {
+      "components": {
+       "business": 0.7801,
+       "continuity": 1.0,
+       "reliability": 0.9951
+      },
+      "ledger": {
+       "business_raw": 17169.55,
+       "calls": 187,
+       "continuity": 1.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 638.55,
+       "net_assets": 21169.55,
+       "on_time_rate": 0.9951,
+       "ops_used": 157,
+       "penalties": 112.5,
+       "purchases": 21345.0,
+       "rejected": 0,
+       "revenue": 38920.0,
+       "salvage": 345.6,
+       "seed": 7,
+       "stopped_early": false,
+       "units_cancelled": 5,
+       "units_ordered": 1415,
+       "units_shipped": 1408,
+       "windows_acted": 30,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.8451
+     },
+     "rule-based": {
+      "components": {
+       "business": 0.7,
+       "continuity": 1.0,
+       "reliability": 1.0
+      },
+      "ledger": {
+       "business_raw": 14433.76,
+       "calls": 128,
+       "continuity": 1.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 1305.54,
+       "net_assets": 18433.76,
+       "on_time_rate": 1.0,
+       "ops_used": 98,
+       "penalties": 0.0,
+       "purchases": 25770.0,
+       "rejected": 0,
+       "revenue": 39550.0,
+       "salvage": 1959.3,
+       "seed": 7,
+       "stopped_early": false,
+       "units_cancelled": 0,
+       "units_ordered": 1415,
+       "units_shipped": 1415,
+       "windows_acted": 30,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.79
+     },
+     "ship-only": {
+      "components": {
+       "business": 0.1578,
+       "continuity": 1.0,
+       "reliability": 0.0898
+      },
+      "ledger": {
+       "business_raw": -4078.53,
+       "calls": 60,
+       "continuity": 1.0,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 39.03,
+       "net_assets": -78.53,
+       "on_time_rate": 0.0898,
+       "ops_used": 30,
+       "penalties": 8439.5,
+       "purchases": 0.0,
+       "rejected": 0,
+       "revenue": 4400.0,
+       "salvage": 0.0,
+       "seed": 7,
+       "stopped_early": false,
+       "units_cancelled": 1236,
+       "units_ordered": 1415,
+       "units_shipped": 127,
+       "windows_acted": 30,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.2284
+     },
+     "stop-early": {
+      "components": {
+       "business": 0.175,
+       "continuity": 0.3,
+       "reliability": 0.2587
+      },
+      "ledger": {
+       "business_raw": -3490.61,
+       "calls": 62,
+       "continuity": 0.3,
+       "end_reason": "horizon",
+       "faults": 0,
+       "holding_cost": 1138.71,
+       "net_assets": 509.39,
+       "on_time_rate": 0.2587,
+       "ops_used": 53,
+       "penalties": 6690.0,
+       "purchases": 8544.0,
+       "rejected": 0,
+       "revenue": 11398.0,
+       "salvage": 1484.1,
+       "seed": 7,
+       "stopped_early": true,
+       "units_cancelled": 997,
+       "units_ordered": 1415,
+       "units_shipped": 366,
+       "windows_acted": 9,
+       "windows_played": 30,
+       "windows_total": 30
+      },
+      "reward": 0.2042
+     }
+    },
+    "bundle": "71783b9f1e051c73",
+    "components": {
+     "business": {
+      "scale": 34142.6,
+      "zero": -9466.06
+     }
+    },
+    "oracle": "reference",
+    "seed": 7,
+    "threshold": 0.78
+   }
+  }
+ }
+}

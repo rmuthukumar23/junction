@@ -1,7 +1,7 @@
 [project]
 name = "junction-agent-environment"
-version = "0.2.0"
-description = "AfterQuery Shift Planner and reproducible evaluation for Junction 2026"
+version = "0.3.0"
+description = "AfterQuery Shift Planner and its evaluation backend for Junction 2026"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -10,9 +10,13 @@ eval = ["ortools==9.15.6755"]
 mcp = ["mcp==2.3.0"]
 harbor = ["harbor[modal]==0.26.0"]
 
+[dependency-groups]
+dev = ["pytest==9.0.3"]
+
 [project.scripts]
 shift-planner = "junction_env.evaluation:main"
 shift-planner-mcp = "junction_env.adapters.mcp_server:main"
+envkit = "envkit.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -20,3 +24,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
