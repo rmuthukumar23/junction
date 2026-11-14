@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greenhouse Bench Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Greenhouse Bench</h1>
+      <p class="sub" id="subtitle">Loading the real simulator…</p>
+    </div>
+  </div>
+  <form class="newrun" id="newrun">
+    <label>Grower
+      <select id="policy">
+        <option value="reference">Expert planner (reference)</option>
+        <option value="rule-based">Rule-based grower</option>
+        <option value="naive">Naive grower</option>
+        <option value="do-nothing">Nobody (do nothing)</option>
+      </select>
+    </label>
+    <label>Seed <input id="seed" type="number" min="1" max="9999" value="1"></label>
+    <button type="submit" class="btn primary">Run new test</button>
+  </form>
+</header>
+
+<main>
+  <section class="stage-wrap">
+    <div class="stage">
+      <canvas id="scene" width="1280" height="720" aria-label="Pixel-art view of the greenhouse"></canvas>
+      <div class="hud hud-left"><span id="hud-day">DAY 1</span><span id="hud-time">00:00</span></div>
+      <div class="hud hud-right"><span class="hud-label">PROFIT</span><span id="hud-profit">€0</span></div>
+      <div class="loading" id="loading"><div class="spinner"></div><p id="loading-text">Simulating 42 days…</p></div>
+      <div class="done" id="done" hidden>
+        <h2>42 days done</h2>
+        <div class="done-grid">
+          <div><span class="k">Final profit</span><span class="v" id="done-profit">–</span></div>
+          <div><span class="k">If nobody acted</span><span class="v" id="done-base">–</span></div>
+          <div><span class="k">Harvests sold</span><span class="v" id="done-harv">–</span></div>
+          <div><span class="k">Breakdowns</span><span class="v" id="done-faults">–</span></div>
+        </div>
+        <p id="done-verdict"></p>
+        <div class="row"><button class="btn" id="replay">Watch again</button><button class="btn primary" id="done-details">Open all details</button></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn icon" id="play" aria-label="Pause">❚❚</button>
+      <div class="speeds" role="group" aria-label="Speed">
+        <button data-speed="0.5">½×</button><button data-speed="1" class="on">1×</button><button data-speed="3">3×</button><button data-speed="10">10×</button>
+      </div>
+      <div class="timeline" id="timeline" aria-label="Timeline">
+        <div class="tl-fill" id="tl-fill"></div>
+        <div class="tl-marks" id="tl-marks"></div>
+        <div class="tl-head" id="tl-head"></div>
+      </div>
+      <span class="tl-time" id="tl-time">0 / 42 d</span>
+    </div>
+  </section>
+
+  <aside class="feed">
+    <div class="feed-head"><h2>What's happening</h2><button class="link" data-open="log">Full log</button></div>
+    <ol id="feed"></ol>
+  </aside>
+
+  <section class="cards" id="cards">
+    <article class="card" data-open="money">
+      <h3>Money</h3><div class="big" id="c-money">–</div><p class="small" id="c-money-sub">–</p>
+      <button class="link">Details →</button>
+    </article>
+    <article class="card" data-open="weather">
+      <h3>Outside</h3><div class="big" id="c-out">–</div><p class="small" id="c-out-sub">–</p>
+      <button class="link">Details →</button>
+    </article>
+    <article class="card" data-open="A">
+      <h3 id="c-A-title">House A</h3><div class="big" id="c-A">–</div><p class="small" id="c-A-sub">–</p>
+      <button class="link">Details →</button>
+    </article>
+    <article class="card" data-open="B">
+      <h3 id="c-B-title">House B</h3><div class="big" id="c-B">–</div><p class="small" id="c-B-sub">–</p>
+      <button class="link">Details →</button>
+    </article>
+    <article class="card" data-open="energy">
+      <h3>Energy centre</h3><div class="big" id="c-en">–</div><p class="small" id="c-en-sub">–</p>
+      <button class="link">Details →</button>
+    </article>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <nav class="tabs" id="tabs">
+      <button data-tab="A">House A</button><button data-tab="B">House B</button>
+      <button data-tab="energy">Energy</button><button data-tab="weather">Weather</button>
+      <button data-tab="money">Money</button><button data-tab="log">Grower log</button>
+      <button data-tab="raw">Raw data</button><button data-tab="about">How it works</button>
+    </nav>
+    <div class="drawer-tools">
+      <div class="seg" id="range"><button data-range="all" class="on">Whole run</button><button data-range="72">Last 3 days</button></div>
+      <button class="btn icon" id="close" aria-label="Close details">✕</button>
+    </div>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<script src="scene.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
