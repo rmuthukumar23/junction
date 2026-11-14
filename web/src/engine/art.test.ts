@@ -7,6 +7,7 @@ const sheets = import.meta.glob("../art/*.json", { eager: true, import: "default
 const KEYS = new Set(COLORS.map((c) => c.key));
 
 describe("art sheets", () => {
+  it("finds the palette file", () => { expect(Object.keys(sheets).some((f) => f.endsWith("palette.json"))).toBe(true); });
   for (const [file, data] of Object.entries(sheets)) {
     if (file.endsWith("palette.json")) continue;
     it(file, () => { expect(validateSheet(data as SheetFile, KEYS, file)).toEqual([]); });
