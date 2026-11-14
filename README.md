@@ -8,8 +8,9 @@ three compartments: broccoli microgreens in A and B, radish microgreens in C, ea
 batches of different ages. The crop set is locked to lettuce, broccoli and radish
 ([docs/CROPS.md](docs/CROPS.md)); a scenario picks which compartment grows which. The
 agent sets climate and energy settings, orders CO2 and seed that arrive
-days later, hires staff with a notice period, and queues planting, harvests and repairs
-that use the crew's worker-hours. Weather and energy prices are recorded Dutch series
+days later, hires staff with a notice period, and queues planting, harvests and contractor repairs
+that use the crew's worker-hours. It acts once a day at 06:00 through one tool,
+`submit_day` (up to 5 actions, then the day and night run); there are no read tools. Weather and energy prices are recorded Dutch series
 (KNMI De Bilt, day-ahead electricity, TTF gas), the same for every agent on a seed.
 
 Crops, the facility, the climate, the market and events are data files under `data/`,
@@ -18,7 +19,7 @@ so a new vegetable or facility is a new file, not new code.
 ## Why this setting
 
 Running a greenhouse well is planning under lead times, with trade-offs that only show
-days later. Every fact needed is in `get_rules` (the growth equations, prices, lead
+days later. Every fact needed is in the task instruction (`Environment.opening()`: the growth equations, prices, lead
 times, staff rules, event rates), so nothing is withheld. What is hard is using it:
 
 - **Light is the main lever.** Lamps speed growth and cost electricity at hourly prices.
@@ -96,7 +97,7 @@ separate recorded weather and price windows, never used for tuning): naive 0.11�
 rule-based 0.22–0.29, stop-early 0.08–0.28, reference 0.80.
 
 - **Naive** sets the crop files' target temperatures and CO2 and harvests on the ready
-  alarm. **Rule-based** adds lamps in cheap hours, reorder levels, repairs and hiring.
+  alarm. **Rule-based** adds lamps in cheap hours, reorder levels, contractor bookings and hiring.
 - **Reference** ([src/greenhouse/policies/reference.py](src/greenhouse/policies/reference.py))
   plays through the same tools as the agent, in about 250 of the 400 calls. It measures
   the lamps in the first hour, holds lettuce just under its light limit, runs lamp power
@@ -121,13 +122,13 @@ the model runs. No gap is claimed until three agent runs exist.
 | Spam any single tool (16 tools) | 0.00 |
 | Harvest everything every day | 0.05 |
 | Never harvest; spam orders; extreme heat and CO2 | 0.00 |
-| Spam repairs | 0.07 |
+| Spam repairs (pre-round-3 tool) | 0.07 |
 | Rule-based plus: cut heat at the end, plant late, CHP flat out | 0.26, 0.27, 0.28 (rule-based alone: 0.26) |
 
 Why they fail: standing crop is worth nothing; produce under the minimum sellable weight
 sells for nothing; wages are charged from hour 0; stopping keeps the last settings with
 nobody harvesting, so stopping is never better than playing on; a refused call changes
-nothing; every order, hire and repair costs money. Running the CHP flat out adds a
+nothing; every order, hire and contractor visit costs money. Running the CHP flat out adds a
 little because CHP power is simply good play here, and the reference uses it too.
 
 Trust boundary: the agent's container holds no scenario, seed or engine. The world runs
@@ -136,10 +137,13 @@ recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
 
 ## Known limits
 
-- **Built on the rules on `main`, not round 3.** The team's pinned redesign (day shift
-  06:00–18:00 with a night schedule, contractors and parts, news signals;
-  [context section 0](docs/GREENHOUSE_BENCH_CONTEXT.md)) is not in the code. Here the agent
-  may act at any hour and a fault is fixed with `repair`.
+- **Round 3 is built; the numbers above predate it.** The agent now plays a daily turn
+  (`submit_day`, 06:00, at most 5 actions, no read tools) with a night schedule, persistent
+  damage fixed by contractors and parts, and news signals ([context section 0](docs/GREENHOUSE_BENCH_CONTEXT.md),
+  [spec 14](docs/GREENHOUSE_SPEC.md)). The ladder, audit table and calibration above were
+  measured on the old rules (any-hour tools, `repair`) and are stale until `normal-winter`
+  is rebuilt and re-measured. No model has played the current rules. The viewer
+  (`scripts/viz`) still shows the old tool names.
 - **Lettuce sells per head at any weight above the minimum.** Cutting at the minimum
   sellable weight earns as much per head as waiting, and the reference does it. Weight
   grades would change that; it is an open question for the crop and market files.

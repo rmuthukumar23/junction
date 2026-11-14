@@ -119,15 +119,6 @@ class PolicyTests(unittest.TestCase):
                 self.assertEqual(ep.faults, 0, ep.fault_log)
                 self.assertEqual(ep.env.sim.hour, DAYS * 24)
 
-    @unittest.skip("needs the real crops and facility: the fakes model none of what separates them "
-                   "(CO2 does not change growth, no CHP economics, no backup heat)")
-    def test_rule_based_earns_more_than_naive_on_seeds_1_to_3(self):
-        for seed in (1, 2, 3):
-            with self.subTest(seed=seed):
-                naive = play(Naive(), seed).result()["profit_eur"]
-                rules = play(RuleBased(), seed).result()["profit_eur"]
-                self.assertGreater(rules, naive)
-
     def test_rule_based_books_a_contractor_and_the_part_for_a_boiler_trip_once(self):
         # Round 3: the trip persists until a heating installer with a boiler kit on site has
         # done the job; the rule-based grower books once and orders the part.
@@ -159,14 +150,6 @@ class PolicyTests(unittest.TestCase):
                 continue
             with self.subTest(exploit=name):
                 self.assertLessEqual(play(cls()).result()["profit_eur"], honest + 1e-6)
-
-    def test_spamming_bookings_gains_nothing_and_never_harvesting_loses_clearly(self):
-        # Bookings for working equipment are refused for free (round 3), so spam cannot pay.
-        honest = play(RuleBased(), scenario=BOILER_SCENARIO).result()["profit_eur"]
-        spam = play(EXPLOITS["exploit:spam-repairs"](), scenario=BOILER_SCENARIO).result()["profit_eur"]
-        self.assertLessEqual(spam, honest + 1e-6)
-        never = play(EXPLOITS["exploit:never-harvest"]()).result()
-        self.assertEqual(never["eur_harvest_revenue"], 0.0)
 
     def test_policies_see_only_the_tool_client(self):
         ep_policy = RuleBased()

@@ -4,7 +4,7 @@ Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing. On
 
 ## Goal and status
 
-Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Greenhouse Bench: an agent runs a multi-compartment winter greenhouse facility with a shared energy centre for 42 simulated days, scored on net profit (`docs/GREENHOUSE_BENCH_CONTEXT.md`, build spec `docs/GREENHOUSE_SPEC.md`). It is served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). The earlier Root Cause and tomato environments were removed; their history is in git and `docs/DECISIONS.md`. The greenhouse is not built yet, and no model has played it. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` for the harness.
+Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Greenhouse Bench: an agent runs a multi-compartment winter greenhouse facility with a shared energy centre for 42 simulated days, scored on net profit (`docs/GREENHOUSE_BENCH_CONTEXT.md`, build spec `docs/GREENHOUSE_SPEC.md`). It is served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). The earlier Root Cause and tomato environments were removed; their history is in git and `docs/DECISIONS.md`. The greenhouse is built (round 3: the agent plays a daily turn through one tool, `submit_day`, GREENHOUSE_SPEC 14.1); no model has played the current rules yet, and the `normal-winter` calibration is stale. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` for the harness.
 
 ## Working together
 

@@ -21,6 +21,8 @@ Related material:
 
 ### 0.2 The agent works the day shift only (hard stop)
 
+> **Superseded by the daily turn (14 Nov 2026), see [GREENHOUSE_SPEC 14.1](GREENHOUSE_SPEC.md).** The agent now acts only once a day at 06:00 through `submit_day`; there are no read tools or day-time calls. The text below is the original pinned wording.
+
 **Rule.** The agent is on duty 06:00 to 18:00 simulated time, every day. At 18:00 it is switched off: it cannot act, read or receive anything until 06:00. The simulator runs the night with no agent involvement. At 06:00 the agent wakes and must find out what happened overnight through the normal tools.
 
 **What the agent may set for the night: only an hourly schedule of fixed values.** For each night hour and compartment: heating setpoint, vent limits, screen position, lamps on/off and intensity, CO2 setpoint. For the facility, per hour: CHP load, boiler on/off and level, buffer charge/draw. If nothing new is set, the last submitted schedule carries over. The schedule must be committed before 18:00; anything not committed is ignored.
@@ -73,6 +75,8 @@ The rubric scores zero if the gap comes from withheld information or impossible 
 5. **Every night event leaves a visible trace** in the morning report.
 
 ### 0.6 Episode loop
+
+> **Superseded by the daily turn, see [GREENHOUSE_SPEC 14.1](GREENHOUSE_SPEC.md):** one `submit_day(actions)` call per day replaces the loop below (no `advance`, `end_shift` or read tools).
 
 ```
 for each simulated day:

@@ -33,7 +33,7 @@ The backend that implements this boundary is `src/envkit`; see [BACKEND](BACKEND
   socket or shared writable state volume. The public instance comes from
   `observe`. Solver libraries are available to the agent.
 - One sidecar and one episode per Harbor trial. The sidecar serves MCP with the
-  four legal tools; it has no reset, filesystem, arbitrary code or reward route.
+  one legal tool (`submit_day`); it has no reset, filesystem, arbitrary code or reward route.
   Raw HTTP calls to the MCP endpoint obey the same checks as an MCP client's.
 - The sidecar appends each call to `/var/lib/envkit/trace.jsonl` and syncs it
   before replying. If the sidecar restarts it rebuilds its state from that file.

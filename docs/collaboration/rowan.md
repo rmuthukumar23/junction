@@ -7,7 +7,7 @@ You own everything about running the business: the market, orders that arrive da
 | File | What |
 |---|---|
 | `src/greenhouse/config/market.py` | `MarketSpec`, `EventSpec`, and their `parse_*` functions |
-| `src/greenhouse/world/operations.py` | Stock (CO2 kg, seedlings per crop), orders with lead times, minimum quantities and late-delivery events, staff (crew, hiring with notice, release), task queue for plant, harvest and repair using worker-hours |
+| `src/greenhouse/world/operations.py` | Stock (CO2 kg, seedlings per crop), orders with lead times, minimum quantities and late-delivery events, staff (crew, hiring with notice, release), task queue for plant, harvest and contractor repair jobs using worker-hours |
 | `src/greenhouse/world/events.py` | Event schedule drawn per seed from rates (stream `events`); turns events into `EquipmentEffect`s and `Alarm`s |
 | `src/greenhouse/world/ledger.py` | Records `LedgerEntry`s, prices `Metered` and `HarvestResult`, totals by category, money conservation check |
 | `src/greenhouse/world/business.py` | `build_business` and `Business`: the `BusinessModel` sim.py calls, over your operations, events and ledger (Max wrote the first version; yours now) |
@@ -85,7 +85,7 @@ Round 2 is on `main` (#14). Read context section 0 (especially 0.3, 0.5 and 0.7)
 5. **News feed** (`data/news/*.toml` and a module of yours): signal types for storm, cold snap and gas price. Each has a lead time, a chance it appears before a real event, a false-alarm rate per day and headline texts. Drawn once at the start from a named stream, so it is identical for every agent on a seed. Never name equipment or an hour. Lucas provides the storm and frost inputs from the recorded weather.
 6. **Plugs:** set the seedling items' lead times to the propagator values Lucas researches (2–3 weeks).
 7. **Tests:** context 0.7 tests 1–4, and that the news feed does not change whatever the agent does.
-8. **Policies under shift rules:** naive and rule-based must set a night schedule and call `end_shift`; the exploiter adds hoarding parts and booking contractors for nothing. Then the reference planner with Max.
+8. **Policies under shift rules:** naive and rule-based must set a night schedule and play through `submit_day` (the daily turn replaced `end_shift`); the exploiter adds hoarding parts and booking contractors for nothing. Then the reference planner with Max.
 
 ### Max edited two of your files (merge `9790f32`, please review)
 
@@ -106,7 +106,7 @@ They crashed the first runs on the real game, so Max fixed them directly instead
 ## Watch out
 
 - Doing nothing and stopping early must earn about 0. You own the costs that make that true (wages from hour 0) and the rule that standing crop counts for nothing.
-- Spamming orders or repairs must cost money and worker-hours. Test that 50 repairs in a row are clearly worse than none.
+- Spamming orders or contractor bookings must cost money and worker-hours. Test that 50 repairs in a row are clearly worse than none.
 - Every ledger number must be explainable from the trace: no hidden bonuses.
 
 ## Prompt for your coding agent

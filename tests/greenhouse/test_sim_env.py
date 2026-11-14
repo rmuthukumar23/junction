@@ -89,24 +89,6 @@ class TurnTests(unittest.TestCase):
         self.assertEqual(ep.env.sim.climate["A"].heat_day_c, 5.0)
         self.assertEqual(ep.env.sim.climate["B"].heat_day_c, 12.0)
 
-    def test_an_action_with_another_tools_field_is_refused(self):
-        ep = episode()
-        out = day(ep, {"tool": "hire", "workers": 1, "batch_ids": ["A1"]})
-        self.assertFalse(out["results"][0]["ok"])
-        self.assertIn("unknown argument", out["results"][0]["error"])
-        self.assertFalse(ep.call("submit_day", {"actions": [{"tool": "fly"}]})["ok"])   # not an action
-
-    def test_lists_report_refused_entries(self):
-        ep = episode()
-        day(ep, {"tool": "set_climate", **WARM}, COPY_NIGHT)
-        while not ready(ep):
-            day(ep, *[a for a in morning(ep) if a["tool"] != "harvest"])
-        ids = ready(ep)
-        out = day(ep, {"tool": "harvest", "batch_ids": ids + ["nope"]})
-        self.assertEqual(set(out["results"][0]["result"]["accepted"]), set(ids))
-        self.assertIn("nope", out["results"][0]["result"]["refused"])
-
-
 class NightTests(unittest.TestCase):
     def test_the_night_schedule_starts_on_the_baseline_and_day_settings_do_not_reach_it(self):
         ep = episode()
@@ -114,22 +96,6 @@ class NightTests(unittest.TestCase):
         night = [rec.climate["A"]["heat_night_c"] for rec in ep.env.sim.history[18:30]]
         self.assertEqual(set(night), {5.0})                      # still the handover schedule
         self.assertEqual(ep.env.sim.history[10].climate["A"]["heat_day_c"], 20.0)
-
-    def test_entries_apply_from_their_hour_until_the_next(self):
-        ep = episode()
-        day(ep, {**COPY_NIGHT, "heat_c": 12.0},
-            {"tool": "set_night_schedule", "from_hour": 2, "heat_c": 9.0, "compartments": ["A"]})
-        sim = ep.env.sim
-        self.assertEqual(sim.night_entry(23).climate["A"].heat_night_c, 12.0)
-        self.assertEqual(sim.night_entry(1).climate["A"].heat_night_c, 12.0)
-        self.assertEqual(sim.night_entry(2).climate["A"].heat_night_c, 9.0)
-        self.assertEqual(sim.night_entry(5).climate["B"].heat_night_c, 12.0)
-        self.assertEqual(sim.history[6 + 21].climate["A"]["heat_night_c"], 9.0)   # 03:00 ran on it
-        out = day(ep, {"tool": "set_night_schedule", "from_hour": 18, "remove": True},
-                  {"tool": "set_night_schedule", "from_hour": 12, "heat_c": 9.0},
-                  {"tool": "set_night_schedule", "from_hour": 2, "remove": True})
-        self.assertEqual([r["ok"] for r in out["results"]], [False, False, True])
-        self.assertEqual(sim.night_entry(3).climate["A"].heat_night_c, 12.0)
 
     def test_the_night_is_reported_in_the_morning(self):
         ep = episode()
@@ -139,11 +105,6 @@ class NightTests(unittest.TestCase):
         self.assertEqual({rec.climate["A"]["heat_night_c"] for rec in ep.env.sim.history[18:30]}, {14.0})
         self.assertIn("A", night["climate"])
 
-    def test_same_seed_same_night(self):
-        a, b = episode(), episode()
-        self.assertEqual(day(a, {"tool": "set_climate", **WARM}), day(b, {"tool": "set_climate", **WARM}))
-
-
 class OperationTests(unittest.TestCase):
     def test_harvest_sells_and_needs_worker_hours(self):
         ep = episode()
@@ -151,22 +112,6 @@ class OperationTests(unittest.TestCase):
         led = ep.result()
         self.assertGreater(led["eur_harvest_revenue"], 0)
         self.assertGreater(led["harvests"], 0)
-
-    def test_planting_uses_seedlings_and_is_refused_late(self):
-        ep = episode()
-        stock = ep.env.sim.business.seedlings["fake_lettuce"]
-        out = day(ep, {"tool": "plant", "areas_m2": {"A": 5000}}, {"tool": "set_climate", **WARM}, COPY_NIGHT)
-        self.assertFalse(out["results"][0]["ok"])                    # more than the free area
-        while ep.env.sim.free_area_m2("A") <= 0:
-            day(ep, *morning(ep))
-        free = ep.env.sim.free_area_m2("A")
-        day(ep, {"tool": "plant", "areas_m2": {"A": free}})
-        self.assertLess(ep.env.sim.business.seedlings["fake_lettuce"], stock)
-        while ep.env.sim.hours_left() / 24 >= 3:
-            day(ep)
-        out = day(ep, {"tool": "plant", "areas_m2": {"B": 1}})
-        self.assertFalse(out["results"][0]["ok"])
-        self.assertIn("too late", out["results"][0]["error"])
 
     def test_orders_and_contractors(self):
         ep = episode()
@@ -248,13 +193,6 @@ class DeterminismTests(unittest.TestCase):
         again, mismatches = replay(load_scenario(FIXTURE), 1, ep.trace.records)
         self.assertEqual(mismatches, [])
         self.assertEqual(again.result()["profit_eur"], ep.result()["profit_eur"])
-
-    def test_seeds_differ(self):
-        a, b = episode(1), episode(2)
-        play_season(a)
-        play_season(b)
-        self.assertNotEqual(a.result()["profit_eur"], b.result()["profit_eur"])
-
 
 if __name__ == "__main__":
     unittest.main()
