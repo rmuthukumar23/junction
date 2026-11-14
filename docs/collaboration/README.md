@@ -54,4 +54,4 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 | Max | `max/workstream-0` | envkit advance + data bundling, loader, sim/views/env on fakes | Done and tested. Next: scenario file once real modules land; reference planner |
 | Lucas | | | |
 | Emre | | | |
-| Rowan | | | |
+| Rowan | `rowan/operations` | Operations, events, ledger, outcome | Tasks 1–6 done with tests; policies wait for `env.py` tool stubs |
