@@ -74,7 +74,7 @@ Environment variables, by name:
 
 | Variable | Needed for |
 |---|---|
-| A provider credential, e.g. `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Model runs through Harbor. Name it with `--credential-env`; never put its value in a command |
+| A provider credential, e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Model runs through Harbor. `GEMINI_API_KEY` is the default for `google/...` models, else `OPENAI_API_KEY`; name another with `--credential-env`. Put it in a git-ignored `.env` (see `.env.example`), which `scripts/judge.sh` reads; never put its value in a command |
 | `ENVKIT_SCENARIO=root-cause` | Selecting this scenario in `scripts/judge.sh` |
 | `CHROME` | Optional: path to Chrome for the browser smoke test |
 | `TSC` | Optional: path to a TypeScript compiler for the JavaScript type check |
@@ -104,6 +104,29 @@ harbor run -p tasks/root-cause-s7 -a oracle --ae ENVKIT_POLICY=stop-early    # s
 ENVKIT_SCENARIO=root-cause bash scripts/judge.sh --output artifacts/rootcause/judge                       # the three scripted runs
 ENVKIT_SCENARIO=root-cause bash scripts/judge.sh --model <provider/model> --credential-env ANTHROPIC_API_KEY --output artifacts/rootcause/judge-model
 ```
+
+### A model run with a Gemini key
+
+```bash
+cp .env.example .env            # then set GEMINI_API_KEY=... in .env (git-ignored)
+ENVKIT_SCENARIO=root-cause bash scripts/judge.sh --model google/gemini-3.1-flash-lite \
+    --runs 1 --seeds 7 --output artifacts/rootcause/gemini-test-1
+```
+
+This runs the reference, one OpenCode attempt with the model, do-nothing and
+stop-early on seed 7, and stops at the first problem; the reference goes first,
+so a broken container setup fails before any tokens are spent. `envkit eval`
+hands the key to OpenCode as `GOOGLE_GENERATIVE_AI_API_KEY` (the only name
+OpenCode's Google provider reads) through a template Harbor expands, so the
+value is not on any command line or in the logs. Use `--runs 3` for the judging
+protocol, `--backend podman|docker|modal` to choose where containers run, and
+a new `--output` directory each time. The agent's score is in
+`<output>/report.md`, its transcript under `<output>/trials/`. A provider error
+(bad key, unknown model, quota) makes OpenCode stop without playing, which
+scores 0.0 like doing nothing and may still be labelled `completed`; a zero
+with 0 `calls` in the report is a provider problem until the trial's agent log
+says otherwise. To list the models your key can use:
+`curl -s -H "x-goog-api-key: $GEMINI_API_KEY" https://generativelanguage.googleapis.com/v1beta/models | grep '"name"'`.
 
 After changing anything under `src/rootcause/`, `src/envkit/` or
 `scenarios/root-cause.toml`, run `uv run --no-sync envkit build root-cause` and

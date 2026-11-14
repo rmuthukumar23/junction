@@ -4,7 +4,7 @@ Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing.
 
 ## Goal and status
 
-Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. Shift Planner has a working core and is served and graded as a candidate Harbor task by the `envkit` backend (`docs/BACKEND.md`). Root Cause, a greenhouse operations simulator with a browser app, runs on the same backend (`docs/GREENHOUSE.md`); its scripted runs pass through Harbor on Docker, and no model has played it. Official event-kit compatibility, frontier-agent results, a measured performance gap, and Modal execution remain unverified. See `docs/SCENARIO.md`, `docs/HARNESS.md`, and `docs/EXPERIMENTS.md` for the contract and evidence.
+Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. Shift Planner has a working core and is served and graded as a candidate Harbor task by the `envkit` backend (`docs/BACKEND.md`). Root Cause, a greenhouse operations simulator with a browser app, runs on the same backend (`docs/GREENHOUSE.md`); its scripted runs pass through Harbor on Docker and Podman. Gemini 4 Hydrogen played four full seasons and beat the reference every time, so Root Cause currently shows no gap (`docs/EXPERIMENTS.md`). Official event-kit compatibility, frontier-agent results, a measured performance gap, and Modal execution remain unverified. See `docs/SCENARIO.md`, `docs/HARNESS.md`, and `docs/EXPERIMENTS.md` for the contract and evidence.
 
 ## Working together
 
