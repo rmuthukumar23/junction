@@ -41,6 +41,11 @@ def _project_root() -> Path:
 ROOT = _project_root()
 
 
+def _read(path: Path) -> bytes:
+    """Source bytes with LF line endings, so a Windows checkout (CRLF) hashes like CI (LF)."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def source_files(scenario: Scenario, root: Path = ROOT, pkg_root: Path = PKG_ROOT) -> dict[str, bytes]:
     """Relative path -> content for everything the bundle hash covers."""
     files: dict[str, bytes] = {}
@@ -50,9 +55,9 @@ def source_files(scenario: Scenario, root: Path = ROOT, pkg_root: Path = PKG_ROO
         if package.is_dir():
             for p in sorted(package.rglob("*.py")):
                 if "__pycache__" not in p.parts:
-                    files[p.relative_to(pkg_root).as_posix()] = p.read_bytes()
+                    files[p.relative_to(pkg_root).as_posix()] = _read(p)
         else:
-            files[f"{name}.py"] = package.with_suffix(".py").read_bytes()
+            files[f"{name}.py"] = _read(package.with_suffix(".py"))
 
     add_package("envkit")
     # The environment's whole top-level package: "junction_env.scheduling.binding:Env" -> junction_env/**
@@ -63,11 +68,11 @@ def source_files(scenario: Scenario, root: Path = ROOT, pkg_root: Path = PKG_ROO
         rel_path = Path(rel)
         if rel_path.is_absolute() or ".." in rel_path.parts:
             raise ValueError(f"data file {rel!r} must be a path inside the project")
-        files[rel_path.as_posix()] = (root / rel_path).read_bytes()
+        files[rel_path.as_posix()] = _read(root / rel_path)
     for name in [scenario.reference, *scenario.anchors]:
         if name.startswith("replay:"):
             rel = name.partition(":")[2]
-            files[rel] = (root / rel).read_bytes()
+            files[rel] = _read(root / rel)
     return files
 
 
@@ -87,9 +92,9 @@ def write_bundle(dest: Path, scenario: Scenario, seed: int, calibration: dict[st
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     manifest = {"scenario": scenario.id, "seed": int(seed), "bundle": h, "engine": __version__}
-    (dest / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
+    (dest / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n", newline="\n")
     if calibration is not None:
-        (dest / "calibration.json").write_text(json.dumps(calibration, indent=1, sort_keys=True) + "\n")
+        (dest / "calibration.json").write_text(json.dumps(calibration, indent=1, sort_keys=True) + "\n", newline="\n")
     return h
 
 

@@ -52,6 +52,7 @@ class Greenhouse:
         self.hour = 0
         self.unattended = False
         self.finished_by_player = False
+        self.bankrupt_hour: int | None = None   # the hour cash first fell below 0; the episode ends there
         self.climate: dict[str, ClimateSetpoints] = dict(self.facility.fallback_climate())
         self.energy: EnergySettings = self.facility.fallback_energy()
         self.batches: dict[str, BatchState] = {}
@@ -75,7 +76,7 @@ class Greenhouse:
 
     @property
     def done(self) -> bool:
-        return self.hour >= self.horizon_h
+        return self.hour >= self.horizon_h or self.bankrupt_hour is not None
 
     def hours_left(self) -> int:
         return max(0, self.horizon_h - self.hour)
@@ -136,6 +137,11 @@ class Greenhouse:
         self.readings = self.facility.view(self.hour, self.rng.stream(f"readings/{self.hour}"))
         self.history.append(HourRecord(h, self.readings, {c: asdict(s) for c, s in self.climate.items()},
                                        asdict(self.energy), asdict(metered)))
+        if self.business.cash_eur() < 0:
+            # Bankrupt: no credit, so the business stops here and the loss is final.
+            self.bankrupt_hour = h
+            new.append(Alarm(h, "bankrupt", "business", "Cash fell below zero: the business is bankrupt "
+                                                         "and the episode ends."))
         self.alarms += new
         return new
 

@@ -77,7 +77,7 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -57454.3665
+    "profit_eur": -50057.9254
    },
    "reward": 0.0
   },
@@ -127,7 +127,7 @@
    "reward": 0.1129
   }
  },
- "bundle": "633644d741e95664",
+ "bundle": "fda676fd7e291816",
  "components": {
   "profit": {
    "scale": 204356.07,

@@ -62,16 +62,7 @@ def params_of(fn: Callable[..., Any]) -> list[Param]:
 def input_schema(params: list[Param]) -> dict[str, Any]:
     props, required = {}, []
     for p in params:
-        annotation = p.annotation
-        optional, inner = _is_optional(annotation)
-        if optional and not p.required:
-            # Omitting the argument already means "not set", so the listing advertises
-            # only the inner type. Nullable unions (`"type": [T, "null"]`, `anyOf` with
-            # null) are rejected by some providers' function-calling validators: Gemini
-            # refuses a nullable array outright, so a model could not even load the tool
-            # list. `validate` still accepts an explicit null for these arguments.
-            annotation = inner
-        s = dict(_json_schema(annotation))
+        s = dict(_json_schema(p.annotation))
         if p.description:
             s["description"] = p.description
         if p.required:

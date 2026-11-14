@@ -2,12 +2,12 @@
  "anchors": {
   "absentee": {
    "components": {
-    "acted": 0.0
+    "acted": 0.0417
    },
    "metrics": {
-    "continuity": 0.0
+    "continuity": 0.0417
    },
-   "reward": 0.0
+   "reward": 0.0417
   },
   "do-nothing": {
    "components": {
@@ -20,24 +20,24 @@
   },
   "reference": {
    "components": {
-    "acted": 0.0417
+    "acted": 0.0833
    },
    "metrics": {
-    "continuity": 0.0417
+    "continuity": 0.0833
    },
-   "reward": 0.0417
+   "reward": 0.0833
   },
   "stop-early": {
    "components": {
-    "acted": 0.0417
+    "acted": 0.0833
    },
    "metrics": {
-    "continuity": 0.0417
+    "continuity": 0.0833
    },
-   "reward": 0.0417
+   "reward": 0.0833
   }
  },
- "bundle": "6e5e90acf23feb17",
+ "bundle": "a375f62551319ca1",
  "components": {},
  "oracle": "reference",
  "seed": 1,

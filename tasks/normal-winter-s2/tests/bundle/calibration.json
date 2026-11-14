@@ -41,7 +41,7 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -53479.3681
+    "profit_eur": -50030.6461
    },
    "reward": 0.0
   },
@@ -59,7 +59,7 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -52149.8443
+    "profit_eur": -50041.5268
    },
    "reward": 0.0
   },
@@ -77,7 +77,7 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -65048.0751
+    "profit_eur": -50020.1004
    },
    "reward": 0.0
   },
@@ -127,7 +127,7 @@
    "reward": 0.2799
   }
  },
- "bundle": "633644d741e95664",
+ "bundle": "fda676fd7e291816",
  "components": {
   "profit": {
    "scale": 212512.11,
