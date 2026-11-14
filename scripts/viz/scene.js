@@ -29,6 +29,7 @@ const Scene = (() => {
     canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, az, moved: false }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 3) down.moved = true; az = down.az - dx * 0.008; });
     canvas.addEventListener("pointerup", (e) => { if (down && !down.moved) canvas.dispatchEvent(new CustomEvent("scenepick", { detail: pick(e) })); down = null; });
+    const qz = +new URLSearchParams(location.search).get("zoom"); if (qz) zoom = clamp(qz, 0.6, 3);
     canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoom = clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 3); }, { passive: false });
   }
 
@@ -98,8 +99,8 @@ const Scene = (() => {
     h.pipeMat = lambert(0x40454f, { emissive: 0x000000 });
     for (const px of [-HW / 2 + 0.35, HW / 2 - 0.35]) { const p = box(0.2, 0.2, HD - 0.6, h.pipeMat); p.position.set(px, 0.25, 0); G.add(p); }
     // plants: one instanced voxel per spot, re-laid out every hour
-    h.plants = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), lambert(0xffffff), 520); h.plants.count = 0;
-    h.plants.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(520 * 3).fill(1), 3); G.add(h.plants);
+    h.plants = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), lambert(0xffffff), MAXV); h.plants.count = 0;
+    h.plants.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXV * 3).fill(1), 3); G.add(h.plants);
     h.beds = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), lambert(0x6b4630), 12); h.beds.count = 0; G.add(h.beds);
     h.crates = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.45, 0.5), lambert(0xa0703c), 12); h.crates.count = 0; G.add(h.crates);
     h.marks = []; for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), basic(0xffd84a)); m.visible = false; G.add(m); h.marks.push(m); }
@@ -145,10 +146,32 @@ const Scene = (() => {
   }
 
   // ---------------- per-hour layout: beds and plants ----------------
-  const CROP_COL = { lettuce: 0x9be05a, basil: 0x4fae4a, broccoli: 0x3f9a4a, radish: 0x86c95a };
+  // Voxel models of one plant at full size: [size xyz, position xyz, tilt about z, colour, grows-late].
+  // A "late" part (a radish bulb, broccoli florets) only appears as the plant matures.
+  const MAXV = 2600, PLANT = 2.1;          // PLANT: models are drawn this many times life-size so they read
+  const MODELS = {
+    broccoli: { step: 1.5, parts: [
+      [[0.16, 0.42, 0.16], [0, 0.21, 0], 0, 0xb5d48a],
+      [[0.34, 0.05, 0.12], [0.2, 0.26, 0], -0.4, 0x5fa04e], [[0.34, 0.05, 0.12], [-0.2, 0.3, 0], 0.4, 0x5fa04e],
+      [[0.24, 0.22, 0.24], [0, 0.55, 0], 0, 0x2f7a3a, 1], [[0.2, 0.2, 0.2], [0.15, 0.49, 0.06], 0, 0x2a6e34, 1],
+      [[0.2, 0.2, 0.2], [-0.15, 0.5, -0.05], 0, 0x357f3c, 1], [[0.2, 0.2, 0.2], [0.03, 0.48, 0.16], 0, 0x2a6e34, 1],
+      [[0.2, 0.2, 0.2], [-0.02, 0.5, -0.17], 0, 0x3a8a42, 1]] },
+    radish: { step: 1.15, parts: [
+      [[0.3, 0.26, 0.3], [0, 0.13, 0], 0, 0xd8335c, 1], [[0.12, 0.1, 0.12], [0, -0.02, 0], 0, 0xf2e6ea, 1],
+      [[0.22, 0.06, 0.22], [0, 0.28, 0], 0, 0xb02a4c, 1],
+      [[0.08, 0.42, 0.05], [0.07, 0.5, 0], -0.35, 0x5bb04a], [[0.08, 0.38, 0.05], [-0.07, 0.48, 0.02], 0.4, 0x4fa040],
+      [[0.07, 0.34, 0.05], [0, 0.47, -0.06], 0.05, 0x68bc55]] },
+    lettuce: { step: 1.5, parts: [
+      [[0.4, 0.3, 0.4], [0, 0.17, 0], 0, 0x8fd456], [[0.5, 0.12, 0.2], [0, 0.1, 0.18], 0, 0x9be05a],
+      [[0.5, 0.12, 0.2], [0, 0.1, -0.18], 0, 0x9be05a], [[0.2, 0.12, 0.5], [0.18, 0.1, 0], 0, 0x7cc44a],
+      [[0.2, 0.12, 0.5], [-0.18, 0.1, 0], 0, 0x7cc44a]] },
+    other: { step: 1.0, parts: [[[0.1, 0.5, 0.1], [0, 0.25, 0], 0, 0x3f8f3a], [[0.3, 0.06, 0.14], [0, 0.45, 0], 0, 0x5fae4a]] },
+  };
   function growth(b) { return b.st === "ready" ? 1 : b.ready != null ? clamp(b.age / (b.age + b.ready), 0.05, 1) : clamp(b.w / (meta.maxW[b.crop] || 1), 0.05, 1); }
   function layout(f) {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
+    const rq = new THREE.Quaternion(), plantM = new THREE.Matrix4(), partM = new THREE.Matrix4(), pq = new THREE.Quaternion(), v = new THREE.Vector3(), w = new THREE.Vector3();
+    const UP = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1), TAN = new THREE.Color(0xb8a050);
     for (const id of ids) {
       const h = houses[id], list = f.b.filter((b) => b.c === id && b.st !== "harvested");
       const total = list.reduce((a, b) => a + b.area, 0) + f.c[id].free, usable = HD - 1;
@@ -156,14 +179,19 @@ const Scene = (() => {
       h.marks.forEach((mk) => (mk.visible = false));
       for (const b of list) {
         const d = (b.area / total) * usable, g = growth(b), crop = b.crop.split("_")[0];
-        const base = col(CROP_COL[crop] || 0x6fbf5a), qk = b.qual >= 0.85 ? 0 : b.qual >= 0.6 ? 0.45 : 0.8;
-        base.lerp(col(0xb8a050), qk);
+        const qk = b.qual >= 0.85 ? 0 : b.qual >= 0.6 ? 0.4 : 0.75, model = MODELS[crop] || MODELS.other;
         m.compose(p.set(0, 0.2, z + d / 2), q, s.set(HW - 1.4, 0.3, Math.max(0.2, d - 0.25))); h.beds.setMatrixAt(bi++, m);
-        const wide = crop === "lettuce", step = wide ? 0.9 : 0.55;
-        for (let x = -HW / 2 + 1.1; x <= HW / 2 - 1.1 && pi < 520; x += step) for (let zz = z + 0.3; zz < z + d - 0.2 && pi < 520; zz += step) {
-          const ht = wide ? 0.2 + g * 0.45 : 0.1 + g * (crop === "radish" ? 0.7 : 0.9), wd = wide ? 0.25 + g * 0.5 : 0.32;
-          m.compose(p.set(x, 0.35 + ht / 2, zz), q, s.set(wd, ht, wd)); h.plants.setMatrixAt(pi, m);
-          c.copy(base).offsetHSL(0, 0, ((x * 7 + zz * 13) % 3) * 0.02); h.plants.setColorAt(pi++, c);
+        const size = PLANT * (0.45 + 0.55 * g), late = clamp((g - 0.35) / 0.65, 0, 1), step = model.step;
+        for (let x = -HW / 2 + 1.2; x <= HW / 2 - 1.2; x += step) for (let zz = z + step / 2; zz < z + d - 0.2; zz += step) {
+          if (pi + model.parts.length > MAXV) break;
+          const jit = ((x * 73 + zz * 131) % 1 + 1) % 1;                      // stable per-spot variety
+          plantM.compose(p.set(x + (jit - 0.5) * 0.15, 0.35, zz), rq.setFromAxisAngle(UP, jit * 6.28), s.set(size, size * (0.85 + jit * 0.3), size));
+          for (const [sz, ps, tilt, hex, lateOnly] of model.parts) {
+            const k = lateOnly ? late : 1; if (k < 0.05) continue;
+            partM.compose(v.set(...ps), pq.setFromAxisAngle(Z, tilt), w.set(sz[0] * k, sz[1] * k, sz[2] * k));
+            h.plants.setMatrixAt(pi, m.multiplyMatrices(plantM, partM));
+            c.set(hex).lerp(TAN, qk).offsetHSL(0, 0, (jit - 0.5) * 0.06); h.plants.setColorAt(pi++, c);
+          }
         }
         if (b.st === "ready" && mi < 6) { const mk = h.marks[mi++]; mk.visible = true; mk.position.set(0, 2.2, z + d / 2); }
         if (b.q && ci < 12) for (const cx of [-2, 0, 2]) { if (ci >= 12) break; m.compose(p.set(cx, 0.6, z + d / 2), q, s.set(1, 1, 1)); h.crates.setMatrixAt(ci++, m); }

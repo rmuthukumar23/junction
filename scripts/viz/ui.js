@@ -82,7 +82,7 @@
       const tgt = a.target || "";
       if (a.kind === "equipment" && /working again/.test(a.text)) ev.push({ h: a.h, type: "fixed", where: "energy", text: `The ${tgt} works again`, bubble: `${tgt} fixed` });
       else if (a.kind === "equipment") ev.push({ h: a.h, type: "fault", where: "energy", text: `The ${tgt} broke down. ${a.text.split(". ").slice(1).join(". ")}`, bubble: `${tgt} broke!` });
-      else if (a.kind === "delivery") ev.push({ h: a.h, type: "delivery", where: "road", text: a.text.replace(/([\d.]+e[+-]?\d+|\d+(\.\d+)?)/, (n) => num(+n)).replace("co2_kg", "kg of CO2").replace(/seedlings:(\w+)/, (_, c) => `${cropName(c)} seedlings`), bubble: "delivery" });
+      else if (a.kind === "delivery") ev.push({ h: a.h, type: "delivery", where: "road", text: a.text.replace(/arrived: ([\d.e+-]+)/, (_, n) => `arrived: ${num(+n)}`).replace("co2_kg", "kg of CO2").replace(/seedlings:(\w+)/, (_, c) => `${cropName(c)} seedlings`), bubble: "delivery" });
       else if (a.kind === "batch_ready") ev.push({ h: a.h, type: "ready", where: comp(tgt), text: `Batch ${tgt} is ready to harvest`, bubble: `${tgt} ready` });
       else if (a.kind === "stock_low") ev.push({ h: a.h, type: "low", where: "co2", text: a.text.replace("co2_store", "CO2 tank"), bubble: "CO2 low" });
       else ev.push({ h: a.h, type: "info", where: comp(tgt) || "energy", text: a.text, bubble: a.kind.replace(/_/g, " ") });
