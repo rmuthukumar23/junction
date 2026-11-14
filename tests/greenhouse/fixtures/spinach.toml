@@ -1,0 +1,77 @@
+# Test fixture, not a scenario crop: baby-leaf spinach, single cut, sold per kg.
+# It proves a new crop is a data file only (lucas.md task 7); test_crop_files.py
+# loads and grows it with the same code as lettuce and basil. Values differ on
+# purpose: cooler optimum, dense sowing, frost hardy, a bolting risk in warmth.
+#
+# Sources: [VH94] Van Henten (1994) via [VS10] van Straten et al. (2010) ch. 6;
+# [USDA] FoodData Central "Spinach, raw": water 91.40 g per 100 g;
+# [CAL] calibrated so the target climate gives nominal_days; [DES] design value.
+
+schema = "crop/1"
+id = "spinach_baby_leaf"
+name = "Baby-leaf spinach"
+growth_model = "leafy_vanhenten"
+
+[cycle]
+harvest_mode = "single"
+nominal_days = 24                  # [CAL]
+min_days_before_end = 22           # [DES]
+ready_fresh_weight_g = 10          # [DES] per plant
+
+[planting]
+density_per_m2 = 250               # [DES] dense baby-leaf sowing
+transplant_dry_weight_g = 0.004    # [DES] a seedling of about 0.05 g fresh
+seedling_cost_eur = 0.004          # [DES]
+plant_worker_hours_per_1000 = 0.2  # [DES]
+harvest_worker_hours_per_1000 = 0.5 # [DES]
+
+[growth]
+dry_matter_fraction = 0.086        # [USDA] 1 - 91.40/100
+yield_factor = 0.544               # [VH94]
+light_use_efficiency_kg_j = 17.0e-9 # [VH94]
+radiation_j_per_umol = 0.2188      # 1/4.57
+canopy_closure_m2_kg = 25.0        # [CAL] 23.5 days
+boundary_conductance_m_s = 0.007   # [VH94]
+stomatal_conductance_m_s = 0.005   # [VH94]
+carboxylation_conductance_max_m_s = 1.959e-3   # [VH94]
+temperature = { curve = "cardinal", t_min = 1.0, t_opt = 18.0, t_max = 32.0 }   # [DES] cool-season
+co2_kg_m3_per_ppm = 1.8295e-6
+co2_saturation_ppm = 1100.0        # [DES]
+co2_compensation_kg_m3 = 5.2e-5    # [VH94]
+co2_compensation_q10 = 2.0
+co2_compensation_ref_c = 20.0
+respiration_dry_per_s = 2.65e-7    # [VH94]
+respiration_co2_per_s = 4.87e-7    # [VH94]
+respiration_q10 = 2.0
+respiration_ref_c = 25.0
+
+[growth.transpiration]             # [VH94]
+canopy_conductance_m_s = 3.6e-3
+vapour_c1_j_m3 = 9348.0
+gas_constant_j_kmol_k = 8314.0
+celsius_to_kelvin = 273.15
+vapour_c2 = 17.4
+vapour_c3_c = 239.0
+
+[climate_targets]                  # [DES]
+day_temp_c = [14, 20]
+night_temp_c = [8, 12]
+co2_ppm = [700, 1000]
+dli_mol_m2_d = [10, 14]
+rh_pct = [65, 85]
+photoperiod_h = 14
+
+[stress]                           # [DES]
+bolting = { signal = "temp_day_mean", curve = "piecewise", points = [[22.0, 0.0], [30.0, 0.2]] }
+frost_kill_c = -6.0
+ready_loss_per_day = 0.05
+
+[market]
+unit = "kg"
+min_sellable = { fresh_weight_g = 5 }
+grades = [ { name = "A", min_quality = 0.8, price_factor = 1.0 },
+           { name = "waste", min_quality = 0.0, price_factor = 0.0 } ]
+
+[estimate]
+weight_rel_sigma = 0.12
+quality_sigma = 0.05
