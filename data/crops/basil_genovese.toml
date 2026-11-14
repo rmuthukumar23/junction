@@ -39,7 +39,6 @@ max_cuts = 3                       # [DES] stems get woody and yield falls after
 [planting]
 density_per_m2 = 25                # [DES]
 transplant_dry_weight_g = 0.1      # [DES] about 1.3 g fresh at the dry-matter fraction below
-seedling_cost_eur = 0.06           # [DES] per plant
 plant_worker_hours_per_1000 = 1.5  # [DES] as lettuce
 harvest_worker_hours_per_1000 = 4.0 # [DES] cutting by hand is slower than lifting a head
 
@@ -84,7 +83,12 @@ photoperiod_h = 16                 # [DES]
 chilling = { signal = "temp_min", curve = "linear_below", threshold = 10.0, rate = 0.04 }     # [DES] per C below
 heat     = { signal = "temp_day_mean", curve = "linear_above", threshold = 32.0, rate = 0.02 } # [DES] per C above
 frost_kill_c = 0.0                 # [DES] basil does not survive freezing
-ready_loss_per_day = 0.02          # [DES] leaves toughen and flower buds form when a cut is late
+# D5: a late cut loses quality at this rate: grade A for 7.5 days, grade B until day 20, then
+# waste. Once basil commits to flowering, leaf oil (linalool, eugenol) and texture decline,
+# and flowering stems should not be cut for sale (SARE Northeast crop production and harvest
+# manual, basil). Genovese is day-neutral, so long days do not hold it back. No published
+# per-day rate was found. [DES]
+ready_loss_per_day = 0.02
 
 [market]
 unit = "kg"

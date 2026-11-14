@@ -32,7 +32,6 @@ ready_fresh_weight_g = 250         # [DES] a typical marketable butterhead head 
 [planting]
 density_per_m2 = 20                # [DES] spec 3.1; common butterhead spacing
 transplant_dry_weight_g = 0.175    # [VH94] initial state 3.5 g DW m-2 at 20 plants m-2 (about 4 g fresh, a plug plant)
-seedling_cost_eur = 0.08           # [DES] spec 3.1, per plant
 plant_worker_hours_per_1000 = 1.5  # [DES] spec 3.1
 harvest_worker_hours_per_1000 = 3.0 # [DES] spec 3.1
 
@@ -88,7 +87,12 @@ tipburn = { signal = "dli_excess", curve = "linear_above", threshold = 17.0, rat
 bolting = { signal = "temp_day_mean", curve = "linear_above", threshold = 24.0, rate = 0.01 } # [DES] per C above
 cold    = { signal = "temp_min", curve = "linear_below", threshold = 4.0, rate = 0.05 }      # [DES] per C below
 frost_kill_c = -1.0                # [DES] spec 3.1
-ready_loss_per_day = 0.03          # [DES] a ready head left standing
+# D5: a ready head left standing loses quality at this rate. With the grades below it stays
+# grade A for 5 days, is grade B until day 13, and sells for nothing (waste) after about 13.3
+# days. No published per-day rate was found. Delayed harvest is reported to lower butterhead
+# quality (hydroponic harvest-stage study, redalyc.org/pdf/908/90842183011.pdf),
+# and overmature heads turn tough, bitter and bolt, which growers treat as unmarketable. [DES]
+ready_loss_per_day = 0.03
 
 [market]
 unit = "head"

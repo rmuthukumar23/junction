@@ -24,10 +24,13 @@ batch, net of respiration, so it is negative at night (the batch releases CO2).
 from __future__ import annotations
 
 import bisect
+import dataclasses
 import math
+from typing import Any, Literal
 
 from envkit.rng import Rng
 
+from ..config import curves
 from ..config.crop import CropSpec
 from ..contracts import BatchEstimate, BatchState, ClimateSample, GrowthModel, HarvestResult
 
@@ -38,6 +41,8 @@ _G_PER_KG = 1000.0
 _UMOL_PER_MOL = 1e6
 _PCT = 100.0
 _Q10_STEP_C = 10.0          # a Q10 is, by definition, the factor per 10 C
+_PER_1000 = 1000.0          # labour is given per 1000 plants in the crop file
+_COUNT_DIGITS = 6           # area x density is rounded here before ceil, so 12.5 m2 x 20 is 250, not 251
 
 # Keys of BatchState.model_state for this model.
 DRY = "dry_weight_kg_m2"    # canopy dry weight per m2 of batch area
@@ -189,9 +194,14 @@ class LeafyVanHenten:
             units, per_unit = cut_g * plants / _G_PER_KG, _G_PER_KG
         else:
             units, per_unit = plants, cut_g
-        return HarvestResult(batch_id=batch.id, crop_id=batch.crop_id, units=units, unit=self.spec.market.unit,
-                             fresh_weight_g_per_unit=per_unit, quality=quality,
-                             sellable=cut_g >= self.spec.market.min_sellable_fresh_weight_g)
+        market = self.spec.market
+        sellable = cut_g >= market.min_sellable_fresh_weight_g
+        # Unsellable produce is labelled with the lowest grade and priced at 0, whatever
+        # that grade's factor (the schema does not force the lowest factor to 0).
+        grade = market.grade(quality) if sellable else market.grades[-1]
+        return HarvestResult(batch_id=batch.id, crop_id=batch.crop_id, units=units, unit=market.unit,
+                             fresh_weight_g_per_unit=per_unit, quality=quality, sellable=sellable,
+                             grade=grade.name, price_factor=grade.price_factor if sellable else 0.0)
 
     def transpiration_kg_h(self, batch: BatchState, climate: ClimateSample) -> float:
         if batch.status in ("harvested", "lost"):
@@ -212,6 +222,35 @@ class LeafyVanHenten:
         respiration = p.respiration_co2_per_s * x * \
             p.respiration_q10 ** ((climate.temp_c - p.respiration_ref_c) / _Q10_STEP_C)
         return (self._photosynthesis(x, climate) - respiration) * batch.area_m2 * _S_PER_H
+
+    def labour_hours(self, action: Literal["plant", "harvest"], area_m2: float) -> float:
+        """Worker-hours to plant or harvest `area_m2`, from the crop file's rate per 1000 plants."""
+        planting = self.spec.planting
+        if action == "plant":
+            per_1000 = planting.plant_worker_hours_per_1000
+        elif action == "harvest":
+            per_1000 = planting.harvest_worker_hours_per_1000
+        else:
+            raise ValueError(f"labour_hours: action must be 'plant' or 'harvest', got {action!r}")
+        return self._density * area_m2 / _PER_1000 * per_1000
+
+    def seedlings_needed(self, area_m2: float) -> int:
+        """Plants needed to fill `area_m2` at the crop file's density, rounded up."""
+        return math.ceil(round(self._density * area_m2, _COUNT_DIGITS))
+
+    def min_days_before_end(self) -> float:
+        return float(self.spec.cycle.min_days_before_end)
+
+    def describe(self) -> dict[str, Any]:
+        """The crop file as published rules (spec 5, get_rules), plus the model's
+        equations in words. Crop files hold no hidden parameters, so everything in
+        the spec is public. Curves carry their kind name, as in the file."""
+        out = _jsonable(dataclasses.asdict(self.spec))
+        out["growth"]["temperature"] = _curve_json(self._p.temperature)
+        out["stress"]["counters"] = [{"name": c.name, "signal": c.signal, **_curve_json(c.curve)}
+                                     for c in self.spec.stress.counters]
+        out["mechanics"] = _MECHANICS[self.spec.growth_model]
+        return out
 
     # -- helpers for the simulator and views ---------------------------------------------
 
@@ -300,6 +339,51 @@ class LeafyVanHenten:
         if ms[RGR_H] > 0 and ms[RGR_START_DRY] > 0 and ms[DRY] > 0:
             ms[RGR] = math.log(ms[DRY] / ms[RGR_START_DRY]) * _H_PER_DAY / ms[RGR_H]
 
+
+_CURVE_KINDS = {curves.Cardinal: "cardinal", curves.Saturating: "saturating", curves.LinearAbove: "linear_above",
+                curves.LinearBelow: "linear_below", curves.Piecewise: "piecewise"}
+
+
+def _curve_json(c: curves.Curve) -> dict[str, Any]:
+    return {"curve": _CURVE_KINDS[type(c)], **_jsonable(dataclasses.asdict(c))}
+
+
+def _jsonable(v: Any) -> Any:
+    """Tuples become lists, so the result compares equal after a JSON round trip."""
+    if isinstance(v, dict):
+        return {k: _jsonable(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_jsonable(x) for x in v]
+    return v
+
+
+# What each model does, for get_rules. Words only: every number is in the crop file.
+_MECHANICS: dict[str, dict[str, str]] = {
+    "leafy_vanhenten": {
+        "growth": ("Van Henten (1994) one-state model. Canopy dry weight X (kg m-2) changes by "
+                   "yield_factor * P - respiration_dry_per_s * X * respiration_q10^((T - respiration_ref_c)/10). "
+                   "P = (1 - exp(-canopy_closure_m2_kg X)) * eps*I * g*(C - Gamma) / (eps*I + g*(C - Gamma)), "
+                   "eps*I = light_use_efficiency_kg_j * PAR * radiation_j_per_umol, "
+                   "g = 1/(1/boundary + 1/stomatal + 1/(carboxylation_max * temperature(T))), "
+                   "C = min(CO2 ppm, co2_saturation_ppm) * co2_kg_m3_per_ppm, "
+                   "Gamma = co2_compensation_kg_m3 * co2_compensation_q10^((T - co2_compensation_ref_c)/10). "
+                   "Fresh weight per plant = X / dry_matter_fraction / density_per_m2."),
+        "ready": "A batch is ready when fresh weight per plant reaches cycle.ready_fresh_weight_g.",
+        "stress": ("At the end of each day every stress counter adds curve(signal of that day). Signals: "
+                   "dli_excess = the day's light integral (mol m-2), temp_day_mean = mean temperature in "
+                   "the photoperiod, temp_min = the day's lowest temperature. "
+                   "Quality = 1 - sum of counters - ready_loss_per_day * days waiting ready, clipped to 0..1. "
+                   "Below frost_kill_c the batch is lost at once."),
+        "harvest": ("Below market.min_sellable.fresh_weight_g per plant (per cut for repeated crops) the "
+                    "produce sells for nothing. Otherwise the grade is the first in market.grades whose "
+                    "min_quality the quality reaches; revenue = units * market price * price_factor. "
+                    "Single crops are then gone; repeated crops keep regrow_fraction of their weight, "
+                    "reset stress and grow on, up to max_cuts."),
+        "estimates": ("get_batches shows fresh weight with relative noise estimate.weight_rel_sigma and "
+                      "quality with absolute noise estimate.quality_sigma; days_to_ready assumes the "
+                      "midpoints of climate_targets."),
+    },
+}
 
 MODELS: dict[str, type] = {"leafy_vanhenten": LeafyVanHenten}
 

@@ -21,7 +21,6 @@ ready_fresh_weight_g = 10          # [DES] per plant
 [planting]
 density_per_m2 = 250               # [DES] dense baby-leaf sowing
 transplant_dry_weight_g = 0.004    # [DES] a seedling of about 0.05 g fresh
-seedling_cost_eur = 0.004          # [DES]
 plant_worker_hours_per_1000 = 0.2  # [DES]
 harvest_worker_hours_per_1000 = 0.5 # [DES]
 

@@ -44,9 +44,9 @@ class Cycle:
 
 @dataclass(frozen=True)
 class Planting:
+    """Seedling prices are not here: they belong to the market file (`seedlings:<crop id>`)."""
     density_per_m2: float
     transplant_dry_weight_g: float    # per plant, at planting
-    seedling_cost_eur: float          # per plant
     plant_worker_hours_per_1000: float
     harvest_worker_hours_per_1000: float
 
@@ -256,7 +256,6 @@ def _parse_planting(t: Table) -> Planting:
     p = Planting(
         density_per_m2=_pos(t, "density_per_m2"),
         transplant_dry_weight_g=_pos(t, "transplant_dry_weight_g"),
-        seedling_cost_eur=t.num("seedling_cost_eur", lo=0),
         plant_worker_hours_per_1000=t.num("plant_worker_hours_per_1000", lo=0),
         harvest_worker_hours_per_1000=t.num("harvest_worker_hours_per_1000", lo=0),
     )
