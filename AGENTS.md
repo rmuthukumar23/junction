@@ -4,16 +4,17 @@ The single instruction file for agents in this repo. Read `README.md`, `docs/WOR
 
 ## Project
 
-- Build a reproducible interactive agent environment for Junction 2026's AfterQuery challenge. This repo is an initialized scaffold, not the final submission.
+- Build a reproducible interactive agent environment for Junction 2026's AfterQuery challenge. Shift Planner is implemented; frontier evidence and official event compatibility remain submission gates.
 - The demo must show a legitimate reference solution, a measured frontier-agent gap, and a fresh-clone run through the official harness.
 - Details: [README.md](README.md) and [docs/HARNESS.md](docs/HARNESS.md).
 
 ## Commands
 
-- Local core: Python 3.11+; no third-party packages required.
+- Local core: Python 3.12+; no third-party packages required.
 - Run the toy contract example: `PYTHONPATH=src:. python3 examples/toy_environment.py`. It is not a benchmark or final demo.
 - Check and test: `bash scripts/check.sh`.
-- Official judge command: pending integration of the AfterQuery starter kit.
+- Candidate judge command: `bash scripts/judge.sh --model "$AFTERQUERY_MODEL" --output artifacts/judge`; official event-kit compatibility remains unverified.
+- This `AGENTS.md` governs project behavior. `docs/source/Core_AI_Coding_Principles.md` preserves reference examples; conflicting generic guidance there does not override this file or the public scenario contract.
 
 ## Core principles
 

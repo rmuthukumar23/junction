@@ -1,6 +1,24 @@
 # Four-person workflow
 
-## 48-hour timeline
+## Current MVP integration window (6–8 hours)
+
+Claimable packages, never permanent developer roles:
+
+| Window | Acceptance |
+|---|---|
+| 0–30 min | Event kit/example, model access and submission shape confirmed; contract read |
+| 30 min–2 h | Environment, reference, harness and reporting slices integrated with reserved file surfaces |
+| By hour 2–3 | One complete legal reference and first official frontier pilot |
+| Hours 3–5 | Development-seed calibration, exploit tests, 45-minute Modal gate; freeze scenario |
+| Hours 5–6 | Three attempts per held-out seed, deterministic replay, results and decision-based analysis |
+| Hours 6–8 | Fresh-clone judge rehearsal, adversarial tests and ten-minute demo |
+
+If no meaningful gap exists by hour four, prioritize calibration over cloud/UI
+work. The current implementation does not assign fixed developer roles. Any
+teammate or this machine can claim the next package. Entire setup and Verda
+training are deferred; do not block core work on either.
+
+## Original 48-hour reference timeline
 
 - Hours 0 to 2: decide and set up
 - Hours 2 to 36: parallel build
@@ -49,9 +67,9 @@ Run that agent only inside `../junction-2-environment`. Use a different director
 - Only the agent in the claimed branch edits its reserved files. Need a change in another active issue's files? Coordinate with that issue's point of contact rather than editing the other checkout.
 - Keep dependency changes coordinated and announced in the PR. Avoid drive-by refactors and keep `main` runnable.
 - GitHub issues/PRs and `docs/DECISIONS.md` are durable team state. Chat is for quick coordination, not the only record of decisions.
-- Entire Sessions should checkpoint important agent context; Graph should be used to locate related code; Brain should retain reviewed architectural decisions. Connect/sync Brain explicitly and test teammate retrieval before relying on it. Trails can assist review if they work with this GitHub workflow, but PRs remain the integration gate.
+- Entire is deferred in the MVP. If adopted later, checkpoint handoffs, test shared context retrieval, and keep GitHub PRs as the integration gate.
 - Codex (and any other coding agents) work as peers on isolated branches. Any team machine, including the coordinator's, can run development agents. GitHub coordinates integration; no machine owns all agent compute or a shared writable checkout.
-- Any scoring or benchmark change gets a before/after run on the same fixed seed suite and at least one held-out suite.
+- Any scoring or benchmark change gets before/after development-seed runs. Keep seeds 100–102 unseen until scenario freeze, then use them only for final held-out evaluation.
 
 ## GitHub settings
 

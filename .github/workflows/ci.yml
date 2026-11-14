@@ -1,18 +1,46 @@
 name: CI
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Check deterministic local contract
+          python-version: '3.12'
+      - name: Dependency-free core
         run: bash scripts/check.sh
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.8'
+      - run: uv sync --locked --extra eval --extra mcp --extra harbor
+      - run: uv run --no-sync bash scripts/check.sh
+      - run: uv run --no-sync python -m junction_env.evaluation --verify-count 100 --output artifacts/reference-100
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-reference
+          path: artifacts/
+  harbor-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.8'
+      - run: bash scripts/judge.sh --smoke --output artifacts/harbor-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harbor-smoke
+          path: artifacts/
