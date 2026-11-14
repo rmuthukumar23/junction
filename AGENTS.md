@@ -1,6 +1,6 @@
 # Agent instructions
 
-Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing.
+Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing. On the greenhouse build, start from `docs/collaboration/README.md` and your own file there: it lists the files you own and must not leave.
 
 ## Goal and status
 

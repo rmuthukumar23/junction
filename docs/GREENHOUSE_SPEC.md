@@ -27,30 +27,37 @@ This environment replaces Root Cause, which has been removed (`src/rootcause/`, 
 
 ## 2. Packages and where things go
 
+Owner initials in brackets: Max (M), Lucas (L), Emre (E), Rowan (R). See `docs/collaboration/`.
+
 ```
 src/greenhouse/                  # new top-level package (bundled into the Harbor task)
-  config/        schema.py       # typed dataclasses for every data file + validation
-                 loader.py       # resolve a scenario's data references, check ranges, return a frozen Config
-                 curves.py       # library of response curves, chosen by name in data files
-  world/         state.py        # plain dataclasses: Facility, Compartment, Batch, EnergyCentre, Ledger
-                 weather.py      # seeded weather and price series from profile files
-                 crop.py         # crop growth models, chosen by name (registry)
-                 climate.py      # one compartment, one sub-step: energy, CO2, humidity balance
-                 controller.py   # built-in climate computer: setpoints -> actuator positions
-                 energy.py       # CHP, boiler, buffer, grid, CO2 supply; allocation between compartments
-                 operations.py   # stock, orders, deliveries, staff, tasks that need worker-hours
-                 events.py       # event generator (seeded from rates) and effects
-                 sim.py          # Greenhouse: owns state, runs ticks, applies actions, raises RuleError
-  views.py                       # what the agent may see (sensor readings, forecasts, ledger)
-  outcome.py                     # profit, ledger for the scorer, conservation checks, failure modes
-  env.py                         # the envkit binding: tools only
-  policies/                      # naive, rule_based, reference, exploiter (play through tools only)
-data/                            # all values; nothing here is code
+  contracts.py                   # [M] the shared types between modules; changes need all owners' OK
+  config/        base.py         # [M] Range, validation errors, strict TOML table reader
+                 curves.py       # [M] library of response curves, chosen by name in data files
+                 loader.py       # [M] resolve a scenario's data references and overrides, draw hidden params
+                 crop.py         # [L] CropSpec dataclass + validation for data/crops/*.toml
+                 facility.py     # [E] FacilitySpec, ClimateProfile for data/facilities, data/climates
+                 market.py       # [R] MarketSpec, EventSpec for data/markets, data/events
+  world/         crop.py         # [L] growth models, chosen by name (registry)
+                 weather.py      # [E] seeded weather and price series from profile files
+                 climate.py      # [E] one compartment, one sub-step: energy, CO2, humidity balance
+                 controller.py   # [E] built-in climate computer: setpoints -> actuator positions
+                 energy.py       # [E] CHP, boiler, buffer, grid, CO2 supply; allocation between compartments
+                 operations.py   # [R] stock, orders, deliveries, staff, tasks that need worker-hours
+                 events.py       # [R] event schedule (seeded from rates) and effects
+                 ledger.py       # [R] money in and out by category, conservation check
+                 sim.py          # [M] Greenhouse: composes the modules, runs ticks, applies actions, raises RuleError
+  views.py                       # [M] what the agent may see (sensor readings, forecasts, ledger)
+  outcome.py                     # [R] profit, ledger for the scorer, failure modes
+  env.py                         # [M] the envkit binding: tools only
+  policies/                      # [R] naive, rule_based, exploiter; [M+R] reference (play through tools only)
+data/                            # all values; nothing here is code. Each owner fills their own folder
   crops/lettuce_butterhead.toml
   crops/basil_genovese.toml
   facilities/nl_two_compartment.toml
   climates/nl_january.toml
   markets/nl_winter.toml
+  energy_prices/nl_winter.toml
   events/late_delivery.toml
   events/boiler_trip.toml
 scenarios/normal-winter.toml     # picks one facility, climate, market, crops, events; sets seeds and scoring
@@ -187,7 +194,9 @@ A weather profile, not a recorded series: daily mean temperature, diurnal amplit
 
 ### 3.4 Market (`data/markets/*.toml`)
 
-Base price per crop and unit, gas price, the electricity price model (daily shape + noise + spike rate), grid export price as a fraction of import, CO2 price, seedling and repair prices, wage per hour, hiring fee, notice days, order lead times and minimum quantities per item.
+Base price per crop and unit, CO2 price, seedling and repair prices, wage per hour, hiring fee, notice days, order lead times and minimum quantities per item.
+
+Energy prices are their own file, `data/energy_prices/*.toml` (owned with the weather code): gas price, the electricity price model (daily shape + noise + spike rate) and grid export price as a fraction of import.
 
 ### 3.5 Events (`data/events/*.toml`)
 
@@ -212,6 +221,7 @@ Same format as today (`[task]`, `[shift]`, `[scoring]`, `[harbor]`), with `[env]
 facility = "data/facilities/nl_two_compartment.toml"
 climate  = "data/climates/nl_january.toml"
 market   = "data/markets/nl_winter.toml"
+energy_prices = "data/energy_prices/nl_winter.toml"
 crops    = ["data/crops/lettuce_butterhead.toml", "data/crops/basil_genovese.toml"]
 events   = ["data/events/late_delivery.toml", "data/events/boiler_trip.toml"]
 horizon_days = 42
@@ -351,15 +361,15 @@ The reference may import the same equations as the simulator, because they are p
 
 Merge order and owners. Each workstream gets its own branch and worktree and merges to `main` through a small PR with CI green, per `AGENTS.md`. Nobody pushes straight to `main`.
 
-| # | Workstream | Depends on | Files reserved |
+| # | Workstream | Owner | Files reserved |
 |---|---|---|---|
-| 0 | envkit changes (2.1) + `config/` (schemas, loader, curves) + `world/state.py` + data file skeletons | this spec | `src/envkit/core.py`, `src/envkit/bundle.py`, `src/greenhouse/config/`, `src/greenhouse/world/state.py`, `data/` |
-| 1 | Crop models + crop data (lettuce, basil), with values from Van Henten | 0 | `world/crop.py`, `data/crops/` |
-| 2 | Climate, controller, energy centre, weather and prices | 0 | `world/climate.py`, `world/controller.py`, `world/energy.py`, `world/weather.py`, `data/facilities/`, `data/climates/`, `data/markets/` |
-| 3 | Operations, events, ledger, outcome | 0 | `world/operations.py`, `world/events.py`, `outcome.py`, `data/events/` |
-| 4 | `sim.py`, `views.py`, `env.py`, scenario, policy ladder, removal of Root Cause | 1–3 interfaces | `world/sim.py`, `views.py`, `env.py`, `policies/`, `scenarios/` |
+| 0 | envkit changes (2.1), `contracts.py`, `config/base.py`, `curves.py`, `loader.py` | Max | `src/envkit/`, `src/greenhouse/contracts.py`, `src/greenhouse/config/{base,curves,loader}.py` |
+| 1 | Crop schema, growth models, crop data (lettuce, basil) | Lucas | `config/crop.py`, `world/crop.py`, `data/crops/`, `tests/greenhouse/test_crop*.py` |
+| 2 | Facility and climate schema, climate, controller, energy centre, weather, energy prices | Emre | `config/facility.py`, `world/{climate,controller,energy,weather}.py`, `data/{facilities,climates,energy_prices}/`, `tests/greenhouse/test_{climate,energy,weather}*.py` |
+| 3 | Market and event schema, operations, events, ledger, outcome, naive/rule-based/exploiter policies | Rowan | `config/market.py`, `world/{operations,events,ledger}.py`, `outcome.py`, `policies/{naive,rule_based,exploiter}.py`, `data/{markets,events}/`, `tests/greenhouse/test_{ops,events,ledger,policies}*.py` |
+| 4 | `sim.py`, `views.py`, `env.py`, scenario, reference planner, integration | Max (+ Rowan for the reference) | `world/sim.py`, `views.py`, `env.py`, `policies/reference.py`, `scenarios/` |
 
-Workstream 0 is short and everything depends on it, so it goes first and alone. Then 1, 2 and 3 run in parallel against the frozen `state.py` and `GrowthModel` interfaces, and 4 starts by wiring stubs.
+Workstream 0 is short and everything depends on `contracts.py`, which is already on `main`. Workstreams 1, 2 and 3 start at once against it. Workstream 4 wires stubs first and swaps in the real modules as they land. Day-to-day instructions per person: `docs/collaboration/`.
 
 ---
 

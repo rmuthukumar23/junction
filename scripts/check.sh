@@ -4,7 +4,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 export PYTHONPATH="$repo_root/src:$repo_root${PYTHONPATH:+:$PYTHONPATH}"
 python3 -m compileall -q src tests
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests/greenhouse -t tests/greenhouse -v
 # The remaining checks need the locked environment (pytest, MCP SDK).
 if python3 -c "import pytest, mcp" 2>/dev/null; then
   python3 -m pytest tests/envkit
