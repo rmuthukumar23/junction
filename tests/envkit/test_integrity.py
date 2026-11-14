@@ -32,6 +32,8 @@ def scenario():
 
 
 def test_audit_passes(scenario):
+    if all(entry_for(load_calibration(ROOT), scenario.id, s).get("threshold") is None for s in scenario.seeds):
+        pytest.skip(f"{scenario.id} has no pass threshold (a smoke scenario, not a scored benchmark)")
     for seed in scenario.seeds:
         report = audit(scenario, seed)
         failed = [c for c in report["checks"] if not c["ok"]]

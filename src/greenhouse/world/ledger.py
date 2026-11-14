@@ -93,8 +93,7 @@ class Ledger:
             self.charge(m.hour, "gas", m.gas_m3 * prices.gas_eur_per_m3, f"{m.gas_m3:.2f} m3 gas"),
             self.charge(m.hour, "electricity_bought", m.electricity_import_kwh * prices.import_eur_per_kwh,
                         f"{m.electricity_import_kwh:.1f} kWh imported"),
-            self.earn(m.hour, "electricity_sold", m.electricity_export_kwh * prices.export_eur_per_kwh,
-                      f"{m.electricity_export_kwh:.1f} kWh exported"),
+            self._export(m, prices),
             self.charge(m.hour, "co2", m.external_co2_kg * external_co2_eur_per_kg,
                         f"{m.external_co2_kg:.1f} kg external CO2"),
         ]
@@ -103,6 +102,15 @@ class Ledger:
         self.hours_priced += 1
         self.sum_import_price += prices.import_eur_per_kwh
         return [e for e in out if e is not None]
+
+    def _export(self, m: Metered, prices: EnergyPrices) -> LedgerEntry | None:
+        """Exported power at the hour's export price. Recorded day-ahead prices go
+        negative in some hours; exporting then costs money, booked in the same category."""
+        eur = m.electricity_export_kwh * prices.export_eur_per_kwh
+        if eur == 0:
+            return None
+        return self.record(LedgerEntry(m.hour, "electricity_sold", float(eur),
+                                       f"{m.electricity_export_kwh:.1f} kWh exported"))
 
     def price_harvest(self, hour: int, result: HarvestResult, unit_price_eur: float,
                       grades: list[Grade]) -> tuple[LedgerEntry | None, str]:

@@ -114,10 +114,10 @@ def _is_optional(ann: Any) -> tuple[bool, Any]:
 def _json_schema(ann: Any) -> dict[str, Any]:
     optional, inner = _is_optional(ann)
     if optional:
-        s = _json_schema(inner)
-        if isinstance(s.get("type"), str):
-            return {**s, "type": [s["type"], "null"]}
-        return {"anyOf": [s, {"type": "null"}]}
+        # An Optional parameter is simply not required; `validate` still accepts null.
+        # No "null" in the schema: Gemini's function declarations reject type lists and
+        # an anyOf around an array (OpenCode leaves `items` outside the anyOf).
+        return _json_schema(inner)
     if ann is bool:
         return {"type": "boolean"}
     if ann is int:
@@ -128,7 +128,11 @@ def _json_schema(ann: Any) -> dict[str, Any]:
         return {"type": "string"}
     origin = get_origin(ann)
     if origin is Literal:
-        return {"enum": list(get_args(ann))}
+        values = list(get_args(ann))
+        kinds = {type(v) for v in values}
+        if kinds == {str}:
+            return {"type": "string", "enum": values}   # Gemini wants a type with every enum
+        return {"enum": values}
     if origin is list:
         (item,) = get_args(ann) or (str,)
         return {"type": "array", "items": _json_schema(item)}

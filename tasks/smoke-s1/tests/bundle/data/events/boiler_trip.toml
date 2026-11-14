@@ -1,0 +1,16 @@
+# The boiler trips (flame failure, pump fault) and delivers no heat until it restarts
+# or is repaired. Owner: Rowan. Illustrative values.
+schema = "event/1"
+id = "boiler_trip"
+kind = "equipment"
+rate_per_day = 0.04                 # published: about one trip in 25 days
+duration_h = {min = 6, max = 30}    # published as a range; the drawn value is hidden
+signal = "alarm"                    # the agent sees an alarm in get_status and the advance result
+effect = { target = "boiler", capacity_factor = 0.0 }
+# A service call: the call-out is charged when requested; the work uses worker-hours.
+# Once the work is done the boiler is back within shortens_to_h hours. Emergency winter
+# boiler call-outs cost several times a routine service ("a half-hour service job becomes
+# a weekend callout at five times the cost", HortiDaily, "Proactive maintenance doesn't
+# mean over-maintaining"), hence a high fee. The rate has no public source: illustrative.
+repair = { cost_eur = 1200.0, worker_hours = 4.0, shortens_to_h = 3.0 }
+pinned_hours = []
