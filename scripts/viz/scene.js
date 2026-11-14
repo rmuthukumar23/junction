@@ -2,6 +2,7 @@
 // and scaled up without smoothing for a voxel/pixel look. Drag to rotate, scroll to zoom.
 const Scene = (() => {
   const PIX = 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
+  const SLOPE = Math.atan2(2.2, 5);              // roof pitch: RIDGE over half the width
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, k) => a + (b - a) * k;
   const col = (h) => new THREE.Color(h);
   const mixc = (a, b, k) => col(a).lerp(col(b), clamp(k, 0, 1));
@@ -84,14 +85,22 @@ const Scene = (() => {
     }
     // air tint volume, energy screen, roof vent
     h.tint = box(HW - 0.2, WALL - 0.2, HD - 0.2, basic(0x5aa0ff, { transparent: true, opacity: 0, depthWrite: false })); h.tint.position.y = WALL / 2; G.add(h.tint);
-    h.screen = box(HW - 0.1, 0.05, HD - 0.1, lambert(0xd8c79a)); h.screen.position.y = WALL - 0.08; G.add(h.screen);
-    h.vent = box(HW / 2 - 0.6, 0.08, 3, lambert(0xdfeee9)); h.ventPivot = new THREE.Group(); h.ventPivot.position.set(0.1, WALL + RIDGE - 0.05, 2);
-    h.vent.position.x = HW / 4 - 0.3; h.ventPivot.add(h.vent); G.add(h.ventPivot);
+    h.screen = box(HW - 0.1, 0.05, HD - 0.1, lambert(0xd8c79a, { transparent: true, opacity: 0.4, depthWrite: false })); h.screen.position.y = WALL - 0.08; G.add(h.screen);
+    // roof vents: small glass windows hinged at the ridge, lying flush on the slope when shut
+    h.vents = [];
+    const ventMat = lambert(0xcfe9f2, { transparent: true, opacity: 0.55 }), ventEdge = new THREE.LineBasicMaterial({ color: 0xdfeee9 });
+    [[-4.5, 1], [0, -1], [4.5, 1]].forEach(([vz, side]) => {
+      const pivot = new THREE.Group(); pivot.position.set(0, WALL + RIDGE + 0.03, vz);
+      const pane = box(1.8, 0.06, 2.2, ventMat); pane.position.x = side * 0.95; pivot.add(pane);
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(pane.geometry), ventEdge); edge.position.copy(pane.position); pivot.add(edge);
+      pivot.userData.side = side; G.add(pivot); h.vents.push(pivot);
+    });
     // lamps with light cones and one point light
-    h.lampMat = lambert(0x4a4f5a, { emissive: 0x000000 });
+    h.lampMat = basic(0x3a3f48); const housing = lambert(0x2b2f38);
     h.coneMat = basic(0xffe680, { transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     for (const lx of [-2.5, 2.5]) for (const lz of [-4.5, 0, 4.5]) {
-      const l = box(0.9, 0.18, 0.5, h.lampMat); l.position.set(lx, WALL - 0.25, lz); G.add(l);
+      const l = box(0.8, 0.14, 0.36, housing); l.position.set(lx, WALL - 0.45, lz); G.add(l);
+      const bulb = box(0.6, 0.04, 0.22, h.lampMat); bulb.position.set(lx, WALL - 0.54, lz); G.add(bulb);
       const c = new THREE.Mesh(new THREE.ConeGeometry(1.6, WALL - 0.4, 6, 1, true), h.coneMat); c.position.set(lx, (WALL - 0.4) / 2, lz); G.add(c);
     }
     h.light = new THREE.PointLight(0xffe7a0, 0, 14); h.light.position.set(0, WALL - 0.6, 0); G.add(h.light);
@@ -251,9 +260,10 @@ const Scene = (() => {
     // houses
     for (const id of ids) {
       const H = houses[id], c = f.c[id], lampK = clamp(c.lamp / (meta.maxLamp[id] || 1), 0, 1);
-      H.lampMat.emissive = col(lampK > 0.02 ? 0xfff1a0 : 0x000000); H.coneMat.opacity = 0.1 * lampK; H.light.intensity = lampK * 1.4;
+      H.lampMat.color = col(lampK > 0.02 ? 0xffd25a : 0x3a3f48); H.coneMat.opacity = 0.1 * lampK; H.light.intensity = lampK * 1.4;
       H.screen.visible = !!c.screen;
-      H.ventPivot.rotation.z = -clamp(c.vent / 100, 0, 1) * 0.6;
+      const open = clamp(c.vent / 100, 0, 1) * 0.7;
+      for (const v of H.vents) v.rotation.z = -v.userData.side * (SLOPE - open);
       const cold = clamp((c.sp_night - 1 - c.t) / 6, 0, 0.3), hot = clamp((c.t - c.sp_day - 3) / 8, 0, 0.25);
       H.tint.material.color = col(cold > 0 ? 0x5aa0ff : 0xff5a3c); H.tint.material.opacity = Math.max(cold, hot);
       const hk = clamp(c.heat / (meta.maxHeat[id] || 1), 0, 1) * (0.85 + 0.15 * Math.sin(t * 4));
