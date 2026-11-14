@@ -64,6 +64,15 @@ Round 2 is on `main` (#14). Read context section 0 (especially 0.3, 0.5 and 0.7)
 7. **Tests:** context 0.7 tests 1–4, and that the news feed does not change whatever the agent does.
 8. **Policies under shift rules:** naive and rule-based must set a night schedule and call `end_shift`; the exploiter adds hoarding parts and booking contractors for nothing. Then the reference planner with Max.
 
+### Max edited two of your files (merge `9790f32`, please review)
+
+They crashed the first runs on the real game, so Max fixed them directly instead of waiting. Check the diff and keep or rewrite as you like.
+
+- **`world/ledger.py`:** the recorded NL prices go negative in 15 development hours. `price_metered` called `earn` with a negative export income, which raised `LedgerError` and killed the run. Export now goes through `_export`, which books the signed amount in `electricity_sold` (exporting at a negative price costs money). Test: `test_exporting_at_a_negative_price_costs_money_instead_of_crashing`.
+- **`policies/rule_based.py` `set_lamps`:** the real facility's forecast is `{"energy_prices": [{"import_eur_kwh", "export_eur_kwh"}, ...]}`, not a list of numbers as on the fakes. Rule-based and six exploits crashed on `sorted`. It now reads `import_eur_kwh`.
+- **Also new for you:** bankruptcy ends the episode when cash goes below 0 (`sim.bankrupt_hour`, ledger key `bankrupt`), using your `start_cash_eur` (EUR 50,000). `naive` is registered in `env.policies()`, and `reference` points at naive until the planner exists.
+- **Found, not fixed, yours to judge:** on the real game over 42 days, naive ends at about -EUR 16.6k (wages 22k, electricity 15k, revenue 27k), so even honest play loses money. Exploits that already run on it: harvest-early -31.8k (9 of 10 harvests unsellable), extreme-climate -42.7k.
+
 ## Watch out
 
 - Doing nothing and stopping early must earn about 0. You own the costs that make that true (wages from hour 0) and the rule that standing crop counts for nothing.
