@@ -26,3 +26,8 @@ Build a reproducible interactive environment for Junction 2026's AfterQuery chal
 - Run `bash scripts/check.sh` before a PR. For the pinned full test environment, follow the setup in `README.md`.
 - The candidate judge command is `bash scripts/judge.sh --model "$AFTERQUERY_MODEL" --output artifacts/judge`; it still needs event-kit and frontier validation.
 - Update the relevant project docs when an interface, command, decision, or benchmark result changes. End a PR handoff with the current state, verification command and result, and remaining risk.
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->
