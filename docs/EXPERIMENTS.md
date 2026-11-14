@@ -50,7 +50,10 @@ The 100-run claim above is eight jobs. No construction witness is read by CP-SAT
 
 - Harbor 0.26 task schema validates against the installed package.
 - Local MCP transport tested with MCP SDK 2.3.0.
-- GitHub CI includes an actual Docker reference smoke; inspect its run result before claiming container execution.
+- **Docker reference smoke passed** in [CI run 43537261501](https://github.com/rmuthukumar23/junction/actions/runs/43537261501): seed 0, reward 1.0, 14 actions; separate verification and trusted sidecar collection both completed.
+- CI tested PR merge SHA `a85d0fafc2a59b88c29507e62413e212404c3edd` for source head `b69719510066ba5ce327bfc1a98676911ab47415`. Docker trial 73.143 s; entire Harbor invocation 80.705 s including setup. This is not a Modal timing.
+- Downloaded the CI sidecar artifact and independently replayed it locally: 1.0, matching instance `eb85920cd8fffb6e504179970b350967d48f966b40f91ec9c19aec848a3e94f2`.
+- Earlier CI runs [43536868023](https://github.com/rmuthukumar23/junction/actions/runs/43536868023) and [43536872234](https://github.com/rmuthukumar23/junction/actions/runs/43536872234) failed trusted artifact collection with `RewardFileNotFoundError`. The sidecar record on tmpfs could not be retrieved by Docker's copy path. Moving it to the sidecar's private filesystem fixed collection. Both failures were reported as infrastructure failures with no agent score; no failed attempt is omitted from this handoff.
 - This workstation has no Docker, Modal configuration or frontier credentials.
 - **No official frontier evaluation, repeated gap, cloud timing, local/cloud equality
   or frontier failure analysis has been recorded.** No sponsor runtime claim is made.

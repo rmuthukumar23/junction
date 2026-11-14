@@ -48,7 +48,7 @@ flowchart LR
   Provider rate limits and other infrastructure failures are retained separately.
 
 This is the intended container boundary; schema and local transport tests alone
-are not an adversarial proof. GitHub's Docker smoke tests the runtime path. Finish
+are not an adversarial proof. GitHub's [Docker smoke passed](https://github.com/rmuthukumar23/junction/actions/runs/43537261501) with reward 1.0, trusted sidecar collection and separate verification. Finish
 with the event's 15-minute shell/file/protocol exploit session before submission.
 
 ## Commands
