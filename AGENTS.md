@@ -4,7 +4,7 @@ Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing.
 
 ## Goal and status
 
-Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Root Cause, a lettuce greenhouse incident-response task (`docs/GREENHOUSE.md`), served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). No model has played the current version. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` and `docs/EXPERIMENTS.md` for the harness and evidence.
+Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Root Cause, a lettuce greenhouse incident-response task (`docs/GREENHOUSE.md`), served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). An earlier 14-day tomato version showed no gap: Gemini 4 Hydrogen beat its reference in 4 of 4 full seasons (`docs/EXPERIMENTS.md`), which motivated this redesign. No model has played the current version. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` and `docs/EXPERIMENTS.md` for the harness and evidence.
 
 ## Working together
 

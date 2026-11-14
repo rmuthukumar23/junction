@@ -89,3 +89,55 @@ Record:
 - each trial's reward, profit and failure modes (`analysis.md`);
 - the duration;
 - any infrastructure failures, kept separate from agent failures.
+
+## Earlier tomato version: first model runs, Gemini 4 Hydrogen · 2026-11-14
+
+*Recorded on `main` (commit `5c48e2f`) for the 14-day tomato version, before the lettuce redesign. Kept because it is why the task was redesigned: the reference was too weak, and a 14-day season took 15–26 minutes at about 18 s per tool call.*
+
+**Result: no gap. Every Hydrogen attempt that played a full season scored above the
+reference (4 of 4, on 2 seeds).** The reference is not the stronger player on this task.
+
+Code `4c8a16e` with uncommitted changes to docs, `.env.example` and `scripts/judge.sh` only;
+bundle `6bd5004b21948f40` for both seeds (no task code changed). Fedora, Podman 5.8.9,
+podman-compose 1.6.0, Harbor 0.26.0, OpenCode 1.19.5, model `google/gemini-4-hydrogen`
+(Google AI Studio key). Development seeds 7 and 2; held-out seeds not used.
+
+```bash
+ENVKIT_SCENARIO=root-cause bash scripts/judge.sh --model google/gemini-4-hydrogen \
+    --runs 1 --seeds 7 --backend podman --output artifacts/rootcause/gap/pilot-s7
+# then, in parallel, with an 18-minute agent limit to fit a 30-minute session:
+harbor run --path tasks/root-cause-s7 --env podman --agent opencode --model google/gemini-4-hydrogen \
+    --agent-kwarg version=1.19.5 --agent-timeout-multiplier 0.30 \
+    --ae 'GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}' --n-attempts 4 --n-concurrent 4 ...
+# same for seed 2 (task built with envkit.harbor.build_task, 2 attempts), plus
+# oracle / nop / oracle ENVKIT_POLICY=stop-early on both seeds
+uv run --no-sync envkit replay root-cause <trace.jsonl> --seed <s>   # re-score any trace
+```
+
+| Seed | Run | Reward | Days | Tests | Calls | Agent limit | Wall time |
+|---|---|---|---|---|---|---|---|
+| 7 | reference (Harbor) | 0.6662 | 14 | 4 | 48 | – | 3.4 min |
+| 7 | do-nothing / stop-early | 0.0000 / 0.0902 | – | – | 0 / 18 | – | 1 min |
+| 7 | Hydrogen `XzFN2np` | **0.8263** | 14 | 0 | 99 | 60 min | 26.4 min |
+| 7 | Hydrogen `UEaxrqa` | **0.7071** | 14 | 4 | 53 | 18 min | 14.8 min |
+| 7 | Hydrogen `hX4qjRr` | **0.7122** | 14 | 4 | 50 | 18 min | 16.6 min |
+| 2 | reference (Harbor) | 0.7612 | 14 | 4 | 48 | – | 1.1 min |
+| 2 | do-nothing / stop-early | 0.0000 / 0.1958 | – | – | 0 / 18 | – | 1 min |
+| 2 | Hydrogen `2aKiKQW` | **0.7979** | 14 | 4 | 50 | 18 min | 14.9 min |
+
+- Every scripted run matched its calibration exactly. Each Hydrogen reward above was written
+  by the Harbor verifier and reproduced exactly by `envkit replay` of the sidecar trace
+  ("replay consistent: True"); no plan was rejected.
+- Seed 7: Hydrogen mean 0.749 over 3 full seasons (range 0.707–0.826) against a reference of
+  0.666. The attempt that never ordered a test scored highest.
+- Three more attempts were stopped by the operator at 12:38 (not by the agent or the
+  harness) and are **not** agent results: seed 2 at 13/14 days (0.7327 so far), seed 7 at
+  12/14 (0.5900) and 8/14 (0.3659). They are listed only so that no run is hidden.
+- Limitations: 4 complete attempts on 2 seeds, one model, Podman only, not the event kit.
+  Three of the four ran under an 18-minute agent limit; finishing in 15–17 min, they were
+  not cut off. The stopped attempts were slower, so the completed sample may favor fast
+  runs.
+
+What it means for the task: as built, the reference planner (one-step grid search on
+a point forecast) is weaker than this model. Claiming a gap needs a stronger reference
+(or a harder instance) first; see GREENHOUSE "Comparators" for its known weaknesses.
