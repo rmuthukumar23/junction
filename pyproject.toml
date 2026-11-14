@@ -1,9 +1,18 @@
 [project]
 name = "junction-agent-environment"
-version = "0.1.0"
-description = "AfterQuery environment and reproducible evaluation for Junction 2026"
-requires-python = ">=3.11"
+version = "0.2.0"
+description = "AfterQuery Shift Planner and reproducible evaluation for Junction 2026"
+requires-python = ">=3.12"
 dependencies = []
+
+[project.optional-dependencies]
+eval = ["ortools==9.15.6755"]
+mcp = ["mcp==2.3.0"]
+harbor = ["harbor[modal]==0.26.0"]
+
+[project.scripts]
+shift-planner = "junction_env.evaluation:main"
+shift-planner-mcp = "junction_env.adapters.mcp_server:main"
 
 [build-system]
 requires = ["setuptools>=68"]

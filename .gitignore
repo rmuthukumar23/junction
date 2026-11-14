@@ -9,3 +9,4 @@ __pycache__/
 artifacts/
 *.log
 .DS_Store
+*.egg-info/
