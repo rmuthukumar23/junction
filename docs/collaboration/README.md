@@ -16,7 +16,10 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 - `src/greenhouse/contracts.py`: every type that crosses between two people's modules (`ClimateSample`, `BatchState`, `GrowthModel`, `HarvestResult`, `LedgerEntry`, `Metered`, `EquipmentEffect`, `Alarm`).
 - `src/greenhouse/config/base.py`: `Table` (strict TOML reader: missing, stray and out-of-range keys fail with file and key), `Range` (hidden per-seed parameter), `resolve`, `ranges`, `ConfigError`.
 - `src/greenhouse/config/curves.py`: `parse_curve` and the curve kinds `cardinal`, `saturating`, `linear_above`, `linear_below`, `piecewise`.
-- `envkit`, unchanged: engine, MCP server, verifier, Harbor build, audit.
+- `src/greenhouse/config/loader.py`: reads a scenario's data files, applies overrides, calls each owner's `parse_*` and draws hidden parameters per seed.
+- `src/greenhouse/world/sim.py`, `views.py`, `env.py`: the simulator and every tool of spec 5, wired against `FacilityModel`, `BusinessModel` and `GrowthModel` in `contracts.py`.
+- `tests/greenhouse/fakes.py` + `tests/greenhouse/fixtures/fake-winter.toml`: toy versions of all three subsystems, so the whole game runs end to end today. **Use them to test your module in context, and copy their shape (not their numbers).** Swap a fake for your real module by having `world/modules.py:build` find it. That needs no change to sim or env.
+- `envkit`: engine, MCP server, verifier, Harbor build, audit. New: `close_windows(n)` for multi-hour advances and `data_files()` for bundling data.
 
 ## Rules that keep us out of each other's way
 
@@ -48,7 +51,7 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 
 | Person | Branch | Last PR | State |
 |---|---|---|---|
-| Max | | | |
+| Max | `max/workstream-0` | envkit advance + data bundling, loader, sim/views/env on fakes | Done and tested. Next: scenario file once real modules land; reference planner |
 | Lucas | | | |
 | Emre | | | |
-| Rowan | | | |
+| Rowan | `rowan/operations` | Operations, events, ledger, outcome | Tasks 1–6 done with tests; policies wait for `env.py` tool stubs |

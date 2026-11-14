@@ -19,7 +19,8 @@ You own everything about running the business: the market, orders that arrive da
 
 ## What you provide, and to whom
 
-- `Operations`, `Events` and `Ledger` objects that Max's `sim.py` calls each hour. Propose their entry points in your first PR, for example `ops.end_hour(hour) -> list[Alarm]`, `ops.queue(task)`, `events.due(hour) -> list[EquipmentEffect | Alarm]`, `ledger.record(entry)`.
+- **One object implementing `BusinessModel` (in `contracts.py`)**, built by `build_business(market, events, crop_ids, equipment_ids, horizon_h, rng)` in `world/operations.py`. `sim.py` already calls it: `start_hour` (events due), `end_hour(hour, metered)` (price energy, wages, task progress, deliveries), `place_order`, `cancel_order`, `hire`, `release`, `take_seedlings`, `queue_task`, `sell`, `cash_eur`, `profit_eur`, `totals`, `view`, `rules`. Inside it, split operations, events and ledger however you like. `tests/greenhouse/fakes.py` (`FakeBusiness`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
+- Staff, start cash and starting seedling stock live in the market file (yours). The CO2 store level is physical and belongs to the facility (Emre): a CO2 `Delivery` you return is passed to `facility.receive_co2` by `sim.py`.
 - `outcome.ledger(sim) -> dict[str, float]` with `profit_eur` (the scored metric) plus `fm_*` evidence fields. Max wires it into `env.py`.
 - The policies Max registers in `env.policies()`.
 
@@ -33,7 +34,7 @@ What you consume: `HarvestResult` (from Lucas) and `Metered` (from Emre). Write 
 4. **Staff and tasks.** A daily worker-hour pool from crew × hours per day. Tasks consume hours in queue order and wait when the pool is empty. Hiring arrives after notice days with a fee. Test: a harvest queued with no hours left completes the next day.
 5. **Events.** Draw the schedule at episode start from `rate_per_day`, on its own stream, so agent actions can't change it. Each event yields an `EquipmentEffect` and an `Alarm`. A repair shortens the outage at a cost in money and worker-hours.
 6. **Outcome.** `profit_eur`, and `fm_*` fields read after the run: days CO2 stock was empty, harvests that waited, unsellable harvests, kWh bought at peak price, events handled late.
-7. **Policies** (after Max lands the `env.py` tool stubs; tool names are in spec 5): `naive` and `rule_based` as described in spec 9, using only `client.call(tool, args)`. Then `exploiter`: one sub-policy per exploit in spec 8, each of which must score about 0.
+7. **Policies.** The tools already exist in `src/greenhouse/env.py` and run on fakes: develop against `tests/greenhouse/fixtures/fake-winter.toml` (see `tests/greenhouse/test_sim_env.py` for how to drive an `Episode`). `naive` and `rule_based` as described in spec 9, using only `client.call(tool, args)`. Then `exploiter`: one sub-policy per exploit in spec 8, each of which must score about 0.
 8. **Reference planner** (with Max, phase 3): rule-based plus a 48-hour look-ahead.
 
 **Done when:** ledger, ops and events have tests; profit is reproducible bit for bit; naive < rule-based in profit on seeds 1–3; the exploiter scores at most 0.05.

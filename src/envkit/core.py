@@ -97,6 +97,25 @@ class Environment:
         self.config = config
         self.shift = shift
         self.rng = rng
+        self._windows_requested = 0
+
+    def close_windows(self, n: int) -> None:
+        """Ask the engine to close `n` windows (counting the current one) after the
+        tool that calls this returns successfully. Lets one call advance the clock
+        several windows, e.g. `advance(hours=5)` with one window per hour. The
+        world must already have been advanced by the tool itself, or
+        `on_window_end` must do it; the engine only moves its clock. Ignored if
+        the tool raises."""
+        if n < 1:
+            raise ValueError("close_windows needs n >= 1")
+        self._windows_requested = int(n)
+
+    @classmethod
+    def data_files(cls, config: dict[str, Any]) -> list[str]:
+        """Paths, relative to the project root, of data files this configuration
+        reads. They are copied into the task bundle and covered by its hash, so
+        changing one makes calibration stale."""
+        return []
 
     # -- lifecycle hooks -------------------------------------------------------
 
@@ -246,11 +265,13 @@ class Episode:
             except ArgumentError as e:
                 error = {"code": "invalid_arguments", "message": str(e)}
             else:
+                self.env._windows_requested = 0
                 try:
                     result = spec.handler(**kwargs)
                     ok = True
                     spent = spec.cost
                 except ToolError as e:
+                    self.env._windows_requested = 0
                     error = {"code": "tool_error", "message": str(e)}
                     spent = spec.cost if e.spend else 0
                 except Exception:  # a bug in the environment, never the agent's fault
@@ -271,8 +292,15 @@ class Episode:
             self.ops_used += spent
             self.ops_left -= spent
             self.acted[self.window] = True
+            requested = self.env._windows_requested if ok else 0
+            self.env._windows_requested = 0
+            closed = 0
             if name == "end_window" or self.ops_left <= 0 or self.env.terminated():
                 self._close_window()
+                closed = 1
+            while closed < requested and not self.done:
+                self._close_window()
+                closed += 1
         elif code == "insufficient_ops":
             self.rejected += 1
         if code != "episode_over":

@@ -180,13 +180,9 @@ heat_c = 5.0                   # frost protection
 vents = "closed"
 co2_ppm = 0                    # no dosing
 lamps = "off"
-
-[staff]
-start_workers = 3
-hours_per_worker_day = 8
 ```
 
-Which crop grows where, and how many compartments there are, is facility data. Going to three compartments is a third `[[compartments]]` table.
+Staff (`start_workers`, `hours_per_worker_day`), start cash and starting seedling stock are in the market file (3.4), because the business owns them. Which crop grows where, and how many compartments there are, is facility data. Going to three compartments is a third `[[compartments]]` table.
 
 ### 3.3 Climate (`data/climates/*.toml`)
 
