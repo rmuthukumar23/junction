@@ -57,5 +57,6 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 |---|---|---|---|
 | Max | `max/round-3` | Round 3 decisions written up (context 0, spec 14) | Real game runs end to end (42 days, 1.6 s). Next: contracts PR, shift clock, facility dispatch, scenario |
 | Lucas | `lucas/crops` | Crop schema, `leafy_vanhenten`, lettuce, basil (tasks 1–8); round 2 | Round 2 done and merged: four planning methods, grades, in-game test, D5 and D8 research. Next: spec 3.1 without `seedling_cost_eur` (Max) |
+| Lucas | `lucas/judge-ready` | Integration: scenario, reference planner, registered ladder, Harbor tasks, three fixes (negative prices, plant rounding, hidden event values) | Judge path works on the rules on `main` (not round 3): reference 0.80, rule-based 0.26, naive 0.12, nobody 0 on seeds 1–3; audit passes on seed 1. Touches Max's and Rowan's files: see DECISIONS "Integration". Next: model runs |
 | Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Merged (#13; recorded data in #15). Round 3: away; files held by Max and Lucas |
 | Rowan | `rowan/round-2` | Round 2: business fixes, CO2 cleanup, policies, D5 values | Policies on fakes done; ranking and exploiter bound wait for real crops and facility |

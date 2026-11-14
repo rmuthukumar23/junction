@@ -1,59 +1,161 @@
 # Greenhouse Bench
 
-An AfterQuery "Break the Agent" environment for Junction 2026. An agent runs a
-winter greenhouse facility for 42 simulated days: one shared energy centre (CHP,
-boiler, heat buffer, CO2 supply, grid connection) feeding several compartments,
-each with its own climate and crop in staggered batches. It also runs the
-operation: CO2 and seedling orders with lead times, staff, and harvests. The score
-is net profit in EUR, calibrated against a hand-written reference planner.
+An AfterQuery "Break the Agent" environment for Junction 2026. An agent runs a Dutch
+winter greenhouse facility for 42 simulated days and is scored on net profit.
 
-Crops, facilities, climates, markets and events are data files under `data/`, so
-a new vegetable or facility is a new file, not new code.
+One energy centre (gas CHP, gas boiler, heat buffer, CO2 store, grid connection) serves
+two compartments: butterhead lettuce in A, basil in B, each in batches of different
+ages. The agent sets climate and energy settings, orders CO2 and seedlings that arrive
+days later, hires staff with a notice period, and queues planting, harvests and repairs
+that use the crew's worker-hours. Weather and energy prices are recorded Dutch series
+(KNMI De Bilt, day-ahead electricity, TTF gas), the same for every agent on a seed.
 
-**Status (14 Nov 2026): being rebuilt.** The previous environment (Root Cause,
-a six-day salt incident) has been removed. The evaluation backend `src/envkit` is
-unchanged and tested. The greenhouse itself is specified but not built yet:
+Crops, the facility, the climate, the market and events are data files under `data/`,
+so a new vegetable or facility is a new file, not new code.
 
-- Background and reasoning: [docs/GREENHOUSE_BENCH_CONTEXT.md](docs/GREENHOUSE_BENCH_CONTEXT.md)
-- Build spec, interfaces and work split: [docs/GREENHOUSE_SPEC.md](docs/GREENHOUSE_SPEC.md)
+## Why this setting
 
-No model has played it, and no gap has been measured.
+Running a greenhouse well is planning under lead times, with trade-offs that only show
+days later. Every fact needed is in `get_rules` (the growth equations, prices, lead
+times, staff rules, event rates), so nothing is withheld. What is hard is using it:
+
+- **Light is the main lever and it cuts both ways.** Lettuce loses quality above a
+  published daily light limit; basil has no such limit. Lamps flat out doubles revenue
+  and grades the lettuce as waste.
+- **Decisions that cannot be made late.** Seedlings take a week and a crop may only be
+  planted while it can still finish, so replanting has to be ordered before the space is
+  free.
+- **Harvest timing is in the rules, not in the alarm.** A crop sold by weight keeps
+  growing after the "ready" alarm and keeps its top grade for a published number of
+  days; a harvest takes days of crew time and must finish before the grade drops.
+- **Labour is a queue.** Tasks run in order on a fixed pool of worker-hours, and hiring
+  has a notice period, so the last harvests must be staffed in advance.
+- **Energy is a system.** The CHP makes lamp power, heat and CO2 from gas; whether that
+  pays depends on hourly prices that sometimes go negative.
 
 ## Run it
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and either Docker or
-Podman running, or a Modal login.
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and Docker or Podman running.
 
 ```bash
-bash scripts/quick.sh                      # first time: creates .env and asks for your key
-bash scripts/quick.sh                      # one model attempt through Harbor + OpenCode
-bash scripts/judge.sh --output artifacts/judge-1                    # full judging protocol, local Docker
-bash scripts/judge.sh --backend modal --output artifacts/judge-1    # the same, on Modal
+bash scripts/judge.sh --output artifacts/judge-1
 ```
 
-The model id comes from `AFTERQUERY_MODEL` in `.env`. `judge.sh` runs the
-reference, the model attempts, do-nothing and stop-early, and fails if a scripted
-run does not reproduce its calibrated score. Local Docker and Modal run the same
-generated task; only `--backend` differs ([docs/MODAL.md](docs/MODAL.md)).
-
-Checks that need no Docker and no key:
+That one command runs the judging protocol through Harbor on every committed seed: the
+reference run, a do-nothing baseline and a stop-early baseline, and fails if any of them
+does not reproduce its calibrated score. With a model it also runs three agent attempts
+through OpenCode:
 
 ```bash
-bash scripts/check.sh                      # unit tests (plain Python)
-uv run --no-sync bash scripts/check.sh     # + backend tests, task freshness, reward audit
+cp .env.example .env        # put your provider key in it; it is git-ignored
+bash scripts/judge.sh --model google/gemini-4-hydrogen --output artifacts/judge-2
+bash scripts/judge.sh --seeds 101 --output artifacts/judge-3     # a held-out evaluation seed
+bash scripts/quick.sh                                            # one agent attempt, then the report
 ```
+
+Checks that need no containers and no key:
+
+```bash
+uv sync --locked --extra eval --extra mcp --extra harbor
+uv run --no-sync python -m pytest tests -q         # unit, scenario, ladder and integrity tests
+uv run --no-sync envkit anchors normal-winter      # every scripted policy's score, per seed
+uv run --no-sync envkit audit normal-winter        # reward-integrity audit
+uv run --no-sync envkit play normal-winter         # play it yourself in the terminal
+```
+
+Each committed seed is also a plain Harbor task: `harbor run -p tasks/normal-winter-s1 -a opencode -m <provider/model>`.
+
+## The score
+
+`score = clip(0.8 × (profit − profit_nobody) / (profit_reference − profit_nobody), 0, 1)`
+
+`profit_nobody` is the profit when nobody acts on that seed (the facility keeps its
+baseline settings, wages and energy are paid, nothing is harvested). The reference
+planner sits at 0.8, which leaves headroom above it. The constants per seed are in
+`calibration.json`, and the verifier recomputes the profit by replaying the agent's
+recorded calls in a fresh container. Nothing else is scored.
+
+## Results
+
+Scripted policies, played in-process (`envkit anchors`; SHA and commands in
+[DECISIONS](docs/DECISIONS.md)). Profit in EUR, score in brackets.
+
+| Seed | Nobody acts | Naive | Rule-based | Stop-early | Reference |
+|---|---|---|---|---|---|
+| 1 (dev) | −41,343 (0) | −16,576 (0.12) | 11,237 (0.26) | −18,277 (0.11) | 122,142 (0.80) |
+| 2 (dev) | −43,026 (0) | −14,511 (0.13) | 10,266 (0.25) | 16,466 (0.28) | 126,984 (0.80) |
+| 3 (dev) | −41,167 (0) | −18,707 (0.13) | 681 (0.24) | 6,100 (0.27) | 99,642 (0.80) |
+| 101 (held out) | −53,837 (0) | −31,241 (0.12) | −7,533 (0.24) | −8,730 (0.23) | 103,931 (0.80) |
+| 104 (held out) | −52,918 (0) | −29,299 (0.13) | −6,565 (0.25) | −34,063 (0.10) | 96,148 (0.80) |
+| 107 (held out) | −52,894 (0) | −30,170 (0.11) | −4,333 (0.24) | −36,706 (0.08) | 106,565 (0.80) |
+
+The same order holds on all six development seeds and all eight held-out seeds (101–108,
+separate recorded weather and price windows, never used for tuning): naive 0.11–0.21,
+rule-based 0.22–0.29, stop-early 0.08–0.28, reference 0.80.
+
+- **Naive** sets the crop files' target temperatures and CO2 and harvests on the ready
+  alarm. **Rule-based** adds lamps in cheap hours, reorder levels, repairs and hiring.
+- **Reference** ([src/greenhouse/policies/reference.py](src/greenhouse/policies/reference.py))
+  plays through the same tools as the agent, in about 250 of the 400 calls. It measures
+  the lamps in the first hour, holds lettuce just under its light limit, runs lamp power
+  from the CHP, orders seedlings in the first hour, times each basil cut to finish
+  before the grade drops, and hires ahead for the last harvests. Its choices were tuned
+  on development seeds 1–6 only.
+- **Stop-early** is the reference for the first 30% of the hours, then nobody.
+
+**Frontier agent: not measured yet.** See [DECISIONS](docs/DECISIONS.md) for the state of
+the model runs. No gap is claimed until three agent runs exist.
+
+## Reward integrity
+
+`envkit audit normal-winter` plays the strategies a judge would try and fails if any pays
+(seed 1 shown; it runs on every committed seed in `scripts/check.sh`):
+
+| Strategy | Score |
+|---|---|
+| Do nothing; show up daily and change nothing | 0.00 |
+| Reference cut off after 4%, 10%, 30%, 50%, 70%, 90% of its calls | 0.00, 0.00, 0.11, 0.40, 0.68, 0.797 |
+| Random calls (5 seeds) | at most 0.03 |
+| Spam any single tool (16 tools) | 0.00 |
+| Harvest everything every day | 0.05 |
+| Never harvest; spam orders; extreme heat and CO2 | 0.00 |
+| Spam repairs | 0.07 |
+| Rule-based plus: cut heat at the end, plant late, CHP flat out | 0.26, 0.27, 0.28 (rule-based alone: 0.26) |
+
+Why they fail: standing crop is worth nothing; produce under the minimum sellable weight
+sells for nothing; wages are charged from hour 0; stopping keeps the last settings with
+nobody harvesting, so stopping is never better than playing on; a refused call changes
+nothing; every order, hire and repair costs money. Running the CHP flat out adds a
+little because CHP power is simply good play here, and the reference uses it too.
+
+Trust boundary: the agent's container holds no scenario, seed or engine. The world runs
+in a sidecar reachable only over MCP, and a separate verifier container replays the
+recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
+
+## Known limits
+
+- **Built on the rules on `main`, not round 3.** The team's pinned redesign (day shift
+  06:00–18:00 with a night schedule, contractors and parts, news signals;
+  [context section 0](docs/GREENHOUSE_BENCH_CONTEXT.md)) is not in the code. Here the agent
+  may act at any hour and a fault is fixed with `repair`.
+- **Lettuce sells per head at any weight above the minimum.** Cutting at the minimum
+  sellable weight earns as much per head as waiting, and the reference does it. Weight
+  grades would change that; it is an open question for the crop and market files.
+- **Basil carries the profit.** Lettuce is close to break-even under lamps in January.
+- **One model result is not a gap.** The rubric needs three agent runs.
+- **Official kit.** Harbor 0.26.0 and OpenCode 1.19.5 are pinned; AfterQuery's own starter
+  kit has not been run against this task.
 
 ## Repository map
 
 | Path | Purpose |
 |---|---|
-| `src/envkit/` | Evaluation backend: episode engine, MCP server, trace-replay verifier, Harbor task generator, calibration, audit, judge ([BACKEND](docs/BACKEND.md)) |
-| `src/envs/` | Small test fixtures for envkit (depot, strict); not part of the submission |
-| `src/greenhouse/` | The greenhouse environment (to be built; see the spec) |
-| `data/` | Crop, facility, climate, market and event data files (to be built) |
-| `scenarios/` | Scenario files; each becomes a Harbor task |
+| `src/greenhouse/` | The environment: tools (`env.py`), simulator (`world/`), data schemas (`config/`), scripted policies (`policies/`) |
+| `data/` | Crop, facility, climate, market, energy-price and event files, with sources |
+| `scenarios/normal-winter.toml` | The task: prompt, clock, data files, scoring, seeds |
 | `tasks/`, `calibration.json` | Generated by `envkit build`; committed; do not edit by hand |
-| `scripts/quick.sh`, `scripts/judge.sh` | One model attempt; the full judge command. Both read `.env` |
-| `scripts/harbor_boundary_probe.sh` | A hostile script in the agent's container; the verifier must still award 0 |
-| `tests/envkit/` | Backend tests |
+| `src/envkit/` | Evaluation backend: episode engine, MCP server, trace-replay verifier, Harbor task generator, calibration, audit, judge ([BACKEND](docs/BACKEND.md)) |
+| `src/envs/` | Small fixtures for the backend's own tests; not part of the submission |
+| `scripts/judge.sh`, `scripts/quick.sh` | The judge command; one agent attempt. Both read `.env` |
+| `scripts/check.sh` | Tests, task freshness and the reward audit |
 | `docs/` | [SPEC](docs/GREENHOUSE_SPEC.md), [CONTEXT](docs/GREENHOUSE_BENCH_CONTEXT.md), [BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md), [MODAL](docs/MODAL.md), [DECISIONS](docs/DECISIONS.md), [WORKFLOW](docs/WORKFLOW.md) |
