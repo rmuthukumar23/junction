@@ -4,8 +4,10 @@ An AfterQuery "Break the Agent" environment for Junction 2026. An agent runs a D
 winter greenhouse facility for 42 simulated days and is scored on net profit.
 
 One energy centre (gas CHP, gas boiler, heat buffer, CO2 store, grid connection) serves
-two compartments: butterhead lettuce in A, basil in B, each in batches of different
-ages. The agent sets climate and energy settings, orders CO2 and seedlings that arrive
+three compartments: broccoli microgreens in A and B, radish microgreens in C, each in
+batches of different ages. The crop set is locked to lettuce, broccoli and radish
+([docs/CROPS.md](docs/CROPS.md)); a scenario picks which compartment grows which. The
+agent sets climate and energy settings, orders CO2 and seed that arrive
 days later, hires staff with a notice period, and queues planting, harvests and repairs
 that use the crew's worker-hours. Weather and energy prices are recorded Dutch series
 (KNMI De Bilt, day-ahead electricity, TTF gas), the same for every agent on a seed.
@@ -19,9 +21,9 @@ Running a greenhouse well is planning under lead times, with trade-offs that onl
 days later. Every fact needed is in `get_rules` (the growth equations, prices, lead
 times, staff rules, event rates), so nothing is withheld. What is hard is using it:
 
-- **Light is the main lever and it cuts both ways.** Lettuce loses quality above a
-  published daily light limit; basil has no such limit. Lamps flat out doubles revenue
-  and grades the lettuce as waste.
+- **Light is the main lever.** Lamps speed growth and cost electricity at hourly prices.
+  Lettuce loses quality above a published daily light limit; the microgreens only lose
+  quality in too little light, so for them the trade-off is cost alone.
 - **Decisions that cannot be made late.** Seedlings take a week and a crop may only be
   planted while it can still finish, so replanting has to be ordered before the space is
   free.
@@ -98,8 +100,8 @@ rule-based 0.22–0.29, stop-early 0.08–0.28, reference 0.80.
 - **Reference** ([src/greenhouse/policies/reference.py](src/greenhouse/policies/reference.py))
   plays through the same tools as the agent, in about 250 of the 400 calls. It measures
   the lamps in the first hour, holds lettuce just under its light limit, runs lamp power
-  from the CHP, orders seedlings in the first hour, times each basil cut to finish
-  before the grade drops, and hires ahead for the last harvests. Its choices were tuned
+  from the CHP, orders seed in the first hour and each day for the space that frees
+  within the lead time, cuts microgreens when ready, and hires ahead for the last harvests. Its choices were tuned
   on development seeds 1–6 only.
 - **Stop-early** is the reference for the first 30% of the hours, then nobody.
 
@@ -141,7 +143,9 @@ recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
 - **Lettuce sells per head at any weight above the minimum.** Cutting at the minimum
   sellable weight earns as much per head as waiting, and the reference does it. Weight
   grades would change that; it is an open question for the crop and market files.
-- **Basil carries the profit.** Lettuce is close to break-even under lamps in January.
+- **Microgreens carry the profit, with no demand cap yet.** At the prices in the market
+  file a square metre of microgreens earns about 16 times what lettuce does, and any
+  amount sells at list price (DECISIONS, "Locked crop set").
 - **One model result is not a gap.** The rubric needs three agent runs.
 - **Official kit.** Harbor 0.26.0 and OpenCode 1.19.5 are pinned; AfterQuery's own starter
   kit has not been run against this task.

@@ -1,4 +1,4 @@
-Smoke test of a greenhouse simulator. You run a two-compartment winter greenhouse
+Smoke test of a greenhouse simulator. You run a three-compartment winter greenhouse
 for 1 day (24 one-hour windows) with 12 tool calls.
 Call get_rules once, then get_batches, harvest every batch whose status is
 "ready", and call advance with hours=12 until the episode is done.

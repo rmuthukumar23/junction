@@ -97,7 +97,10 @@ class RuleBased(ToolPolicy):
             due = [b for b in status.get("batches", []) if b["compartment"] == compartment
                    and b.get("status") in ("growing", "ready") and b.get("cuts", 0) == 0
                    and (b.get("estimate", {}).get("days_to_ready") or 0.0) <= lead_days + 1.0]
-            needed = sum(b.get("estimate", {}).get("units", 0.0) for b in due)
+            # Plants, not sale units: a crop sold by the kg reports kg in `units`.
+            density = self.rules.get("crops", {}).get(crop, {}).get("planting", {}).get("density_per_m2")
+            needed = (sum(b["area_m2"] for b in due) * float(density) if isinstance(density, (int, float))
+                      else sum(b.get("estimate", {}).get("units", 0.0) for b in due))
             if due and self.seedlings(status, crop) < needed:
                 self.call("place_order", item=item,
                           quantity=math.ceil(max(needed, self.min_order(item, self.fallback_min_order))))

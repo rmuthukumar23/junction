@@ -1,5 +1,5 @@
 # Speed-run smoke test: catches breaking changes, not a benchmark. One simulated day,
-# a few tool calls, the real facility, crops, market and events. A model run on it
+# a few tool calls, the same facility, crops, market and events as normal-winter.toml. A model run on it
 # checks the whole chain (task build, Harbor, MCP tool schemas, the agent, replay,
 # the verifier) in minutes. The submitted task is normal-winter.toml (42 days).
 #
@@ -13,7 +13,7 @@ env = "greenhouse.env:GreenhouseBench"
 seeds = [1]
 reference = "reference"
 prompt = """
-Smoke test of a greenhouse simulator. You run a two-compartment winter greenhouse
+Smoke test of a greenhouse simulator. You run a three-compartment winter greenhouse
 for ${horizon_days} day (${windows} one-hour windows) with ${max_calls} tool calls.
 Call get_rules once, then get_batches, harvest every batch whose status is
 "ready", and call advance with hours=12 until the episode is done.
@@ -26,7 +26,7 @@ ops_per_window = 1
 max_calls = 12
 
 [env]
-facility = "data/facilities/nl_two_compartment.toml"
+facility = "data/facilities/nl_three_compartment.toml"
 climate = "data/climates/nl_january.toml"
 energy_prices = "data/energy_prices/nl_winter.toml"
 market = "data/markets/nl_winter.toml"
@@ -35,8 +35,9 @@ events = ["data/events/boiler_trip.toml", "data/events/late_delivery.toml"]
 horizon_days = 1
 
 [env.overrides]
-"facility.compartments.A.start_batches" = [{age_days = 23, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
+"facility.compartments.A.start_batches" = [{age_days = 13, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
 "facility.compartments.B.start_batches" = [{age_days = 13, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
+"facility.compartments.C.start_batches" = [{age_days = 9, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
 
 # The score only shows that the agent reached the tools: the share of hours in which
 # it acted (do-nothing = 0). Profit is in the ledger but not scored here.

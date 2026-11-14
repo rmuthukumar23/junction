@@ -1,8 +1,10 @@
 # Scenario values are engineering assumptions for a Dutch winter glasshouse,
 # informed by WUR greenhouse control and CHP studies (not measured at one site):
 # https://edepot.wur.nl/520084 ; https://edepot.wur.nl/526773
+# Three compartments on one energy centre. Their floor areas add up to about the same
+# total as nl_two_compartment.toml, so the energy centre is sized as there.
 schema = "facility/1"
-id = "nl_two_compartment"
+id = "nl_three_compartment"
 
 [energy_centre.chp]
 # CHP exhaust is assumed to pass a clean CO2 capture line at this site.
@@ -88,30 +90,12 @@ co2_low_kg = 200.0
 
 # Cover U ranges and screens are simplified from WUR greenhouse heat-balance
 # modelling; thermal mass includes the structure, water pipes and crop benches.
+
+# Benches of microgreen trays; start batches at staggered ages so harvests spread out.
 [[compartments]]
 id = "A"
-crop = "lettuce_butterhead"
-floor_m2 = {min = 2500, max = 3500}
-height_m = {min = 4.5, max = 6.0}
-cover_u_w_m2_k = {min = 4.5, max = 6.5}
-cover_transmission = {min = 0.65, max = 0.78}
-solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
-leakage_ach = {min = 0.3, max = 0.8}
-wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
-thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
-max_vent_ach = 8.0
-cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
-initial_temp_c = 15.0
-initial_rh_pct = 75.0
-initial_co2_ppm = 420.0
-screen = {insulation = {min = 0.3, max = 0.5}}
-lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
-start_batches = [{age_days = 18, area_fraction = 0.25}, {age_days = 12, area_fraction = 0.25}, {age_days = 6, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
-
-[[compartments]]
-id = "B"
 crop = "broccoli_micro"
-floor_m2 = {min = 1800, max = 2400}
+floor_m2 = {min = 1450, max = 1950}
 height_m = {min = 4.5, max = 6.0}
 cover_u_w_m2_k = {min = 4.5, max = 6.5}
 cover_transmission = {min = 0.65, max = 0.78}
@@ -127,3 +111,43 @@ initial_co2_ppm = 420.0
 screen = {insulation = {min = 0.3, max = 0.5}}
 lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
 start_batches = [{age_days = 9, area_fraction = 0.25}, {age_days = 6, area_fraction = 0.25}, {age_days = 3, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
+
+[[compartments]]
+id = "B"
+crop = "broccoli_micro"
+floor_m2 = {min = 1450, max = 1950}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 10, area_fraction = 0.25}, {age_days = 7, area_fraction = 0.25}, {age_days = 4, area_fraction = 0.25}, {age_days = 1, area_fraction = 0.25}]
+
+[[compartments]]
+id = "C"
+crop = "radish_micro"
+floor_m2 = {min = 1450, max = 1950}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 6, area_fraction = 0.25}, {age_days = 4, area_fraction = 0.25}, {age_days = 2, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]

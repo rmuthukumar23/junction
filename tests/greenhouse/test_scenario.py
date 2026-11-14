@@ -60,7 +60,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(SCENARIO.shift.windows, 42 * 24)
         self.assertEqual(SCENARIO.shift.max_calls, 400)
         files = GreenhouseBench.data_files(SCENARIO.env_config)
-        self.assertEqual(len(files), 8)
+        self.assertEqual(len(files), 9)   # facility, climate, prices, market, 3 crops, 2 events
         for rel in files:
             self.assertTrue((ROOT / rel).is_file(), rel)
         registered = GreenhouseBench.policies()

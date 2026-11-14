@@ -18,12 +18,14 @@ What it does that the rule-based grower does not:
   * Power from the CHP. Lamps are the big electricity user; the CHP makes that power
     from gas, and its heat and CO2 are used too. CO2 is dosed up to the level where the
     crop's published response stops rising.
-  * Lead times. Seedlings take days to arrive and a crop may only be planted while it
-    can still finish, so seedlings for the space that will free in time are ordered in
-    the first hour.
+  * Lead times. Seedlings (or seed) take days to arrive and a crop may only be planted
+    while it can still finish, so seedlings for the space that will free in time are
+    ordered in the first hour, and again each day for the space that frees within the
+    lead time, so short cycles are resown all episode.
   * Harvest timing from the rules. A crop sold per unit is cut as soon as it is safely
     above its minimum sellable weight, which frees the space. A crop sold by weight and
-    cut repeatedly is left to grow for as long as it keeps its top grade, and each cut
+    cut once is cut when it is ready: its weight grows until then. A crop sold by weight
+    and cut repeatedly is left to grow for as long as it keeps its top grade, and each cut
     is queued so that the crew finishes it before the grade drops.
   * Labour ahead of time. Tasks run in queue order on the crew's worker-hours. It works
     out when the last harvests must start to finish inside the episode, and hires for
@@ -240,6 +242,7 @@ class Reference(Policy):
         self.staff(status, hour)
         self.harvests(status, hour, batches)
         self.planting(status, hour)
+        self.reorder_seedlings(status, hour)
         self.co2(status)
         if clock["day"] != self.planned_day and self.calls < self.call_budget - 2 * clock["hours_left"] / 24 - 30:
             self.planned_day = clock["day"]
@@ -289,12 +292,17 @@ class Reference(Policy):
         step = 24                                   # the next planning round is at most a day away
         standing = [b for b in batches if b["status"] in STANDING and not b.get("harvest_queued")]
 
-        # Sold per unit: cut once safely above the minimum sellable weight.
+        # Cut once. Sold per unit: once safely above the minimum sellable weight. Sold by
+        # weight: when ready, since the weight grows until then.
         for b in standing:
             crop = self.crops[b["crop"]]
             if crop["cycle"]["harvest_mode"] != "single":
                 continue
-            if self.plant_weight_g(b) >= float(crop["market"]["min_sellable_fresh_weight_g"]) * (1 + self.sell_margin):
+            if crop["market"]["unit"] == "kg":
+                due = b["status"] == "ready"
+            else:
+                due = self.plant_weight_g(b) >= float(crop["market"]["min_sellable_fresh_weight_g"]) * (1 + self.sell_margin)
+            if due:
                 if self.call("harvest", batch_id=b["id"]).get("ok"):
                     backlog += self.harvest_hours(b)
                     b["harvest_queued"] = True
@@ -345,6 +353,33 @@ class Reference(Policy):
             area = min(float(free), math.floor(have / float(crop["planting"]["density_per_m2"]) * 10) / 10)
             if area > 0.5:
                 self.call("plant", compartment=c, area_m2=area)
+
+    def reorder_seedlings(self, status: dict[str, Any], hour: int) -> None:
+        """Each day: order seedlings for the space that is free or frees within the lead time,
+        less what is in stock, while a planting on arrival can still finish. Compartments that
+        grow the same crop share one item, so the need is summed per item."""
+        business = status["business"]
+        stock = business.get("stock", {})
+        on_order = {o.get("item") for o in business.get("open_orders", [])}
+        need: dict[str, float] = {}
+        for c in self.compartments:
+            crop_id, crop = self.crop_in[c], self.crop(c)
+            item = f"seedlings:{crop_id}"
+            if item not in self.items or item in on_order or crop.get("cycle", {}).get("harvest_mode") != "single":
+                continue
+            lead_h = self.items[item].get("lead_time_h", 0)
+            lead_h = max(lead_h) if isinstance(lead_h, list) else float(lead_h)
+            if hour + lead_h > self.plant_deadline(crop):
+                continue
+            area = float(status["free_area_m2"].get(c, 0.0)) + sum(
+                b["area_m2"] for b in status["batches"] if b["compartment"] == c and b["status"] in STANDING
+                and (b.get("estimate", {}).get("days_to_ready") or 0.0) <= lead_h / 24.0 + 1.0)
+            need[item] = need.get(item, 0.0) + area * float(crop["planting"]["density_per_m2"])
+        for item, plants in need.items():
+            short = math.ceil(plants - float(stock.get(item, 0.0)))
+            if short > 0:
+                self.call("place_order", item=item,
+                          quantity=max(short, math.ceil(float(self.items[item].get("min_quantity", 0)))))
 
     def co2(self, status: dict[str, Any]) -> None:
         store = status.get("readings", {}).get("energy_centre", {}).get("co2_store_kg")

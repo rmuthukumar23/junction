@@ -76,6 +76,8 @@ They crashed the first runs on the real game, so Max fixed them directly instead
 ### Max edited your market file and tests (branch `max/locked-crops`, please review)
 
 - `data/markets/nl_winter.toml`: basil out; `[crops.broccoli_micro]` EUR 30/kg and `[crops.radish_micro]` EUR 22/kg; seed as `seedlings:broccoli_micro` / `seedlings:radish_micro`, priced per seed (EUR 0.00014 / 0.00015), 72 h lead time, minimum about 5 kg of seed. No demand cap yet: that is still yours (DECISIONS, "Locked crop set").
+- `policies/reference.py` (shared with Max): cuts a single-cut crop sold by kg when ready, and reorders seedlings every day for the space that frees within the lead time (`reorder_seedlings`). `policies/rule_based.py`: seedling orders count plants (area × density), not sale units. Watch the reference's call count on 42 days: the daily orders add about two calls a day.
+- **Your next run, on this branch:** `bash scripts/quick.sh`; one model on the smoke task (docs/MODAL.md); then the benchmark checks (`ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q`, `envkit build normal-winter`, `envkit audit`). Open for you: a demand cap or lower microgreen prices, and whether the ladder still orders reference > rule-based > naive > 0.
 - Crop id `basil_genovese` replaced by `broccoli_micro` in `test_business.py`, `test_ops.py`, `test_ops_business.py`, `test_ops_market.py`, `test_policies.py`.
 
 ## Watch out
