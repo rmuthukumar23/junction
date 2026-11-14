@@ -33,6 +33,13 @@ DeprecationWarnings are harmless. If output shows odd characters, set `PYTHONIOE
 reference once through Harbor on Modal. The earlier standalone load tests under `test/`
 were removed after they had served their purpose; their results are below.
 
+For Modal runs, the judge uses the host Python's trusted CA certificates. If that Python
+loads no CAs (as can happen with a fresh python.org macOS install), it gives only the
+Harbor subprocess the pinned `certifi` bundle through `SSL_CERT_FILE`. It does not alter
+the shell or disable TLS verification. An existing `SSL_CERT_FILE` or `SSL_CERT_DIR`
+takes precedence; fix or unset an invalid path. If certificate verification still fails,
+check whether your network requires a private CA and configure that CA explicitly.
+
 ## Visibility
 
 All workspace members see every app and container at <https://modal.com/apps/hackjunction>.
