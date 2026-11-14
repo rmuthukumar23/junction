@@ -23,6 +23,8 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 - `tests/greenhouse/fakes.py` + `tests/greenhouse/fixtures/fake-winter.toml`: toy versions of all three subsystems, so the whole game runs end to end today. **Use them to test your module in context, and copy their shape (not their numbers).** Swap a fake for your real module by having `world/modules.py:build` find it. That needs no change to sim or env.
 - `envkit`: engine, MCP server, verifier, Harbor build, audit. New: `close_windows(n)` for multi-hour advances and `data_files()` for bundling data.
 - Rowan's operations, events, ledger and outcome (PR #12), wired into the simulator by `world/business.py:build_business` (tests: `tests/greenhouse/test_business.py`).
+- **Smoke checks** (docs/MODAL.md, "Smoke checks"). Before every push: `uv run --no-sync python -m compileall -q src tests && uv run --no-sync python -m pytest tests -q && uv run --no-sync envkit check` (about 30 s). Before merging a change to tools or the game: one real model on `scenarios/smoke.toml` on Modal (about 3 min). Gemini Flash-Lite and Claude Haiku both play it.
+- **Bankruptcy:** cash below EUR 0 ends the episode. **Overrides** can address an array item by id (`facility.compartments.A.start_batches`).
 - **Decided (spec 11):** D2 the agent allocates scarce heat and CO2 (priority + exact caps); D3 weather and prices are researched historical series in data files, identical for every agent on a seed; D5 doing nothing keeps the handover baseline forever, and stopping equals doing nothing. Each person's file has a "Next steps (round 2)" section.
 
 ## Rules that keep us out of each other's way
@@ -55,7 +57,7 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 
 | Person | Branch | Last PR | State |
 |---|---|---|---|
-| Max | `max/round-3` | Round 3 decisions written up (context 0, spec 14) | Real game runs end to end (42 days, 1.6 s). Next: contracts PR, shift clock, facility dispatch, scenario |
+| Max | `max/smoke-scenario` | Smoke scenario; first model runs on the real game; fixes (`9790f32`) | Gemini and Claude play the 1-day smoke task on Modal. Edited Rowan's `ledger.py` and `rule_based.py` (crash fixes; see rowan.md). Next: contracts PR, shift clock, facility dispatch, scenario |
 | Lucas | `lucas/crops` | Crop schema, `leafy_vanhenten`, lettuce, basil (tasks 1–8); round 2 | Round 2 done and merged: four planning methods, grades, in-game test, D5 and D8 research. Next: spec 3.1 without `seedling_cost_eur` (Max) |
 | Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Merged (#13; recorded data in #15). Round 3: away; files held by Max and Lucas |
 | Rowan | `rowan/round-2` | Round 2: business fixes, CO2 cleanup, policies, D5 values | Policies on fakes done; ranking and exploiter bound wait for real crops and facility |

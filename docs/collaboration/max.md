@@ -50,6 +50,8 @@ Read context section 0 and spec section 14 first. Everyone waits on step 1, so d
 7. **Reference planner under shift rules** (with Rowan), then the comparison: Gemini Flash, Gemini Pro/Hydrogen, Claude.
 8. Ask the organisers about D4. Check the round-3 sources (context 0.4) before they go in the README.
 
+Done (merge `9790f32`): `scenarios/smoke.toml` and the two smoke checks (docs/MODAL.md); Gemini Flash-Lite and Claude Haiku play it on Modal; fixes for the Gemini tool schema, negative export prices, CRLF bundle hashes and LF generated JSON; bankruptcy; overrides by item id. Steps 1–8 above are still open.
+
 ## Integration duty
 
 - Review and merge everyone's PRs in dependency order. CI must be green; read the diff for hardcoded values and edits outside the owner's files.

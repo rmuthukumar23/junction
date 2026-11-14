@@ -63,6 +63,11 @@ Round 2 is on `main`. Read context section 0 (especially 0.8 and 0.9) and spec s
 6. **Sanity check** against the Wageningen 2022 Autonomous Greenhouse Challenge lettuce data (4TU.ResearchData, CC BY 4.0): weight over time under a similar climate. Record what you compared and the result in DECISIONS.
 7. **Later, don't build yet:** pests (context 0.8) and in-house sowing. If you have time, write their crop-file fields as a proposal.
 
+### Measured on the real game (Max, 14 Nov, for task 1)
+
+- Under the standing settings, compartment A gets on average **14.7 °C, 513 ppm CO2 and DLI 10.1** over 14 days, against the 19 °C, 900 ppm and DLI 14.5 at which `nominal_days` holds. So the crops grow slower than their files say: a 24-day-old lettuce batch was ready at hour 395 (about 40 days in total instead of 32), and a 20-day-old basil batch at hour 539 (about 42 days instead of 28). That is the model responding to less light, CO2 and heat, not a bug. But the agent reads `nominal_days` from `get_rules`, so publish how the cycle scales with DLI and temperature, or it will plan with the wrong length.
+- New for test scenarios: overrides can address an array item by id, for example `"facility.compartments.A.start_batches" = [...]` (used in `scenarios/smoke.toml`).
+
 ## Watch out
 
 - An exploit judges will try is harvesting everything early. Your minimum sellable weight blocks it. Test it.
