@@ -25,10 +25,36 @@ def test_json_schema():
     p = s["properties"]
     assert p["name"] == {"type": "string", "description": "Who"}
     assert p["n"] == {"type": "integer", "default": 1}
-    assert p["mode"] == {"enum": ["a", "b"], "default": "a"}
+    assert p["mode"] == {"type": "string", "enum": ["a", "b"], "default": "a"}
     assert p["tags"]["items"] == {"type": "string"}
     assert p["limits"]["additionalProperties"] == {"type": "number"}
-    assert p["note"]["type"] == ["string", "null"]
+    assert p["note"] == {"type": "string"}        # optional = not required; null still validates
+
+
+def _walk(schema):
+    yield schema
+    for key in ("items", "additionalProperties"):
+        if isinstance(schema.get(key), dict):
+            yield from _walk(schema[key])
+    for sub in schema.get("properties", {}).values():
+        yield from _walk(sub)
+
+
+def test_every_greenhouse_tool_schema_is_gemini_compatible():
+    """Gemini rejected set_climate's Optional[list[int]] as a type list ("items: field
+    predicate failed"), so the agent made 0 calls. Keep to the subset Gemini accepts."""
+    from envkit.core import Episode
+    from envkit.scenario import load_scenario
+    tools = Episode(load_scenario(ROOT / "scenarios" / "smoke.toml"), 1).describe_tools()
+    assert any(t["name"] == "set_climate" for t in tools)
+    for t in tools:
+        for node in _walk(t["input_schema"]):
+            assert not isinstance(node.get("type"), list), (t["name"], node)
+            assert "anyOf" not in node, (t["name"], node)
+            if node.get("type") == "array":
+                assert "items" in node, (t["name"], node)
+            if "enum" in node:
+                assert "type" in node, (t["name"], node)
 
 
 def test_validate_fills_defaults_and_coerces():

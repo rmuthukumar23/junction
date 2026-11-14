@@ -177,6 +177,8 @@ class GreenhouseBench(Environment):
             self.sim.run_hour()
 
     def terminated(self) -> str | None:
+        if self.sim.bankrupt_hour is not None:
+            return "bankrupt"
         return "finished" if self.sim.finished_by_player else None
 
     def on_finish(self) -> None:
@@ -201,6 +203,7 @@ class GreenhouseBench(Environment):
         out.update({f"eur_{k}": round(v, 4) for k, v in sorted(s.business.totals().items())})
         out["harvests"] = float(len(s.harvests))
         out["unsellable_harvests"] = float(sum(not h["sellable"] for h in s.harvests))
+        out["bankrupt"] = float(s.bankrupt_hour is not None)
         return out
 
     def _result(self) -> dict[str, Any]:
@@ -211,7 +214,10 @@ class GreenhouseBench(Environment):
 
     @classmethod
     def policies(cls) -> dict[str, Any]:
-        return {}
+        # rule-based joins once it plays the real forecast shape (it crashes on it today).
+        # "reference" is naive until the reference planner (policies/reference.py) exists.
+        from .policies.naive import Naive
+        return {"naive": Naive, "reference": Naive}
 
     @classmethod
     def fuzz_args(cls, tool_name: str, rng: Rng) -> dict[str, Any] | None:

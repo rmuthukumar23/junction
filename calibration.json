@@ -1,3 +1,51 @@
 {
- "tasks": {}
+ "tasks": {
+  "smoke": {
+   "1": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "acted": 0.0
+      },
+      "metrics": {
+       "continuity": 0.0
+      },
+      "reward": 0.0
+     },
+     "do-nothing": {
+      "components": {
+       "acted": 0.0
+      },
+      "metrics": {
+       "continuity": 0.0
+      },
+      "reward": 0.0
+     },
+     "reference": {
+      "components": {
+       "acted": 0.0417
+      },
+      "metrics": {
+       "continuity": 0.0417
+      },
+      "reward": 0.0417
+     },
+     "stop-early": {
+      "components": {
+       "acted": 0.0417
+      },
+      "metrics": {
+       "continuity": 0.0417
+      },
+      "reward": 0.0417
+     }
+    },
+    "bundle": "b58a1dd65e2e6890",
+    "components": {},
+    "oracle": "reference",
+    "seed": 1,
+    "threshold": null
+   }
+  }
+ }
 }

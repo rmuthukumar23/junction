@@ -72,6 +72,18 @@ class LoaderTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "no crops file with id 'kale'"):
             self.load({**ENV, "overrides": {"crops.kale.size": 1}})
 
+    def test_overrides_reach_an_array_of_tables_by_item_id(self):
+        raw = {"facility": ("f.toml", {"compartments": [{"id": "A", "crop": "lettuce", "batches": [1]},
+                                                         {"id": "B", "crop": "basil"}]})}
+        loader._apply_overrides(raw, {"facility.compartments.B.crop": "spinach",
+                                      "facility.compartments.A.batches": [9]})
+        self.assertEqual(raw["facility"][1]["compartments"], [{"id": "A", "crop": "lettuce", "batches": [9]},
+                                                              {"id": "B", "crop": "spinach"}])
+        with self.assertRaisesRegex(ConfigError, "no item with id 'C'"):
+            loader._apply_overrides(raw, {"facility.compartments.C.crop": "kale"})
+        with self.assertRaisesRegex(ConfigError, "name an item by its id"):
+            loader._apply_overrides(raw, {"facility.compartments.crop": "kale"})
+
     def test_bad_scenarios_fail_clearly(self):
         with self.assertRaisesRegex(ConfigError, "missing 'market'"):
             self.load({k: v for k, v in ENV.items() if k != "market"})

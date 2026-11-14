@@ -131,3 +131,21 @@ on Windows. Run its steps with `uv run --no-sync python`. Two tests in
 `test_server_has_no_reset_state_or_score_routes`) fail with a `PermissionError` deleting a
 temp `trace.jsonl` still held open; they fail identically without the LF change.
 `envkit check` (tasks up to date) and `envkit audit` pass.
+
+## Smoke checks (use these while building)
+
+Local, about 30 s, no keys or Modal needed. Run after every change:
+
+```bash
+uv run --no-sync python -m compileall -q src tests && uv run --no-sync python -m pytest tests -q && uv run --no-sync envkit check
+```
+
+One real model on the 1-day `scenarios/smoke.toml`, about 3 min per model on Modal, most of it container start-up. Run before merging. Use a new output folder each time; the two commands can run in parallel terminals (load `.env` in each).
+
+```bash
+set -a; . ./.env; set +a
+uv run --no-sync envkit eval --scenario smoke --model google/gemini-3.1-flash-lite --runs 1 --agent-only --backend modal --output artifacts/smoke-gemini-$(date +%H%M)
+uv run --no-sync envkit eval --scenario smoke --model anthropic/claude-haiku-5-5 --runs 1 --agent-only --backend modal --output artifacts/smoke-claude-$(date +%H%M)
+```
+
+It works when the report shows a reward above 0 (the agent acted), and `score.json` shows `faults` 0 and `replay.consistent` true. A reward of 0 with 0 calls is an infrastructure failure: read `agent/opencode.txt` in the trial folder. Measured 2026-11-14: Gemini 159 s, Claude 192 s, both 6 calls and 0 faults.

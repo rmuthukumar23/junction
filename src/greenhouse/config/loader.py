@@ -173,9 +173,18 @@ def _apply_overrides(raw: dict[str, Any], overrides: dict[str, Any]) -> None:
         *parents, leaf = dotted.split(".")
         node = doc
         for part in parents:
-            if not isinstance(node.get(part), dict):
+            if isinstance(node, list):
+                # An array of tables is addressed by its items' id: facility.compartments.A.crop
+                found = [item for item in node if isinstance(item, dict) and item.get("id") == part]
+                if not found:
+                    raise ConfigError(f"override '{key}': {path} has no item with id '{part}'")
+                node = found[0]
+                continue
+            if not isinstance(node.get(part), (dict, list)):
                 raise ConfigError(f"override '{key}': {path} has no table '{part}'")
             node = node[part]
+        if not isinstance(node, dict):
+            raise ConfigError(f"override '{key}': name an item by its id after '{parents[-1]}'")
         if leaf not in node:
             raise ConfigError(f"override '{key}': {path} has no key '{dotted}' to override")
         node[leaf] = copy.deepcopy(value)

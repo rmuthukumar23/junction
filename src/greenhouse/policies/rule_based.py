@@ -111,8 +111,13 @@ class RuleBased(ToolPolicy):
 
     def set_lamps(self, status: dict[str, Any]) -> None:
         forecast = result(self.call("get_forecast", hours=24)).get("forecast", {})
-        prices = next((v for k, v in forecast.items() if "price" in k and isinstance(v, list)), None)
-        if not prices:
+        series = next((v for k, v in forecast.items() if "price" in k and isinstance(v, list)), None)
+        if not series:
+            return
+        # The real facility gives one dict per hour ({"import_eur_kwh": ..., "export_eur_kwh": ...});
+        # a plain list of numbers is accepted too.
+        prices = [p.get("import_eur_kwh") if isinstance(p, dict) else p for p in series]
+        if not all(isinstance(p, (int, float)) for p in prices):
             return
         hour0 = status.get("clock", {}).get("hour_of_day", 0)
         cheapest = sorted(range(len(prices)), key=lambda i: (prices[i], i))[:self.lamp_hours_per_day]
