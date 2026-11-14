@@ -55,5 +55,5 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 |---|---|---|---|
 | Max | `max/integrate-business` | Business adapter, D2/D3/D5, provider keys | Done and tested. Next: merge Lucas and Emre, scenario, reference planner |
 | Lucas | `lucas/crops` | Crop schema, `leafy_vanhenten`, lettuce, basil (tasks 1–8) | Not merged: rebase, add the four planning methods (round 2) |
-| Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Not merged: implement `FacilityModel` + `build_facility` (round 2) |
+| Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Not merged: `FacilityModel` + `build_facility` pushed; next is the PR, the D5 baseline, then D3 data (round 2) |
 | Rowan | `rowan/operations` | Operations, events, ledger, outcome | Tasks 1–6 done with tests; policies wait for `env.py` tool stubs |
