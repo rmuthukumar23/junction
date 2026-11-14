@@ -70,8 +70,10 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; pa
 .p-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-num { font-family: var(--tiny); font-size: 10px; background: var(--slot); color: #0d1016; padding: 0 4px; }
 .p-sub { font-family: var(--tiny); font-size: 9px; color: var(--muted); margin-top: 2px; }
-.p-pick { position: absolute; top: 6px; right: 6px; max-width: 34%; font-size: 11px; background: rgba(10,12,18,.85);
-          border: 2px solid rgba(255,255,255,.12); padding: 2px 4px; }
+.p-tools { position: absolute; top: 6px; right: 6px; max-width: 40%; display: flex; gap: 3px; }
+.p-pick { min-width: 0; flex: 1; font-size: 11px; background: rgba(10,12,18,.85); border: 2px solid rgba(255,255,255,.12); padding: 2px 4px; }
+.p-big, .p-cmp { background: rgba(10,12,18,.85); border: 2px solid rgba(255,255,255,.12); color: var(--text); cursor: pointer; padding: 0 6px; font-size: 12px; }
+.p-big:hover, .p-cmp:hover { border-color: var(--slot); }
 .p-money { position: absolute; top: 34px; right: 6px; text-align: right; padding: 3px 8px; background: rgba(10,12,18,.78);
            border: 2px solid rgba(255,255,255,.12); cursor: pointer; display: flex; flex-direction: column; }
 .p-profit { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -256,3 +258,30 @@ td.fxcell { font-size: 11px; color: var(--c-purple); }
 .jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .jobs li { border: 1px solid #3a4558; padding: 5px; font-size: 11px; }
 .jobs pre { max-height: 70px; font-size: 9px; padding: 4px; margin-top: 4px; }
+
+/* layouts: grid, speaker (one large + thumbnails), compare (two large + thumbnails) */
+.layout button { font-size: 12px; padding: 6px 9px; }
+.grid6.lay-focus { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.grid6.lay-compare { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid6.lay-focus .panel.big { grid-column: 1 / -1; order: -2; }
+.grid6.lay-compare .panel.big { grid-column: span 2; order: -2; }
+.grid6.lay-compare .panel.big.b { order: -1; }
+.panel.big .p-stage { width: min(100%, calc((100vh - 470px) * 16 / 9)); margin: 0 auto; }
+.grid6.lay-compare .panel.big .p-stage { width: min(100%, calc((100vh - 360px) * 16 / 9)); }
+.panel.big .p-decision { height: calc(7 * 1.3em + 14px); font-size: 12px; width: min(100%, calc((100vh - 470px) * 16 / 9)); margin-left: auto; margin-right: auto; }
+.grid6.lay-compare .panel.big .p-decision { width: auto; }
+.panel.big .p-acts li { white-space: normal; }
+.panel.big .lbl { font-size: 11px; }
+.panel.big .bubble { font-size: 10px; }
+.panel.thumb .p-decision { height: calc(2 * 1.25em + 10px); font-size: 10px; }
+.panel.thumb .p-sub, .panel.thumb .p-score, .panel.thumb .p-hint, .panel.thumb .scene-labels { display: none; }
+.panel.thumb .p-head { max-width: 75%; padding: 2px 5px; }
+.panel.thumb .p-title { font-size: 11px; }
+.panel.thumb .p-tools { display: none; }
+.panel.thumb:hover .p-tools { display: flex; }
+.panel.thumb .p-money { top: auto; bottom: 4px; padding: 1px 5px; }
+.panel.thumb .p-profit { font-size: 12px; }
+.panel.thumb .p-stage { cursor: pointer; }
+.panel.big .p-head::after { content: " "; }
+/* the play bar stays on screen on short laptop screens */
+.controls { position: sticky; bottom: 0; z-index: 5; background: var(--bg); padding: 8px 0; margin-top: 4px; box-shadow: 0 -8px 12px var(--bg); }

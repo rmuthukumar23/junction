@@ -196,7 +196,7 @@ def diff(a: dict[str, Any], b: dict[str, Any]) -> list[str]:
             out.append(f"crew {sa['crew']}→{sb['crew']}")
     for tid, t in b["tasks"].items():
         if tid not in a["tasks"]:
-            out.append(f"task {tid}: {t['kind']} {t['target']} queued, {t['worker_hours_needed']:g} worker-h")
+            out.append(f"task {tid}: {t['kind']} {t['target']} queued, {t['worker_hours_needed']:.1f} worker-h")
     for bid, bk in b["bookings"].items():
         if bid not in a["bookings"]:
             have = {i: b["stock"].get(i, 0) for i in bk["parts"]}

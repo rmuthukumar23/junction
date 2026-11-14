@@ -12,6 +12,7 @@
   const SLOT_COLORS = ["#8fe3a6", "#6cb8ff", "#ffd84a", "#ff8a5c", "#c9a8ff", "#8d97a8"];
   let PLAYERS = null, panels = [], focus = 0, hf = 0, speed = 1, playing = false, last = 0, hours = 1008, lastClock = -1;
   let tab = "money", range = "all", drawerOpen = false, lastDrawer = 0, built = "", doneShown = false;
+  let layout = "grid", big = [0, 1];          // speaker: big[0]; compare: big[0] left, big[1] right
   // The panel the shared helpers below work on (set with use(p)).
   let D = null, M = null, events = [], IDS = [];
   const use = (p) => { D = p.D; M = p.M; events = p.events; IDS = p.IDS; };
@@ -49,8 +50,13 @@
       p.scene.init(p.q("canvas"));
       p.q(".p-pick").innerHTML = options(spec);
       p.q(".p-pick").onchange = (e) => { p.spec = e.target.value; loadPanel(p); };
-      p.q(".p-head").onclick = p.q(".p-decision").onclick = p.q(".p-money").onclick = () => select(i);
-      p.q("canvas").addEventListener("scenepick", (e) => { if (!p.D) return; select(i); openDrawer(e.detail); });
+      const pick = (e) => p.el.classList.contains("thumb") ? promote(i, e.shiftKey) : select(i);
+      p.q(".p-head").onclick = p.q(".p-decision").onclick = p.q(".p-money").onclick = pick;
+      p.q(".p-big").onclick = (e) => { e.stopPropagation(); setLayout(layout === "focus" && big[0] === i ? "grid" : "focus", i); };
+      p.q(".p-cmp").onclick = (e) => { e.stopPropagation(); layout === "compare" ? promote(i, false) : setLayout("compare", focus === i ? i : focus, focus === i ? undefined : i); };
+      p.q("canvas").addEventListener("scenepick", (e) => { if (!p.D) return;
+        if (p.el.classList.contains("thumb")) { promote(i, false); return; } select(i); openDrawer(e.detail); });
+      p.q("canvas").addEventListener("dblclick", () => setLayout(layout === "focus" && big[0] === i ? "grid" : "focus", i));
       panels.push(p);
     });
   }
@@ -78,6 +84,7 @@
     await Promise.all(panels.map(loadPanel));
     const q = new URLSearchParams(location.search);    // ?at=400&focus=2&open=A jump straight to a moment
     if (q.get("focus")) select(Math.max(0, Math.min(5, +q.get("focus") - 1)));
+    if (q.get("layout")) setLayout(q.get("layout"), focus, q.get("with") ? +q.get("with") - 1 : undefined);
     if (q.get("at")) seek(+q.get("at"));
     if (q.get("open")) openDrawer(q.get("open"));
     playing = !q.get("pause"); setPlayIcon();
@@ -188,9 +195,10 @@
     if (!t) { p.q(".p-when").textContent = "No decision yet"; p.q(".p-acts").innerHTML = ""; return; }
     const head = `<b>Turn ${t.turn}</b> · ${when(t.h)}` + (t.ok ? "" : ` · <span class="bad">turn refused${t.err ? `: ${esc(t.err)}` : ""}</span>`);
     p.q(".p-when").innerHTML = head;
-    const shown = t.acts.slice(0, 3), more = t.acts.length - shown.length;
+    const isBig = p.el.classList.contains("big"), isThumb = p.el.classList.contains("thumb");
+    const shown = t.acts.slice(0, isBig ? 8 : isThumb ? 1 : 3), more = t.acts.length - shown.length;
     p.q(".p-acts").innerHTML = t.acts.length ? shown.map((a) => `<li class="${a.ok ? "" : "bad"}" title="${esc([a.text, ...a.fx].join("\n"))}"><i>${a.ok ? "✓" : "✗"}</i>` +
-        (a.ok ? (a.fx.length ? `<span class="fx">${esc(a.fx[0])}</span>${a.fx.length > 1 ? `<span class="more"> +${a.fx.length - 1}</span>` : ""}`
+        (a.ok ? (a.fx.length ? (isBig ? `<span class="fx">${a.fx.map(esc).join(" · ")}</span>` : `<span class="fx">${esc(a.fx[0])}</span>${a.fx.length > 1 ? `<span class="more"> +${a.fx.length - 1}</span>` : ""}`)
                              : `${esc(a.short || a.text)} <span class="muted">· no change, already in force</span>`)
               : `${esc(a.short || a.text)}${esc(a.err ? ` — ${a.err}` : "")}`) + `</li>`).join("") +
         (more ? `<li class="muted"><i>+</i>${more} more action(s) this turn (Full log)</li>` : "")
@@ -532,11 +540,32 @@
   function closeDrawer() { drawerOpen = false; $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true"); $("scrim").hidden = true; }
 
 
+  // ---------------- layouts ----------------
+  function setLayout(lay, a = focus, b) {
+    layout = lay;
+    if (lay === "focus") big = [a, big[1]];
+    if (lay === "compare") { const bb = b ?? (big[1] !== a ? big[1] : (a + 1) % 6); big = [a, bb === a ? (a + 1) % 6 : bb]; }
+    $("grid").className = `grid6 lay-${lay}`;
+    for (const p of panels) {
+      const isBig = lay === "focus" ? p.i === big[0] : lay === "compare" ? big.includes(p.i) : false;
+      p.el.classList.toggle("big", isBig); p.el.classList.toggle("thumb", lay !== "grid" && !isBig);
+      p.el.classList.toggle("b", lay === "compare" && p.i === big[1]);
+      if (p.D) showTurn(p, [...p.turns].reverse().find((t) => t.h <= Math.floor(hf)), false);
+    }
+    document.querySelectorAll("#layout button").forEach((x) => x.classList.toggle("on", x.dataset.lay === lay));
+    if (lay !== "grid") select(big[0]);
+  }
+  function promote(i, shift) {               // a thumbnail was clicked
+    if (layout === "focus") setLayout("focus", i);
+    else if (layout === "compare") shift ? setLayout("compare", i, big[1]) : setLayout("compare", big[0], i);
+  }
+
   // ---------------- control windows ----------------
   let fps = 0, frames = 0, fpsT = 0, outlines = true, jobPanel = {}, assigned = new Set();
   function applyView() {
     const kind = $("v-field").value, op = +$("v-op").value;
-    for (const p of panels) p.scene.settings({ field: { kind, opacity: kind === "none" ? 0 : op }, fog: $("v-fog").checked, pix: +$("v-pix").value });
+    for (const p of panels) p.scene.settings({ field: { kind, opacity: kind === "none" ? 0 : op }, fog: $("v-fog").checked, pix: +$("v-pix").value,
+                                               crisp: $("v-crisp").checked, shadows: $("v-shadow").checked });
     outlines = $("v-outline").checked;
     const F = panels[0] && panels[0].scene.FIELDS[kind];
     $("v-cbar").innerHTML = ""; if (!F) { $("v-cbar").style.background = "none"; return; }
@@ -574,7 +603,8 @@
   }
   $("toggle-win").onclick = () => { $("wins").hidden = !$("wins").hidden; };
   document.querySelectorAll(".win-title").forEach((t) => t.onclick = () => t.parentElement.classList.toggle("closed"));
-  ["v-field", "v-op", "v-pix", "v-fog", "v-outline"].forEach((id) => $(id).oninput = applyView);
+  ["v-field", "v-op", "v-pix", "v-fog", "v-outline", "v-crisp", "v-shadow"].forEach((id) => $(id).oninput = applyView);
+  document.querySelectorAll("#layout button").forEach((b) => b.onclick = () => setLayout(b.dataset.lay));
   $("m-go").onclick = async () => {
     const body = { model: $("m-model").value.trim(), seed: +$("m-seed").value, scenario: $("m-scn").value, backend: $("m-backend").value };
     const r = await fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -606,10 +636,12 @@
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, select")) return;
     if (e.key === " ") { e.preventDefault(); $("play").click(); }
-    else if (e.key === "Escape") closeDrawer();
+    else if (e.key === "Escape") { if (drawerOpen) closeDrawer(); else if (layout !== "grid") setLayout("grid"); }
+    else if (e.key === "f" || e.key === "F") setLayout(layout === "focus" ? "grid" : "focus", focus);
+    else if (e.key === "c" || e.key === "C") setLayout(layout === "compare" ? "grid" : "compare", focus);
     else if (e.key === "n" || e.key === "N") nextDecision();
     else if (e.key === "g" || e.key === "G") $("toggle-win").click();
-    else if (e.key >= "1" && e.key <= "6") select(+e.key - 1);
+    else if (e.key >= "1" && e.key <= "6") { const i = +e.key - 1; layout === "grid" ? select(i) : promote(i, e.shiftKey); }
     else if (e.key === "ArrowRight") seek(hf + 24); else if (e.key === "ArrowLeft") seek(hf - 24);
   });
   (async () => { await loadPlayers(); buildPanels(); applyView(); select(0); pollJobs(); await loadAll(); applyView(); })();

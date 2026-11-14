@@ -12,6 +12,7 @@ const makeScene = (opts = {}) => {
 
   let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
   let az = Math.PI / 4, el = 0.6, zoom = opts.zoom || 1, layerLbl, bubbles = [], workers = [], lastHour = -1, flashes = [];
+  let rt, post, postScene, postCam, crisp = true, shadows = true;
   let pix = PIX, field = { kind: "temp", opacity: 0.35 }, fog = true, shards = [], rings = [], prevPanes = {}, crews = {};
   const lambert = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
   const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
@@ -22,11 +23,43 @@ const makeScene = (opts = {}) => {
     canvas = cv; stage = cv.parentElement;
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap;   // hard-edged pixel shadows
+    // Pixel-art finish: the scene is drawn small into a target with depth, then a full-screen
+    // pass adds 1-pixel outlines where depth jumps, a light inner edge where colour jumps, and
+    // quantizes colour with a 4x4 ordered dither. Nearest-neighbour upscaling keeps pixels square.
+    rt = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    rt.depthTexture = new THREE.DepthTexture(1, 1);
+    post = new THREE.ShaderMaterial({
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new THREE.Vector2(1, 1) },
+                  levels: { value: 20 }, edge: { value: 0.0012 }, outline: { value: 0.62 } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: `
+        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float levels; uniform float edge; uniform float outline;
+        varying vec2 vUv;
+        float d(vec2 o) { return texture2D(tDepth, vUv + o / res).r; }
+        float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+        float bayer(vec2 p) { int x = int(mod(p.x, 4.0)), y = int(mod(p.y, 4.0)); int i = x + y * 4;
+          float m[16]; m[0]=0.;m[1]=8.;m[2]=2.;m[3]=10.;m[4]=12.;m[5]=4.;m[6]=14.;m[7]=6.;m[8]=3.;m[9]=11.;m[10]=1.;m[11]=9.;m[12]=15.;m[13]=7.;m[14]=13.;m[15]=5.;
+          for (int k = 0; k < 16; k++) if (k == i) return m[k] / 16.0 - 0.5; return 0.0; }
+        void main() {
+          vec3 c = texture2D(tColor, vUv).rgb; float z = d(vec2(0.0));
+          float dz = max(max(d(vec2(1.,0.)) - z, d(vec2(-1.,0.)) - z), max(d(vec2(0.,1.)) - z, d(vec2(0.,-1.)) - z));
+          float l = lum(c), dl = max(abs(lum(texture2D(tColor, vUv + vec2(1.,0.) / res).rgb) - l), abs(lum(texture2D(tColor, vUv + vec2(0.,1.) / res).rgb) - l));
+          if (dz > edge) c *= outline;                                   // silhouette: the nearer object gets a dark rim
+          else if (dl > 0.18) c *= 0.86;                                 // inner edges between faces
+          c = floor(c * levels + 0.5 + bayer(gl_FragCoord.xy) * 0.9) / levels;
+          gl_FragColor = vec4(c, 1.0);
+        }` ,
+      depthTest: false, depthWrite: false });
+    postScene = new THREE.Scene(); postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-10, 10, 10, -10, -200, 400);
     world.amb = new THREE.AmbientLight(0xffffff, 0.4); scene.add(world.amb);
     world.hemi = new THREE.HemisphereLight(0xbfdfff, 0x3a5030, 0.35); scene.add(world.hemi);
     world.sun = new THREE.DirectionalLight(0xfff2d0, 0.9); world.sun.position.set(-30, 40, 20); scene.add(world.sun);
+    world.sun.castShadow = true; world.sun.shadow.mapSize.set(1024, 1024); world.sun.shadow.bias = -0.0015;
+    const sc = world.sun.shadow.camera; sc.left = -60; sc.right = 60; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 200;
     scene.fog = new THREE.Fog(0x0b1230, 110, 190);
     layerLbl = document.createElement("div"); layerLbl.className = "scene-labels"; stage.appendChild(layerLbl);
     // drag to rotate, wheel to zoom; a click without a drag opens details
@@ -41,6 +74,7 @@ const makeScene = (opts = {}) => {
 
   function clearWorld() {
     while (scene.children.length > 3) scene.remove(scene.children[3]);
+    scene.add(world.sun.target);
     layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; flashes = []; shards = []; rings = []; prevPanes = {}; crews = {}; lastHour = -1;
   }
 
@@ -70,6 +104,14 @@ const makeScene = (opts = {}) => {
     const glass = box(0.1, 0.6, 1.5, basic(0x9cd0f0)); glass.position.set(3.16, 1.4, 0); tr.add(glass);
     for (const wx of [-1.1, 1.0, 2.5]) for (const wz of [-0.9, 0.9]) { const w = box(0.7, 0.7, 0.2, lambert(0x1a1d24)); w.position.set(wx, 0.35, wz); tr.add(w); }
     tr.visible = false; tr.position.z = ROAD_Z; scene.add(tr); world.truck = tr;
+    world.sun.target.position.set(world.x0 + world.span / 2, 0, 0);
+    scene.traverse(shade);
+  }
+  // Solid things cast and catch shadows; glass, air, light cones and particles do not.
+  function shade(o) {
+    if (!o.isMesh) return;
+    const m = o.material, solid = m && !m.transparent && !(m.blending === THREE.AdditiveBlending) && m.type !== "MeshBasicMaterial";
+    o.castShadow = solid; o.receiveShadow = !!m && !m.transparent;
   }
 
   function buildHouse(id, cx) {
@@ -287,7 +329,7 @@ const makeScene = (opts = {}) => {
     for (const b of f.crew_on || []) {
       if (b.st !== "on_site") continue;
       on.add(b.id);
-      if (!crews[b.id]) { const c = makeCrew(b.trade); const s = crewSpot(b.target); c.g.position.set(s.x, 0, s.z + (Object.keys(crews).length % 3) * 0.3); scene.add(c.g);
+      if (!crews[b.id]) { const c = makeCrew(b.trade); c.g.traverse(shade); const s = crewSpot(b.target); c.g.position.set(s.x, 0, s.z + (Object.keys(crews).length % 3) * 0.3); scene.add(c.g);
         if (s.ladder) { c.g.userData.ladder.position.set(s.x + 0.6, 0, s.z + 1); scene.add(c.g.userData.ladder); }
         scene.add(c.g.userData.sparks); crews[b.id] = { ...c, b, s }; }
       const c = crews[b.id]; c.b = b;
@@ -362,7 +404,7 @@ const makeScene = (opts = {}) => {
       const head = box(0.38, 0.38, 0.38, lambert(0xf0c8a0)); head.position.y = 1.35; g.add(head);
       const legs = box(0.45, 0.4, 0.3, lambert(0x2a2f3a)); legs.position.y = 0.2; g.add(legs);
       const crate = box(0.6, 0.35, 0.4, lambert(0xa0703c)); crate.position.set(0, 0.85, 0.35); g.add(crate);
-      g.position.set(world.x0 - 8 - i, 0, HD / 2 + 3.2); scene.add(g); workers.push({ g, crate, i });
+      g.position.set(world.x0 - 8 - i, 0, HD / 2 + 3.2); g.traverse(shade); scene.add(g); workers.push({ g, crate, i });
     }
     while (workers.length > f.staff) scene.remove(workers.pop().g);
     const on = hd >= meta.shift[0] && hd < meta.shift[1], task = f.tasks.find((k) => k.st !== "done");
@@ -401,7 +443,7 @@ const makeScene = (opts = {}) => {
     renderer.setClearColor(sky); scene.fog = fog ? (scene.fog || new THREE.Fog(sky, 110, 190)) : null; if (scene.fog) scene.fog.color = sky;
     world.amb.intensity = 0.18 + day * 0.35; world.amb.color = mixc("#7080c0", "#ffffff", day);
     world.hemi.intensity = 0.15 + day * 0.35; world.sun.intensity = day * 0.85;
-    const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(-Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25);
+    const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(world.x0 + world.span / 2 - Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25); world.sun.castShadow = shadows && day > 0.05;
     const snowy = meta.snowAt[h] === 1; world.ground.material.color = col(snowy ? 0xdfe8ee : 0x3d5a3a);
     // houses
     for (const id of ids) {
@@ -459,7 +501,11 @@ const makeScene = (opts = {}) => {
       for (let i = 0; i < a.count; i++) { let y = a.getY(i) - v * dt; if (y < 0) y += 22; a.setY(i, y); a.setX(i, a.getX(i) + f.out.wind * 0.15 * dt); }
       a.needsUpdate = true; }
     placeCamera(); resize();
-    renderer.render(scene, camera);
+    if (crisp) {
+      const w = renderer.domElement.width, h = renderer.domElement.height;
+      if (rt.width !== w || rt.height !== h) { rt.setSize(w, h); post.uniforms.res.value.set(w, h); }
+      renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+    } else renderer.render(scene, camera);
     labels(f, dt);
   }
 
@@ -531,6 +577,7 @@ const makeScene = (opts = {}) => {
     for (const c of Object.values(crews)) { scene.remove(c.g); scene.remove(c.g.userData.ladder); scene.remove(c.g.userData.sparks); c.lbl.remove(); }
     crews = {}; prevPanes = {}; lastHour = -1;
   }
-  function settings(o) { if (o.field) field = { ...field, ...o.field }; if (o.fog != null) fog = o.fog; if (o.pix) pix = o.pix; }
+  function settings(o) { if (o.field) field = { ...field, ...o.field }; if (o.fog != null) fog = o.fog; if (o.pix) pix = o.pix;
+    if (o.crisp != null) crisp = o.crisp; if (o.shadows != null) shadows = o.shadows; }
   return { init, setData, render, bubble, flash, reset, settings, FIELDS };
 };

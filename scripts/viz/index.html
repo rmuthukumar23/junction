@@ -34,6 +34,9 @@
   <section class="left">
     <div class="grid6" id="grid"></div>
     <div class="controls">
+      <div class="seg layout" id="layout" role="group" aria-label="Layout">
+        <button data-lay="grid" class="on" title="All six (Esc)">▦ Grid</button><button data-lay="focus" title="One large, the rest small (F)">▣ Speaker</button><button data-lay="compare" title="Two side by side (C)">◫ Compare</button>
+      </div>
       <button class="btn icon" id="play" aria-label="Play">▶</button>
       <button class="btn icon" id="next" title="Jump to the selected grower's next decision (N)">⏭</button>
       <div class="speeds" role="group" aria-label="Speed">
@@ -92,6 +95,8 @@
       <label class="wrow">Field strength <input type="range" id="v-op" min="0" max="1" step="0.05" value="0.35"></label>
       <label class="wrow">Pixel size <input type="range" id="v-pix" min="1" max="3" step="1" value="2"></label>
       <label class="wrow"><span>Fog</span><input type="checkbox" id="v-fog" checked></label>
+      <label class="wrow"><span>Pixel outlines and palette</span><input type="checkbox" id="v-crisp" checked></label>
+      <label class="wrow"><span>Sun shadows</span><input type="checkbox" id="v-shadow" checked></label>
       <label class="wrow"><span>Decision outlines</span><input type="checkbox" id="v-outline" checked></label>
       <p class="wnote">The simulator models each house as one air volume, so the field has one value per house; its shimmer is only texture. Ranges come from each crop's data file.</p>
     </div>
@@ -146,7 +151,7 @@
         <div class="p-title"><span class="p-num"></span><b class="p-name">–</b></div>
         <div class="p-sub">–</div>
       </div>
-      <select class="p-pick" aria-label="Grower in this panel"></select>
+      <div class="p-tools"><button class="p-big" title="Speaker view on this panel (double-click the view)">⤢</button><button class="p-cmp" title="Compare this panel side by side">◫</button><select class="p-pick" aria-label="Grower in this panel"></select></div>
       <div class="p-money"><span class="p-profit">€0</span><span class="p-score"></span></div>
       <div class="p-hint">drag to rotate · scroll to zoom · click a building</div>
       <div class="p-loading"><div class="spinner"></div><p>Simulating…</p></div>
