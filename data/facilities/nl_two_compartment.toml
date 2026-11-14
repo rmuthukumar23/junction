@@ -53,10 +53,20 @@ heat_c = 5.0
 vents = "closed"
 co2_ppm = 0
 lamps = "off"
+screen = "closed"
+chp_load = 0.0
+boiler = "auto"
+buffer = "auto"
+external_co2_kg_h = 0.0
 
-[staff]
-start_workers = 3
-hours_per_worker_day = 8
+[limits]
+min_heat_c = -5.0
+max_heat_c = 35.0
+max_co2_ppm = 1500.0
+
+[alarms]
+frost_risk_temp_c = 2.0
+co2_low_kg = 200.0
 
 # Cover U ranges and screens are simplified from WUR greenhouse heat-balance
 # modelling; thermal mass includes the structure, water pipes and crop benches.

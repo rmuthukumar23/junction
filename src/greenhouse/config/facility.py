@@ -126,12 +126,24 @@ class FallbackSpec:
     vents: str
     co2_ppm: float
     lamps: str
+    screen: str
+    chp_load: float
+    boiler: str
+    buffer: str
+    external_co2_kg_h: float
 
 
 @dataclass(frozen=True)
-class StaffSpec:
-    start_workers: int
-    hours_per_worker_day: float
+class ClimateLimits:
+    min_heat_c: float
+    max_heat_c: float
+    max_co2_ppm: float
+
+
+@dataclass(frozen=True)
+class AlarmLimits:
+    frost_risk_temp_c: float
+    co2_low_kg: float
 
 
 @dataclass(frozen=True)
@@ -142,7 +154,8 @@ class FacilitySpec:
     controller: ControllerSpec
     sensor: SensorSpec
     fallback: FallbackSpec
-    staff: StaffSpec
+    limits: ClimateLimits
+    alarms: AlarmLimits
 
 
 @dataclass(frozen=True)
@@ -178,6 +191,7 @@ class ForecastSpec:
 @dataclass(frozen=True)
 class ClimateProfile:
     id: str
+    series_hours: int
     weather: WeatherSpec
     forecast: ForecastSpec
 
@@ -284,10 +298,18 @@ def parse_facility(raw: dict[str, Any], source: str) -> FacilitySpec:
     fallback = FallbackSpec(t.num('fallback.heat_c'),
                             t.str('fallback.vents', choices=('closed',)),
                             t.num('fallback.co2_ppm', lo=0),
-                            t.str('fallback.lamps', choices=('off',)))
-    staff = StaffSpec(t.int('staff.start_workers', lo=0),
-                      t.num('staff.hours_per_worker_day', lo=0, hi=24))
-    spec = FacilitySpec(t.str('id'), energy, compartments, controller, sensor, fallback, staff)
+                            t.str('fallback.lamps', choices=('off',)),
+                            t.str('fallback.screen', choices=('auto', 'open', 'closed')),
+                            t.num('fallback.chp_load', lo=0, hi=1),
+                            t.str('fallback.boiler', choices=('auto', 'off')),
+                            t.str('fallback.buffer', choices=('auto', 'charge', 'hold', 'discharge')),
+                            t.num('fallback.external_co2_kg_h', lo=0))
+    limits = ClimateLimits(t.num('limits.min_heat_c'), t.num('limits.max_heat_c'),
+                           t.num('limits.max_co2_ppm', lo=0))
+    if limits.min_heat_c > limits.max_heat_c:
+        raise ConfigError(f'{source}: limits.min_heat_c must not exceed max_heat_c')
+    alarms = AlarmLimits(t.num('alarms.frost_risk_temp_c'), t.num('alarms.co2_low_kg', lo=0))
+    spec = FacilitySpec(t.str('id'), energy, compartments, controller, sensor, fallback, limits, alarms)
     t.done()
     return spec
 
@@ -319,7 +341,7 @@ def parse_climate(raw: dict[str, Any], source: str) -> ClimateProfile:
                             t.num('forecast.wind_sigma_at_24h_m_s', lo=0),
                             t.num('forecast.rh_sigma_at_24h_pct', lo=0),
                             t.num('forecast.price_fraction_sigma_at_24h', lo=0))
-    spec = ClimateProfile(t.str('id'), weather, forecast)
+    spec = ClimateProfile(t.str('id'), t.int('series_hours', lo=1), weather, forecast)
     t.done()
     return spec
 

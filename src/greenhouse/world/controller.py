@@ -4,25 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from greenhouse.config.facility import CompartmentSpec, ControllerSpec, FallbackSpec
-from greenhouse.contracts import EquipmentEffect
-
-
-@dataclass(frozen=True)
-class ClimateSetpoints:
-    heat_day_c: float
-    heat_night_c: float
-    vent_min_pct: float
-    vent_max_pct: float
-    co2_ppm: float
-    screen: str
-    lamp_hours: tuple[int, ...]
-    lamp_intensity_pct: float
-
-    @classmethod
-    def fallback(cls, spec: FallbackSpec) -> 'ClimateSetpoints':
-        return cls(spec.heat_c, spec.heat_c, 0.0, 0.0, spec.co2_ppm,
-                   'open', (), 0.0)
+from greenhouse.config.facility import CompartmentSpec, ControllerSpec
+from greenhouse.contracts import ClimateSetpoints, EquipmentEffect
 
 
 @dataclass(frozen=True)

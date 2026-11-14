@@ -3,6 +3,7 @@
 # Other variability and forecast-error values are v1 synthetic scenario assumptions.
 schema = "climate/1"
 id = "nl_january"
+series_hours = 1200 # 42-day episode plus forecast runway; v1 scenario assumption
 
 [weather]
 daily_mean_c = 3.6
