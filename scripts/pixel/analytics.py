@@ -121,7 +121,7 @@ def _profit_curve(replay: dict) -> list[dict]:
             m = f.get("money") or {}
             day = f.get("day")
             if isinstance(day, int):
-                pts[day] = {"day": day, "cash": _num(m.get("cash")), "profit": _num(m.get("profit"))}
+                pts[day] = {"day": day, "cash": _num(m.get("cash_eur", m.get("cash"))), "profit": _num(m.get("profit_so_far_eur", m.get("profit")))}
     return _thin([pts[k] for k in sorted(pts)])
 
 
@@ -188,9 +188,10 @@ def _frame_health(replay: dict) -> dict:
                 lost[bid] = str(b.get("crop", "?"))
             elif st not in DONE_STATES:
                 rd = _num(b.get("ready"))
-                if rd is not None and rd <= 0:
+                if st == "ready" or (rd is not None and rd <= 0):
                     ready_h[bid] += 1
-        cash = _num((f.get("money") or {}).get("cash"))
+        _m = f.get("money") or {}
+        cash = _num(_m.get("cash_eur", _m.get("cash")))
         if cash is not None:
             min_cash = cash if min_cash is None else min(min_cash, cash)
             if cash <= 0 and bankrupt_day is None:
