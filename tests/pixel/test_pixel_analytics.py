@@ -124,3 +124,40 @@ def test_empty_and_nan_inputs():
     s = analytics.compute_stats(runs, lambda r: {"frames": [{"ec": {"gas": float("nan")}}]})
     json.dumps(s, allow_nan=False)
     assert s["runs"][0]["score"] is None
+
+
+def _hourly(days, profit_per_day, harvest_day=None, panes=0):
+    """A replay in the real frame shape (frame h = state after hour h-1), for compare_runs."""
+    frames = []
+    for h in range(days * 24 + 1):
+        day = (h - 1) // 24 if h else 0
+        p = profit_per_day * (day + 1) if h else 0.0
+        frames.append({"h": h, "day": h // 24, "hod": h % 24,
+                       "c": {"A": {"lamp": 10.0, "sp_co2": 800.0}}, "faults": [], "panes": {"A": panes},
+                       "money": {"profit_so_far_eur": p, "cash_eur": 1000 + p, "harvest_revenue_eur": max(p, 0.0)},
+                       "b": [{"id": "A1", "area": 50.0, "st": "growing"}], "staff": 3})
+    events = [{"h": 24 * harvest_day + 8, "day": harvest_day, "kind": "harvest", "target": "A1",
+               "text": "Harvested 10 kg (10.0 kg) of x for 123.00 EUR."}] if harvest_day is not None else []
+    actions = [{"h": 6, "day": 0, "tool": "place_orders", "args": {"orders": {"part": 1}}, "ok": False,
+                "err": "nothing was accepted: part: unknown item 'part'"},
+               {"h": 6, "day": 0, "tool": "submit_day", "args": {}, "ok": True, "err": None}]
+    return {"frames": frames, "events": events, "actions": actions, "alarms": [], "daily": []}
+
+
+def test_compare_runs_divergence_and_ledger_gap():
+    ref = _hourly(5, 3000.0, harvest_day=1)
+    run = _hourly(5, 100.0, panes=4)
+    cmp = analytics.compare_runs({"run": run, "reference": ref}, "reference", diverge_eur=5000.0)
+    json.dumps(cmp, allow_nan=False)
+    r = cmp["runs"]["run"]
+    assert [row["day"] for row in r["daily"]] == [0, 1, 2, 3, 4]
+    # gap = 2900 * (day + 1): 5800 on day 1 is the first at or above 5000, and it never comes back
+    assert r["first_diverged_day"] == 1 and r["settled_diverged_day"] == 1
+    assert r["final_gap_eur"] == 2900 * 5
+    assert r["gap_by_ledger_eur"]["harvest_revenue_eur"] == 500 - 15000
+    assert r["totals"]["actions"] == 1 and r["totals"]["actions_failed"] == 1  # submit_day is not an action
+    assert r["errors"][0]["count"] == 1 and r["totals"]["pane_days"] == 5
+    assert cmp["runs"]["reference"]["totals"]["harvest_eur"] == 123.0
+    assert r["daily"][0]["lamp_kwh"] == 240.0  # 24 hours at 10 kW
+    md = analytics.render_comparison_md(cmp, "run")
+    assert "| run |" in md and "harvest_revenue_eur" in md

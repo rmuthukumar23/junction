@@ -14,6 +14,11 @@ Failure classes (AGENTS.md: infrastructure failures are never agent failures):
 
 Run as a script to build stats JSON from Harbor trial directories (demo and debugging):
     python analytics.py --bench artifacts/bench --out artifacts/pixel-cache/stats.json
+
+compare_runs(replays, reference) puts runs of one scenario and seed side by side, day by day,
+against the reference policy. From the command line it replays the traces and the policies first:
+    python analytics.py compare --trace gemini=<trial>/artifacts/var/lib/envkit/trace.jsonl \
+        --out-json artifacts/compare/s1.json --out-md artifacts/compare/s1.md
 """
 from __future__ import annotations
 
@@ -401,6 +406,188 @@ def compute_stats(runs: list[dict], load_replay: Callable[[str], dict], max_repl
     return _clean(out)
 
 
+# ---------------------------------------------------------------- run vs reference, day by day
+
+LEDGER_KEYS = ("harvest_revenue_eur", "electricity_sold_eur", "gas_eur", "electricity_bought_eur", "co2_eur",
+               "wages_eur", "hiring_eur", "seedlings_eur", "contractors_eur", "parts_eur", "orders_eur",
+               "repairs_eur", "fines_eur", "express_eur")
+DIVERGE_EUR = 5000.0  # a profit gap this large counts as "diverged"
+_PLANTED = re.compile(r"Planted ([\d.]+) m2")
+_HARVEST_EUR = re.compile(r"for (-?[\d.]+) EUR")
+
+
+def daily_profile(replay: dict) -> list[dict]:
+    """One row per clock day from a replay: end-of-day money (cumulative and that day's change per ledger
+    line), harvests, planting, orders, the agent's actions and their errors, damage and lamp use.
+    Frame h holds the state after hour h-1 ran, so day d covers frames 24d+1 .. 24(d+1)."""
+    frames = [f for f in replay.get("frames") or [] if isinstance(f.get("h"), int) and f["h"] >= 1]
+    by_day: dict[int, list[dict]] = defaultdict(list)
+    for f in frames:
+        by_day[(f["h"] - 1) // 24].append(f)
+    acts: dict[int, list[dict]] = defaultdict(list)
+    for a in replay.get("actions") or []:
+        if isinstance(a.get("day"), int):
+            acts[a["day"]].append(a)
+    evs: dict[int, list[dict]] = defaultdict(list)
+    for e in replay.get("events") or []:
+        if isinstance(e.get("day"), int):
+            evs[e["day"]].append(e)
+    rows, prev = [], {k: 0.0 for k in LEDGER_KEYS}
+    for d in sorted(by_day):
+        fs = by_day[d]
+        end = fs[-1]
+        mo = end.get("money") or {}
+        cum = {k: _num(mo.get(k)) or 0.0 for k in LEDGER_KEYS}
+        day_acts = [a for a in acts.get(d, []) if a.get("tool") != "submit_day"]
+        harvests = [e for e in evs.get(d, []) if e.get("kind") == "harvest"]
+        planted = sum(float(m.group(1)) for e in evs.get(d, []) if e.get("kind") == "plant"
+                      for m in [_PLANTED.search(str(e.get("text", "")))] if m)
+        noon = next((f for f in fs if f.get("hod") == 12), end)
+        comps = (noon.get("c") or {}).values()
+        rows.append({
+            "day": d,
+            "profit": _num(mo.get("profit_so_far_eur")), "cash": _num(mo.get("cash_eur")),
+            "ledger": cum, "ledger_day": {k: cum[k] - prev[k] for k in LEDGER_KEYS},
+            "harvests": len(harvests),
+            "harvest_eur": sum(float(m.group(1)) for e in harvests
+                               for m in [_HARVEST_EUR.search(str(e.get("text", "")))] if m),
+            "planted_m2": planted,
+            "growing_m2": sum(_num(b.get("area")) or 0.0 for b in end.get("b") or []
+                              if str(b.get("st", "")).lower() not in DONE_STATES),
+            "orders_placed": sum(1 for e in evs.get(d, []) if e.get("kind") == "order_placed"),
+            "actions": len(day_acts), "actions_failed": sum(1 for a in day_acts if not a.get("ok", True)),
+            "tools": dict(sorted(Counter(str(a.get("tool")) for a in day_acts).items())),
+            "errors": [{"tool": a.get("tool"), "args": a.get("args"), "err": a.get("err")}
+                       for a in day_acts if not a.get("ok", True)],
+            "panes_broken": sum(int(v or 0) for v in (end.get("panes") or {}).values()),
+            "faults": sorted(x for x in end.get("faults") or [] if not str(x).endswith(".glass")),
+            "lamp_kwh": sum(sum(_num(c.get("lamp")) or 0.0 for c in (f.get("c") or {}).values()) for f in fs),
+            "co2_setpoint_ppm": _mean([v for c in comps for v in [_num(c.get("sp_co2"))] if v is not None]),
+            "crew": end.get("staff"),
+        })
+        prev = cum
+    return rows
+
+
+def _settled_day(gaps: list[tuple[int, float]], limit: float) -> int | None:
+    """First day from which the gap stays at or above `limit` for the rest of the episode."""
+    out = None
+    for day, g in gaps:
+        if g >= limit:
+            out = day if out is None else out
+        else:
+            out = None
+    return out
+
+
+def compare_runs(replays: dict[str, dict], reference: str, diverge_eur: float = DIVERGE_EUR) -> dict:
+    """Day-by-day comparison of several replays of the same scenario and seed against `reference`.
+
+    For each run: its daily profile, where its cumulative profit first falls `diverge_eur` behind the
+    reference and the day from which it never catches back up, and its final profit gap split by
+    ledger line (run minus reference: negative means the run earned less or spent more)."""
+    prof = {name: daily_profile(r) for name, r in replays.items()}
+    ref = {row["day"]: row for row in prof.get(reference, [])}
+    runs = {}
+    for name, rows in prof.items():
+        gaps = [(row["day"], (ref[row["day"]]["profit"] or 0.0) - (row["profit"] or 0.0))
+                for row in rows if row["day"] in ref and row["profit"] is not None]
+        last, ref_last = (rows[-1] if rows else {}), (prof[reference][-1] if prof.get(reference) else {})
+        gap_by = {k: (last.get("ledger") or {}).get(k, 0.0) - (ref_last.get("ledger") or {}).get(k, 0.0)
+                  for k in LEDGER_KEYS}
+        tot = lambda key: sum(row[key] for row in rows)  # noqa: E731
+        errs = Counter(_norm_err(e["err"]) for row in rows for e in row["errors"])
+        runs[name] = {
+            "final_profit_eur": last.get("profit"),
+            "final_gap_eur": gaps[-1][1] if gaps else None,
+            "first_diverged_day": next((d for d, g in gaps if g >= diverge_eur), None),
+            "settled_diverged_day": _settled_day(gaps, diverge_eur),
+            "gap_by_ledger_eur": dict(sorted(gap_by.items(), key=lambda kv: kv[1])),
+            "totals": {"harvests": tot("harvests"), "harvest_eur": tot("harvest_eur"), "planted_m2": tot("planted_m2"),
+                       "orders_placed": tot("orders_placed"), "actions": tot("actions"),
+                       "actions_failed": tot("actions_failed"), "lamp_kwh": tot("lamp_kwh"),
+                       "days_with_actions": sum(1 for row in rows if row["actions"]),
+                       "last_action_day": max((row["day"] for row in rows if row["actions"]), default=None),
+                       "pane_days": sum(1 for row in rows if row["panes_broken"]),
+                       "fault_days": sum(1 for row in rows if row["faults"])},
+            "errors": [{"err": e, "count": n} for e, n in errs.most_common()],
+            "gap_curve": [{"day": d, "gap_eur": g} for d, g in gaps],
+            "daily": rows,
+        }
+    return _clean({"reference": reference, "diverge_eur": diverge_eur, "runs": runs})
+
+
+def _eur(x: Any) -> str:
+    v = _num(x)
+    return "–" if v is None else f"{v:,.0f}"
+
+
+def render_comparison_md(cmp: dict, focus: str) -> str:
+    """Markdown tables for a comparison: a summary of every run and the focus run's day-by-day log."""
+    ref, runs = cmp["reference"], cmp["runs"]
+    names = [ref] + [n for n in runs if n != ref]
+    out = ["| Run | Final profit (EUR) | Gap to reference | Harvests | Harvest EUR | Planted m² | Orders | "
+           "Failed actions | Days with damage | Diverged (first / for good) |", "|---|---:|---:|---:|---:|---:|---:|"
+           "---:|---:|---|"]
+    for n in names:
+        r, t = runs[n], runs[n]["totals"]
+        out.append(f"| {n} | {_eur(r['final_profit_eur'])} | {_eur(r['final_gap_eur'])} | {t['harvests']} | "
+                   f"{_eur(t['harvest_eur'])} | {_eur(t['planted_m2'])} | {t['orders_placed']} | "
+                   f"{t['actions_failed']}/{t['actions']} | {max(t['pane_days'], t['fault_days'])} | "
+                   f"{r['first_diverged_day']} / {r['settled_diverged_day']} |")
+    out += ["", f"Final gap to {ref} by ledger line, EUR ({focus} minus {ref}; most negative first):", ""]
+    gap = runs[focus]["gap_by_ledger_eur"]
+    out += ["| Ledger line | Gap |", "|---|---:|"] + [f"| {k} | {_eur(v)} |" for k, v in gap.items() if abs(v) >= 1]
+    out += ["", f"Day by day, {focus} against {ref} (day = clock day from 0; money is end of day):", "",
+            f"| Day | {focus} profit | {ref} profit | Gap | Harvests (run/ref) | Planted m² (run/ref) | "
+            "Actions failed/total | Panes broken (run/ref) | Faults (run) |", "|---:|---:|---:|---:|---|---|---|---|---|"]
+    rd = {row["day"]: row for row in runs[ref]["daily"]}
+    for row in runs[focus]["daily"]:
+        o = rd.get(row["day"], {})
+        out.append(f"| {row['day']} | {_eur(row['profit'])} | {_eur(o.get('profit'))} | "
+                   f"{_eur((o.get('profit') or 0) - (row['profit'] or 0))} | {row['harvests']}/{o.get('harvests', '–')} | "
+                   f"{_eur(row['planted_m2'])}/{_eur(o.get('planted_m2'))} | {row['actions_failed']}/{row['actions']} | "
+                   f"{row['panes_broken']}/{o.get('panes_broken', '–')} | {', '.join(row['faults']) or '–'} |")
+    return "\n".join(out) + "\n"
+
+
+def _compare_main(argv: list[str]) -> None:
+    """python analytics.py compare --trace T [--trace T2 ...] --out-json J --out-md M
+    Replays each agent trace and the named policies on the trace's scenario and seed (the policies play
+    whole episodes through the real tools: on normal-winter this is a benchmark-length run)."""
+    import argparse
+    from pathlib import Path
+    import replay as rp
+    ap = argparse.ArgumentParser(prog="analytics.py compare")
+    ap.add_argument("--trace", action="append", required=True, help="label=path/to/trace.jsonl")
+    ap.add_argument("--policies", default="reference,rule-based,naive")
+    ap.add_argument("--diverge-eur", type=float, default=DIVERGE_EUR)
+    ap.add_argument("--out-json", required=True)
+    ap.add_argument("--out-md")
+    a = ap.parse_args(argv)
+    replays, scenario, seed = {}, None, None
+    for spec in a.trace:
+        label, _, path = spec.rpartition("=")
+        out = rp.replay_trace(path, {"id": label or path, "kind": "agent"})
+        replays[label or path] = out
+        scenario, seed = out["meta"]["scenario"], out["meta"]["seed"]
+        if out["meta"].get("replay_verified") is False:
+            print(f"warning: {label}: replay does not match the recorded responses")
+    pols = [p for p in a.policies.split(",") if p]
+    for p in pols:
+        replays[p] = rp.replay_policy(p, int(seed), str(scenario), {"id": f"policy:{p}:s{seed}", "kind": "policy"})
+    cmp = compare_runs(replays, "reference" if "reference" in pols else pols[0], a.diverge_eur)
+    cmp["scenario"], cmp["seed"] = scenario, seed
+    Path(a.out_json).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out_json).write_text(json.dumps(cmp, indent=1), encoding="utf-8")
+    if a.out_md:
+        focus = next(iter(replays))
+        Path(a.out_md).write_text(render_comparison_md(cmp, focus), encoding="utf-8")
+    for n, r in cmp["runs"].items():
+        print(f"{n}: profit {_eur(r['final_profit_eur'])}, gap {_eur(r['final_gap_eur'])}, "
+              f"diverged day {r['first_diverged_day']} (for good from {r['settled_diverged_day']})")
+
+
 # ---------------------------------------------------------------- demo helper: Harbor trial dirs
 
 def runs_from_harbor(bench_dir: str):
@@ -452,7 +639,11 @@ def runs_from_harbor(bench_dir: str):
 
 if __name__ == "__main__":
     import argparse
+    import sys
     from pathlib import Path
+    if sys.argv[1:2] == ["compare"]:
+        _compare_main(sys.argv[2:])
+        raise SystemExit(0)
     ap = argparse.ArgumentParser()
     ap.add_argument("--bench", required=True)
     ap.add_argument("--out", required=True)

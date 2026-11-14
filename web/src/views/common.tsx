@@ -24,8 +24,8 @@ export function BigText({ text, scale, width }: { text: string; scale: number; w
     const tw = S.textWidth(text, scale);
     c.width = width || tw + 4 * scale; c.height = 9 * scale;
     const x = c.getContext("2d") as CanvasRenderingContext2D, ox = ((c.width - tw) / 2) | 0;
-    S.text(x, text, ox + scale, scale * 2, "#f3d9a8", scale);
-    S.text(x, text, ox, scale, "#d9531e", scale);
+    S.text(x, text, ox + scale, scale * 2, "#cbd6b5", scale);
+    S.text(x, text, ox, scale, "#2a4631", scale);
     c.style.width = c.width * 2 + "px";
   }, [text, scale, width]);
   return <canvas ref={ref} className="bigtitle" style={{ maxWidth: "100%", height: "auto" }} />;

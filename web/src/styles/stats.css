@@ -1,14 +1,14 @@
 /* Stats page. Uses the shared --px-* variables with fallbacks so it also works standalone. */
 .st-root {
-  --st-bg: var(--px-bg, #f4efd6);
-  --st-panel: var(--px-panel, #fffdf2);
-  --st-ink: var(--px-ink, #1f3a24);
-  --st-accent: var(--px-accent, #d9531e);
-  --st-good: var(--px-good, #2f7d32);
-  --st-bad: var(--px-bad, #c62828);
-  --st-warn: var(--px-warn, #9a6a00);
-  --st-co2: var(--px-co2, #0f8a7a);
-  --st-infra: #4a5ab0;
+  --st-bg: var(--px-bg, #f1efe0);
+  --st-panel: var(--px-panel, #faf9f0);
+  --st-ink: var(--px-ink, #1e3226);
+  --st-accent: var(--px-accent, #a5411c);
+  --st-good: var(--px-good, #23703a);
+  --st-bad: var(--px-bad, #b3261e);
+  --st-warn: var(--px-warn, #7c5200);
+  --st-co2: var(--px-co2, #0b7a6b);
+  --st-infra: var(--px-info, #1d5c94);
   color: var(--st-ink);
   font-family: "Courier New", ui-monospace, monospace;
   font-size: 14px;
@@ -22,13 +22,13 @@
 
 .st-panel {
   background: var(--st-panel);
-  border: 4px solid var(--px-edge, #5f8f3a);
+  border: 4px solid var(--px-edge, #4f7a45);
   border-radius: 0;
-  box-shadow: 4px 4px 0 var(--px-shadow, #7a5230);
+  box-shadow: 4px 4px 0 var(--px-shadow, #2a4631);
   padding: 12px 16px 16px;
   margin: 0 0 18px;
 }
-.st-h { margin: 0 0 10px; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--st-accent); }
+.st-h { margin: 0 0 10px; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--px-forest, #2a4631); }
 .st-h3 { margin: 16px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 .st-note { margin: 8px 0 0; font-size: 12px; opacity: .8; }
 .st-dim { opacity: .6; }
@@ -42,21 +42,21 @@
 .st-tag.st-bad, .st-tag.st-infra, .st-tag.st-dim { color: inherit; }
 
 .st-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-.st-stat { border: 3px solid var(--st-ink); padding: 6px 8px; background: rgba(95, 143, 58, .1); }
+.st-stat { border: 3px solid var(--st-ink); padding: 6px 8px; background: rgba(79, 122, 69, .1); }
 .st-stat b { display: block; font-size: 20px; }
 .st-stat span { font-size: 11px; text-transform: uppercase; opacity: .8; }
 
 .st-scroll { overflow-x: auto; }
 .st-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .st-table th { text-align: left; font-size: 11px; text-transform: uppercase; padding: 6px 8px; border-bottom: 4px solid var(--st-ink); white-space: nowrap; }
-.st-table td { padding: 6px 8px; border-bottom: 2px solid rgba(31, 58, 36, .2); vertical-align: middle; }
-.st-table tbody tr:hover { background: rgba(95, 143, 58, .12); }
+.st-table td { padding: 6px 8px; border-bottom: 2px solid rgba(30, 50, 38, .2); vertical-align: middle; }
+.st-table tbody tr:hover { background: rgba(79, 122, 69, .12); }
 .st-barcell { white-space: nowrap; }
 .st-blocks { vertical-align: middle; margin-right: 4px; }
 .st-link { color: var(--st-accent); text-decoration: underline; text-underline-offset: 3px; }
 .st-link:hover { background: var(--st-accent); color: var(--st-bg); }
 
-.st-chart { width: 100%; height: auto; display: block; margin-top: 8px; background: rgba(95, 143, 58, .1); border: 3px solid var(--st-ink); }
+.st-chart { width: 100%; height: auto; display: block; margin-top: 8px; background: rgba(79, 122, 69, .1); border: 3px solid var(--st-ink); }
 .st-chart text { fill: var(--st-ink); font-family: inherit; font-size: 11px; }
 
 .st-legend { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -64,10 +64,10 @@
 .st-leg i, .st-leg-static i, .st-key { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: middle; }
 .st-key { margin-left: 4px; }
 .st-leg.st-off { opacity: .4; text-decoration: line-through; }
-.st-leg-static { font-size: 11px; padding: 2px 6px; border: 2px solid rgba(31, 58, 36, .4); }
+.st-leg-static { font-size: 11px; padding: 2px 6px; border: 2px solid rgba(30, 50, 38, .4); }
 
 .st-list { margin: 0; padding: 0; list-style: none; }
-.st-list li { padding: 5px 0 5px 14px; border-bottom: 2px dotted rgba(31, 58, 36, .2); position: relative; }
+.st-list li { padding: 5px 0 5px 14px; border-bottom: 2px dotted rgba(30, 50, 38, .2); position: relative; }
 .st-list li::before { content: ""; position: absolute; left: 0; top: 11px; width: 6px; height: 6px; background: var(--st-accent); }
 .st-list code { word-break: break-word; font-size: 12px; }
 .st-list small { opacity: .75; }

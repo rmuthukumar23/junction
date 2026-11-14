@@ -4,22 +4,31 @@ import { eur, num } from "../lib/format";
 import type { RunMeta } from "../lib/types";
 import { Mascot, Topbar } from "./common";
 
+const DEFAULT_SCENARIO = "normal-winter";
+const isSmoke = (r: RunMeta) => /smoke/i.test(r.scenario || "");
+
 export function Runs() {
   const [runs, setRuns] = useState<RunMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [kind, setKind] = useState("");
+  const [scenario, setScenario] = useState(DEFAULT_SCENARIO);
+  const [status, setStatus] = useState("");
   const [seed, setSeed] = useState("");
 
   useEffect(() => {
     fetchJson<{ runs: RunMeta[] }>("/api/runs").then((j) => setRuns(j.runs || []), (e: Error) => setError(e.message));
   }, []);
 
-  const seeds = useMemo(() => [...new Set((runs || []).map((r) => r.seed))].sort((a, b) => (a ?? 0) - (b ?? 0)), [runs]);
+  // Only model runs: scripted reference policies and smoke checks are not listed.
+  const agentRuns = useMemo(() => (runs || []).filter((r) => r.kind === "agent" && !isSmoke(r)), [runs]);
+  const scenarios = useMemo(() => [...new Set(agentRuns.map((r) => r.scenario || "unknown"))].sort(), [agentRuns]);
+  const seeds = useMemo(() => [...new Set(agentRuns.map((r) => r.seed))].sort((a, b) => (a ?? 0) - (b ?? 0)), [agentRuns]);
+  const activeScenario = scenarios.includes(scenario) ? scenario : "";
   const list = useMemo(
-    () => (runs || [])
-      .filter((r) => (!kind || r.kind === kind) && (!seed || String(r.seed) === seed))
-      .sort((a, b) => Number(b.score == null) - Number(a.score == null) || (b.score ?? 0) - (a.score ?? 0)),
-    [runs, kind, seed],
+    () => agentRuns
+      .filter((r) => (!activeScenario || (r.scenario || "unknown") === activeScenario)
+        && (!status || r.status === status) && (!seed || String(r.seed) === seed))
+      .sort((a, b) => (b.started || "").localeCompare(a.started || "")),
+    [agentRuns, activeScenario, status, seed],
   );
 
   return (
@@ -29,9 +38,10 @@ export function Runs() {
         <h2 className="px-title">Recorded runs</h2>
         {runs && (
           <div className="filters">
-            <label>KIND <select value={kind} onChange={(e) => setKind(e.target.value)}><option value="">all</option><option>agent</option><option>policy</option></select></label>
+            <label>SCENARIO <select value={activeScenario} onChange={(e) => setScenario(e.target.value)}><option value="">all</option>{scenarios.map((s) => <option key={s}>{s}</option>)}</select></label>
+            <label>STATUS <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">all</option><option>complete</option><option>partial</option><option>failed</option></select></label>
             <label>SEED <select value={seed} onChange={(e) => setSeed(e.target.value)}><option value="">all</option>{seeds.map((s) => <option key={String(s)}>{s}</option>)}</select></label>
-            <span className="dim">{list.length} / {runs.length}</span>
+            <span className="dim">{list.length} / {agentRuns.length}</span>
           </div>
         )}
         <div className="cards">
