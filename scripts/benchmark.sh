@@ -2,9 +2,9 @@
 # Benchmark a model on the greenhouse in one command: one run, then its score against
 # the reference and the scripted players, the gap, and where the money went.
 #
-#   bash scripts/benchmark.sh                      # quick-winter (14 days, 60 calls, 10-20 min), seed 1, one run
+#   bash scripts/benchmark.sh                      # quick-winter (14 days, one turn a day), seed 1, one run
 #   bash scripts/benchmark.sh --runs 3             # three runs in parallel (the judges' protocol)
-#   bash scripts/benchmark.sh --full               # normal-winter (42 days, 400 calls; 1-2 hours per run)
+#   bash scripts/benchmark.sh --full               # normal-winter (42 days): the benchmark itself
 #   bash scripts/benchmark.sh --backend docker     # local containers instead of Modal
 #
 # The model and key come from .env (AFTERQUERY_MODEL, GEMINI_API_KEY); the first run
