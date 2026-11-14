@@ -15,8 +15,8 @@ Claimable packages, never permanent developer roles:
 
 If no meaningful gap exists by hour four, prioritize calibration over cloud/UI
 work. The current implementation does not assign fixed developer roles. Any
-teammate or this machine can claim the next package. Entire setup and Verda
-training are deferred; do not block core work on either.
+teammate or this machine can claim the next package. Entire is available for
+local context; Verda training is deferred. Do not block core work on either.
 
 ## Original 48-hour reference timeline
 
@@ -67,7 +67,7 @@ Run that agent only inside `../junction-2-environment`. Use a different director
 - Only the agent in the claimed branch edits its reserved files. Need a change in another active issue's files? Coordinate with that issue's point of contact rather than editing the other checkout.
 - Keep dependency changes coordinated and announced in the PR. Avoid drive-by refactors and keep `main` runnable.
 - GitHub issues/PRs and `docs/DECISIONS.md` are durable team state. Chat is for quick coordination, not the only record of decisions.
-- Entire is deferred in the MVP. If adopted later, checkpoint handoffs, test shared context retrieval, and keep GitHub PRs as the integration gate.
+- Entire records local checkpoints and provides Graph/Brain context. Automatic session pushing is disabled because this repository is public. Use issue/PR handoffs until a private checkpoint destination and a two-person retrieval test are ready; keep GitHub PRs as the integration gate. See `docs/ENTIRE.md`.
 - Codex (and any other coding agents) work as peers on isolated branches. Any team machine, including the coordinator's, can run development agents. GitHub coordinates integration; no machine owns all agent compute or a shared writable checkout.
 - Any scoring or benchmark change gets before/after development-seed runs. Keep seeds 100–102 unseen until scenario freeze, then use them only for final held-out evaluation.
 
