@@ -178,9 +178,11 @@ def test_call_limit_stops_the_episode_and_counts_every_request():
     base = _strict_scenario()
     scenario = dataclasses.replace(base, shift=dataclasses.replace(base.shift, max_calls=3))
     ep = Episode(scenario, 0)
-    ep.call("observe", {})
-    ep.call("no_such_tool", {})                 # refused requests count too
+    assert ep.call("observe", {})["header"]["calls_left"] == 2      # the budget is visible to the player
+    assert ep.call("no_such_tool", {})["header"]["calls_left"] == 1  # refused requests count too
     assert not ep.done
     r = ep.call("observe", {})
+    assert r["header"]["calls_left"] == 0
     assert r["header"]["done"] and ep.end_reason == "call_limit" and ep.result()["stopped_early"]
+    assert "calls_left" not in Episode(base, 0).call("observe", {})["header"]   # no limit, no counter
     assert ep.call("observe", {})["error"]["code"] == "episode_over"

@@ -11,7 +11,7 @@ id = "smoke"
 title = "Greenhouse Bench smoke run"
 env = "greenhouse.env:GreenhouseBench"
 seeds = [1]
-reference = "reference"   # naive for now; the reference planner replaces it
+reference = "reference"
 prompt = """
 Smoke test of a greenhouse simulator. You run a two-compartment winter greenhouse
 for ${horizon_days} day (${windows} one-hour windows) with ${max_calls} tool calls.

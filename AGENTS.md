@@ -23,9 +23,14 @@ Build a reproducible interactive environment for Junction 2026's AfterQuery chal
 
 ## Checks and handoff
 
-- Run `bash scripts/check.sh` before a PR. For the pinned full test environment, follow the setup in `README.md`.
+There are two kinds of check. Keep them apart.
+
+- **Quick check: the only one you run.** `bash scripts/quick.sh` (about 30 s). It compiles everything, runs the test suite, rebuilds the quick tasks and checks they are current. It plays no benchmark scenario, only the 1-day `scenarios/smoke.toml`. Run it after every change and before every push. Keep it fast: a new test must not play a benchmark scenario, a long episode or a calibration. If it needs one, gate it behind `ENVKIT_TEST_SCENARIO=normal-winter` (see `tests/greenhouse/test_scenario.py`).
+- **Model smoke check, before merging a change to the tools or the game:** one cheap model on the smoke task, about 3 min on Modal (`docs/MODAL.md`, "Smoke checks").
+- **Benchmark checks: never run them unless the user explicitly asks for benchmarks.** They play whole 42-day episodes: `ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q`, `envkit build normal-winter`, `envkit check --full`, `envkit audit`, `envkit anchors`, `bash scripts/judge.sh` without `ENVKIT_SCENARIO=smoke`, and any `envkit run` or `envkit eval` on `normal-winter`.
+- For the pinned full test environment, follow the setup in `README.md`.
 - No crop, facility, price or event value is hardcoded in Python: values live in `data/` files and are validated on load (`docs/GREENHOUSE_SPEC.md` section 3). Only the environment's top-level package (`src/greenhouse`) and the data files the scenario names are bundled into the task.
-- `tasks/` and `calibration.json` are generated. After changing anything under `src/` or `scenarios/`, run `uv run --no-sync envkit build` and commit the result; the full check fails if they are stale.
+- `tasks/` and `calibration.json` are generated. `envkit build` and `envkit check` without arguments cover only quick scenarios; a scenario marked `benchmark = true` in `[task]` (`normal-winter`) is generated at benchmark time only and is not committed day to day. `bash scripts/quick.sh` rebuilds the quick tasks; commit `tasks/` and `calibration.json` with your change.
 - The judge command is `bash scripts/judge.sh --output artifacts/judge`; it reads `GEMINI_API_KEY` and `AFTERQUERY_MODEL` from `.env` (never commit it). It still needs event-kit validation.
 - Update the relevant project docs when an interface, command, decision, or benchmark result changes. End a PR handoff with the current state, verification command and result, and remaining risk.
 

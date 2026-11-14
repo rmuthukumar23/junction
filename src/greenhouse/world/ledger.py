@@ -84,16 +84,25 @@ class Ledger:
             return None
         return self.record(LedgerEntry(hour, category, float(income_eur), note))
 
+    def _settle(self, hour: int, category: LedgerCategory, eur: float, note: str = "") -> LedgerEntry | None:
+        """Record a signed amount (income positive, cost negative). Zero records nothing."""
+        if eur == 0:
+            return None
+        return self.record(LedgerEntry(hour, category, float(eur), note))
+
     # -- pricing -----------------------------------------------------------------------
 
     def price_metered(self, m: Metered, prices: EnergyPrices, external_co2_eur_per_kg: float) -> list[LedgerEntry]:
         """One hour of metered energy and CO2. CO2 from the on-site store was paid on
         delivery, so only external contract CO2 is charged here."""
+        # Recorded day-ahead prices go below zero in some hours. Then exporting costs
+        # money and importing pays, so both electricity lines are settled with their sign.
         out = [
             self.charge(m.hour, "gas", m.gas_m3 * prices.gas_eur_per_m3, f"{m.gas_m3:.2f} m3 gas"),
-            self.charge(m.hour, "electricity_bought", m.electricity_import_kwh * prices.import_eur_per_kwh,
-                        f"{m.electricity_import_kwh:.1f} kWh imported"),
-            self._export(m, prices),
+            self._settle(m.hour, "electricity_bought", -m.electricity_import_kwh * prices.import_eur_per_kwh,
+                         f"{m.electricity_import_kwh:.1f} kWh imported"),
+            self._settle(m.hour, "electricity_sold", m.electricity_export_kwh * prices.export_eur_per_kwh,
+                         f"{m.electricity_export_kwh:.1f} kWh exported"),
             self.charge(m.hour, "co2", m.external_co2_kg * external_co2_eur_per_kg,
                         f"{m.external_co2_kg:.1f} kg external CO2"),
         ]
@@ -102,15 +111,6 @@ class Ledger:
         self.hours_priced += 1
         self.sum_import_price += prices.import_eur_per_kwh
         return [e for e in out if e is not None]
-
-    def _export(self, m: Metered, prices: EnergyPrices) -> LedgerEntry | None:
-        """Exported power at the hour's export price. Recorded day-ahead prices go
-        negative in some hours; exporting then costs money, booked in the same category."""
-        eur = m.electricity_export_kwh * prices.export_eur_per_kwh
-        if eur == 0:
-            return None
-        return self.record(LedgerEntry(m.hour, "electricity_sold", float(eur),
-                                       f"{m.electricity_export_kwh:.1f} kWh exported"))
 
     def price_harvest(self, hour: int, result: HarvestResult, unit_price_eur: float,
                       grades: list[Grade]) -> tuple[LedgerEntry | None, str]:

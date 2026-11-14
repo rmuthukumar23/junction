@@ -90,6 +90,9 @@ class Scenario:
     harbor: dict[str, Any] = field(default_factory=dict)
     audit: dict[str, Any] = field(default_factory=dict)
     source: str = ""  # raw TOML text, hashed into the bundle hash
+    # A benchmark task (whole episodes): built and checked only when named or with --full,
+    # never by the quick commands. Quick scenarios (smoke) are the default.
+    benchmark: bool = False
 
     def env_class(self) -> type:
         module, _, cls = self.env_path.partition(":")
@@ -226,6 +229,7 @@ def parse_scenario(text: str) -> Scenario:
         harbor=dict(data.get("harbor", {})),
         audit=dict(data.get("audit", {})),
         source=text,
+        benchmark=bool(task.get("benchmark", False)),
     )
 
 

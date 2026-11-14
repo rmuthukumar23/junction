@@ -21,6 +21,41 @@ def midpoint(pair: Any, fallback: float) -> float:
     return fallback
 
 
+def import_prices(forecast: dict[str, Any], now_hour: int = 0) -> list[tuple[int, float]]:
+    """(episode hour, electricity import price) per forecast hour, in forecast order.
+
+    The real facility returns `energy_prices` as hourly rows with `hour` and
+    `import_eur_kwh`. A plain list of numbers under a key with "price" in its name is
+    read as the hours from `now_hour` on. Anything else gives an empty list ("no price
+    forecast offered").
+    """
+    for key, rows in forecast.items():
+        if "price" not in key or not isinstance(rows, list) or not rows:
+            continue
+        if all(isinstance(r, (int, float)) and not isinstance(r, bool) for r in rows):
+            return [(now_hour + i, float(r)) for i, r in enumerate(rows)]
+        if all(isinstance(r, dict) and isinstance(r.get("import_eur_kwh"), (int, float))
+               and isinstance(r.get("hour"), int) for r in rows):
+            return [(r["hour"], float(r["import_eur_kwh"])) for r in rows]
+    return []
+
+
+class Absentee(Policy):
+    """Shows up every day, looks, and changes nothing (spec 9). It must score about 0:
+    the facility runs on its baseline exactly as if nobody were there."""
+
+    name = "absentee"
+    advance_h = 24
+
+    def run(self, client: Client) -> None:
+        guard = 0
+        while not client.done and guard < 5000:
+            guard += 1
+            client.call("get_status")
+            if client.done or not client.call("advance", hours=self.advance_h).get("ok"):
+                return
+
+
 class ToolPolicy(Policy):
     """Base: a daily loop of read -> decide -> advance, through tools only."""
 

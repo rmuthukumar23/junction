@@ -53,7 +53,7 @@ All commands run in the locked environment (`uv sync --locked --extra eval --ext
 - **Termination.** `Environment.terminated()` is checked after every operation and at every window close.
 - **Rejected calls.** A call the engine rejects before it reaches a tool (unknown tool, malformed arguments) is free by default. An environment whose contract charges invalid requests overrides `on_invalid_call`; the strict fixture does.
 - **Arguments.** Tool schemas come from type hints. Loose number encodings (`"5"`, `5.0`) are accepted unless the environment sets `strict_arguments = True`; the strict fixture does.
-- **Built-in tools.** `end_window` and `read_alerts` are offered unless the environment sets `builtin_tools = ()`; the greenhouse does (`advance_day` replaces `end_window`).
+- **Built-in tools.** `end_window` and `read_alerts` are offered unless the environment sets `builtin_tools = ()`; the greenhouse does (`advance(hours)` is its only tool that moves time).
 - **Events.** A scenario's `[[events]]` reach the agent by channel: announced (an alert states the change), rumored (only the rumor text), or silent (no alert).
 
 ## Scoring

@@ -38,12 +38,15 @@ from .trace import Trace, read_trace
 TASKS_DIR = "tasks"
 
 
-def find_scenarios(names: list[str]) -> list[Scenario]:
+def find_scenarios(names: list[str], benchmarks: bool = True) -> list[Scenario]:
+    """Named scenarios, or all of them. `benchmarks=False` leaves out scenarios marked
+    `benchmark = true` (whole-episode tasks), which the quick commands never touch."""
     if not names:
         paths = sorted((ROOT / "scenarios").glob("*.toml"))
         if not paths:
             raise SystemExit(f"no scenarios found in {ROOT / 'scenarios'}")
-        return [load_scenario(p) for p in paths]
+        found = [load_scenario(p) for p in paths]
+        return found if benchmarks else [s for s in found if not s.benchmark]
     out = []
     for name in names:
         candidates = [Path(name), ROOT / "scenarios" / f"{name}.toml"]
@@ -118,7 +121,7 @@ def cmd_audit(a: argparse.Namespace) -> int:
 
 def cmd_build(a: argparse.Namespace) -> int:
     data = load_calibration(ROOT)
-    for scenario in find_scenarios(a.scenarios):
+    for scenario in find_scenarios(a.scenarios, benchmarks=False):
         data["tasks"][scenario.id] = {}
         for seed in scenario.seeds:
             entry = calibrate(scenario, seed)
@@ -134,13 +137,17 @@ def cmd_build(a: argparse.Namespace) -> int:
 def cmd_check(a: argparse.Namespace) -> int:
     data = load_calibration(ROOT)
     problems = []
-    for scenario in find_scenarios([]):
+    for scenario in find_scenarios([], benchmarks=getattr(a, "full", False)):
         for seed in scenario.seeds:
             committed = entry_for(data, scenario.id, seed)
-            fresh = calibrate(scenario, seed)
             name = task_name(scenario, seed)
-            if committed != json.loads(json.dumps(fresh)):
+            # Calibration is a pure function of the bundle, so a matching bundle hash
+            # proves the entry is current without playing anything. --full replays it.
+            if committed is None or committed.get("bundle") != bundle_hash(source_files(scenario)):
                 problems.append(f"{name}: calibration.json is stale")
+                continue
+            if getattr(a, "full", False) and committed != json.loads(json.dumps(calibrate(scenario, seed))):
+                problems.append(f"{name}: calibration.json does not reproduce")
                 continue
             problems += [f"{name}: {d}" for d in check_task(scenario, seed, committed, ROOT / TASKS_DIR)]
     for p in problems:
@@ -237,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_build)
 
     p = sub.add_parser("check", help="verify calibration.json and tasks/ are current")
+    p.add_argument("--full", action="store_true",
+                   help="also replay every anchor policy (slow: whole episodes; benchmark time only)")
     p.set_defaults(fn=cmd_check)
 
     p = sub.add_parser("play", help="play by hand")

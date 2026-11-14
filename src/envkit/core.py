@@ -339,6 +339,8 @@ class Episode:
             "unread_alerts": len(self.alerts) - self._alerts_read,
             "done": self.done,
         }
+        if s.max_calls is not None:      # the budget the player is held to must be visible to it
+            head["calls_left"] = 0 if self.done else max(0, s.max_calls - self.requests)
         if self.done:
             head["end_reason"] = self.end_reason
         head.update(self.env.header())

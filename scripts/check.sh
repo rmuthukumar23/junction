@@ -10,7 +10,12 @@ if python3 -c "import pytest, mcp" 2>/dev/null; then
   python3 -m pytest tests/envkit
   if compgen -G "scenarios/*.toml" > /dev/null; then
     python3 -m envkit.cli check
-    python3 -m envkit.cli audit
+    # The reward audit plays whole episodes of the submitted task: benchmark time only.
+    if [ "${ENVKIT_TEST_SCENARIO:-}" = "normal-winter" ]; then
+      python3 -m envkit.cli audit normal-winter
+    else
+      echo "Skipped the reward audit (benchmark check): set ENVKIT_TEST_SCENARIO=normal-winter to run it."
+    fi
   else
     echo "Skipped task freshness and reward audit: no scenario in scenarios/ yet."
   fi

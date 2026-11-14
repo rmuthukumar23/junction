@@ -14,7 +14,7 @@ keywords = ["envkit", "mcp", "simulation"]
 [metadata]
 scenario = "smoke"
 seed = 1
-bundle = "6e5e90acf23feb17"
+bundle = "7f52b21664f7e5bd"
 
 [agent]
 timeout_sec = 300.0
