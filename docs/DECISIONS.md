@@ -33,6 +33,18 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - Podman is accepted as a local backend next to Docker.
 - `src/envs/depot` and `scenarios/depot-basic.toml` stay as the worked example for windows, scripted events and calibrated composite scoring. They are not part of the submission.
 
+## Root Cause greenhouse benchmark · 2026-11-14
+
+- Root Cause is a second environment on `envkit`, in its own top-level package `src/rootcause`. `envkit` itself is unchanged, so the Shift Planner and Depot tasks and their bundle hashes are unchanged. Model, rules and scoring: [GREENHOUSE](GREENHOUSE.md).
+- One window is one day. `advance_day` costs the day's single operation and every other tool costs 0, so reads never move time. `builtin_tools = ()`: `advance_day` replaces `end_window`.
+- A plan lasts one day; a day with no submitted plan runs the default plan. That makes "do nothing" and "stop early" the same documented thing: the default plan for the remaining days. `finish_episode`, a closed browser and a dead agent all end on day 13 with the same result (`test_every_way_of_stopping_early_gives_the_same_final_day_result`).
+- Reward is `clamp((profit - floor) / (ceiling - floor))` computed inside the engine, as a `mean` component on the ledger value `normalized_profit`, not as an `anchored` component. Reason: the bounds are properties of the instance (default-plan profit; a proven upper bound) rather than of any scripted policy's score.
+- The browser app is a standard-library HTTP server with a no-build static frontend in `src/rootcause_app`, outside the bundle. It keeps one `envkit` episode per run and writes the same trace as the sidecar; results are recomputed by replay. Reason: one engine and one scoring path, and a judge can start it with plain Python.
+- No result is projected for an unfinished browser run. An earlier draft showed "profit if abandoned now"; that reads hidden state and future weather and would let a player price a plan before committing to it. A test now forbids it.
+- Seeds: 7 is the committed task and the demo. Seeds 1-12 were looked at while tuning the mechanics (1-6 are reported as the development suite). Seeds 101-108 are the evaluation suite and were first run after the mechanics were fixed.
+- `scripts/judge.sh` takes `ENVKIT_SCENARIO` (default `shift-planner`), so the same wrapper runs either scenario.
+- Not done, by decision: no second (non-Harbor) model runner was written. The only model path is Harbor with OpenCode, as the challenge requires, and no credential was available to test another one.
+
 ## Remaining event decisions
 
 - AfterQuery starter-kit/scoring-skeleton version and any differences from candidate Harbor task.

@@ -1,0 +1,54 @@
+{
+ "anchors": {
+  "absentee": {
+   "components": {
+    "normalized_profit": 0.0
+   },
+   "metrics": {
+    "normalized_profit": 0.0
+   },
+   "reward": 0.0
+  },
+  "do-nothing": {
+   "components": {
+    "normalized_profit": 0.0
+   },
+   "metrics": {
+    "normalized_profit": 0.0
+   },
+   "reward": 0.0
+  },
+  "reference": {
+   "components": {
+    "normalized_profit": 0.6662
+   },
+   "metrics": {
+    "normalized_profit": 0.6662
+   },
+   "reward": 0.6662
+  },
+  "rule-based": {
+   "components": {
+    "normalized_profit": 0.0355
+   },
+   "metrics": {
+    "normalized_profit": 0.0355
+   },
+   "reward": 0.0355
+  },
+  "stop-early": {
+   "components": {
+    "normalized_profit": 0.0902
+   },
+   "metrics": {
+    "normalized_profit": 0.0902
+   },
+   "reward": 0.0902
+  }
+ },
+ "bundle": "1447dec5e855e3b5",
+ "components": {},
+ "oracle": "reference",
+ "seed": 7,
+ "threshold": null
+}
