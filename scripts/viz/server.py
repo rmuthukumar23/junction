@@ -1,14 +1,14 @@
 """Greenhouse Bench viewer: six growers on the same greenhouse, side by side, replayed from the real simulator.
 
     .venv/bin/python scripts/viz/server.py            # then open http://localhost:8765
-    .venv/bin/python scripts/viz/server.py --port 9000 --scenario quick-winter
+    .venv/bin/python scripts/viz/server.py --port 9000 --scenario dev-winter
 
 Every panel is a real game of the simulator in src/greenhouse, played through the same
 `submit_day` tool an agent gets:
 
   * scripted growers (reference, rule-based, naive, nobody, exploits) play live here;
   * a model run (e.g. Gemini through Harbor) is replayed from the trace its trial left in
-    artifacts/**/trace.jsonl: each recorded call is sent to a fresh simulator in order and
+    artifacts/**/trace.jsonl, or from a committed run under runs/ (scripts/collect_runs.py): each recorded call is sent to a fresh simulator in order and
     its response is checked against the recorded digest, so the panel shows exactly what
     the model did and saw ("replay verified").
 
@@ -45,6 +45,7 @@ from envkit.trace import Trace, digest, read_trace  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
+RUNS = ROOT / "runs"          # committed model runs (scripts/collect_runs.py), archived per rule set
 SCENARIO = ROOT / "scenarios" / "normal-winter.toml"     # replaced by --scenario
 FREE_TOOLS_SHOWN = {"set_climate", "set_energy", "place_order", "cancel_order", "hire", "release",
                     "plant", "harvest", "repair", "advance", "finish_episode"}
@@ -95,6 +96,22 @@ def trace_players() -> list[dict[str, Any]]:
                       "label": f"{who} · {trial.name.split('__')[-1]}", "model": model, "job": job,
                       "scenario": header.get("scenario"), "seed": header.get("seed"), "reward": reward,
                       "run": trial.parents[2].name if len(trial.parents) > 2 else "", "mtime": path.stat().st_mtime})
+    # Committed runs: runs/<scenario or archive/<rule set>>/<run>/{trace.jsonl, meta.json}. Archived runs
+    # were played under earlier rules, so their replay shows how many responses still match.
+    for path in RUNS.glob("**/trace.jsonl") if RUNS.exists() else []:
+        try:
+            meta = json.loads((path.parent / "meta.json").read_text())
+            header = next((rec for rec in read_trace(path) if rec.get("k") == "header"), {})
+        except Exception:
+            continue
+        rel = path.parent.relative_to(RUNS).parts
+        ruleset = rel[1] if rel[0] == "archive" and len(rel) > 2 else "current"
+        found.append({"id": "trace:" + path.relative_to(ROOT).as_posix(), "kind": "model",
+                      "label": f"{meta.get('model', 'model')} · s{header.get('seed')} · {path.parent.name.rsplit('-', 1)[-1]}"
+                               + ("" if ruleset == "current" else f" (old rules: {ruleset})"),
+                      "model": meta.get("model"), "job": "committed", "scenario": header.get("scenario"),
+                      "seed": header.get("seed"), "reward": meta.get("reward"), "run": ruleset,
+                      "mtime": 0 if ruleset != "current" else path.stat().st_mtime})
     found.sort(key=lambda p: (p["kind"] != "model", -p["mtime"]))
     return found
 
@@ -333,8 +350,9 @@ class Recorder(InProcessClient):
 
 def resolve_trace(spec: str) -> Path:
     path = (ROOT / spec.split(":", 1)[1]).resolve()
-    if ARTIFACTS.resolve() not in path.parents or path.name != "trace.jsonl" or not path.is_file():
-        raise ValueError("not a trace under artifacts/")
+    roots = (ARTIFACTS.resolve(), RUNS.resolve())
+    if not any(r in path.parents for r in roots) or path.name != "trace.jsonl" or not path.is_file():
+        raise ValueError("not a trace under artifacts/ or runs/")
     return path
 
 

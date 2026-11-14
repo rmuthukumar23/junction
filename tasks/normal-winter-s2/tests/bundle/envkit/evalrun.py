@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 import signal
+import ssl
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -115,11 +116,48 @@ def preflight(a: argparse.Namespace, backend: str) -> None:
         raise RuntimeError(f"Set {credential_env_name(a)} for model runs; never put its value in CLI arguments")
 
 
-def run_command(command: list[str], log: Path) -> dict[str, Any]:
+def harbor_environment(backend: str) -> dict[str, str] | None:
+    """Give Modal's Harbor process a CA bundle if this Python has no trusted CAs."""
+    if backend != "modal":
+        return None
+    configured = False
+    for name, is_valid, kind in (("SSL_CERT_FILE", Path.is_file, "file"),
+                                 ("SSL_CERT_DIR", Path.is_dir, "directory")):
+        value = os.environ.get(name)
+        if value:
+            configured = True
+            if not is_valid(Path(value)):
+                raise RuntimeError(f"{name} points to a missing or invalid {kind}: {value}. "
+                                   "Fix or unset it before running Modal.")
+    if configured:
+        return None
+    if ssl.create_default_context().get_ca_certs():
+        return None
+    try:
+        import certifi
+    except ImportError as exc:
+        raise RuntimeError("Python has no trusted CA certificates and certifi is unavailable. "
+                           "Install the locked Harbor dependencies before running Modal.") from exc
+    bundle = Path(certifi.where())
+    if not bundle.is_file():
+        raise RuntimeError(f"Python has no trusted CA certificates and the certifi bundle is missing: {bundle}")
+    child_env = os.environ.copy()
+    child_env["SSL_CERT_FILE"] = str(bundle)
+    print("Modal TLS: Python has no trusted CAs; using the locked certifi bundle for Harbor.", flush=True)
+    return child_env
+
+
+def _certificate_failure(log: Path) -> bool:
+    with log.open(errors="replace") as output:
+        return any("CERTIFICATE_VERIFY_FAILED" in line or "SSLCertVerificationError" in line
+                   for line in output)
+
+
+def run_command(command: list[str], log: Path, env: dict[str, str] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     cleanup_unconfirmed = False
     with log.open("w") as output:
-        process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT, env=env)
         try:
             code = process.wait(timeout=3 * 3600)
         except subprocess.TimeoutExpired:
@@ -138,6 +176,7 @@ def run_eval(a: argparse.Namespace, scenario: Scenario) -> int:
     try:
         backend = pick_backend(a.backend)
         preflight(a, backend)
+        harbor_env = harbor_environment(backend)
     except (RuntimeError, subprocess.SubprocessError) as exc:
         print(f"Preflight failed: {exc}")
         return 2
@@ -189,12 +228,16 @@ def run_eval(a: argparse.Namespace, scenario: Scenario) -> int:
                     if SCRIPTED[label]:
                         command += ["--ae", f"ENVKIT_POLICY={SCRIPTED[label]}"]
                 print(f"== seed {seed} {label}: {' '.join(command)}", flush=True)
-                result = run_command(command, out / f"{job}.log")
+                result = run_command(command, out / f"{job}.log", env=harbor_env)
                 report["commands"].append(result)
                 rows = collect(out / "trials" / job)
                 report["runs"].extend(rows)
                 if result["exit_code"] != 0:
                     problems.append(f"{job}: harbor exited with {result['exit_code']} (see {result['log']})")
+                    if backend == "modal" and _certificate_failure(Path(result["log"])):
+                        problems.append("Modal TLS certificate verification failed. If SSL_CERT_FILE or "
+                                        "SSL_CERT_DIR is set, check that it contains the CA for your network; "
+                                        "otherwise check the machine's network and CA installation.")
                 if len(rows) < attempts:
                     problems.append(f"{job}: {attempts - len(rows)} of {attempts} trial result(s) missing")
                 for row in rows:

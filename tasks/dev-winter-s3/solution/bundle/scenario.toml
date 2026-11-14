@@ -1,10 +1,9 @@
 # Development scenario: normal-winter's rules, data and scoring on a 14-day horizon, so a
-# model attempt takes about a third of the time. Use it to iterate; judge on normal-winter.
-# Greenhouse Bench: a normal Dutch winter, 42 days, three compartments on one energy centre:
-# two of broccoli microgreens and one of radish microgreens.
+# model attempt takes about a third of the time. Use it to check that a model plays; judge
+# on normal-winter. Under the 10-day seed lead time almost nothing new can be sown in 14
+# days, so its scores are not a skill measure (README, Known limits).
 # Format: src/envkit/scenario.py. Data files: docs/GREENHOUSE_SPEC.md section 3.
-# A benchmark task: its tasks/ and calibration are generated at benchmark time only
-# (`uv run --no-sync envkit build normal-winter`), never by the quick commands.
+# Not a benchmark scenario: `envkit build` and the quick check rebuild its tasks.
 
 [task]
 id = "dev-winter"

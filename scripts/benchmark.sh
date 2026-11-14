@@ -2,7 +2,7 @@
 # Benchmark a model on the greenhouse in one command: one run, then its score against
 # the reference and the scripted players, the gap, and where the money went.
 #
-#   bash scripts/benchmark.sh                      # quick-winter (14 days, one turn a day), seed 1, one run
+#   bash scripts/benchmark.sh                      # dev-winter (14 days): a fast check that a model plays; not a skill score
 #   bash scripts/benchmark.sh --runs 3             # three runs in parallel (the judges' protocol)
 #   bash scripts/benchmark.sh --full               # normal-winter (42 days): the benchmark itself
 #   bash scripts/benchmark.sh --backend docker     # local containers instead of Modal
@@ -23,7 +23,7 @@ if ! grep -Eq '^[[:space:]]*GEMINI_API_KEY=.+' .env && [[ -z "${GEMINI_API_KEY:-
 fi
 command -v uv > /dev/null || { echo "uv is not installed: https://docs.astral.sh/uv/getting-started/installation/"; exit 1; }
 
-scenario="quick-winter"
+scenario="dev-winter"
 args=()
 backend_given=0
 for a in "$@"; do
@@ -46,6 +46,7 @@ fi
 
 out="artifacts/benchmark-$(date +%Y%m%d-%H%M%S)"
 echo "Benchmarking on $scenario; results in $out"
+[[ "$scenario" == "dev-winter" ]] && echo "Note: under the 10-day seed lead time almost nothing new can be sown in 14 days, so dev-winter checks that a model plays; use --full (normal-winter) for a score."
 status=0
 ENVKIT_SCENARIO="$scenario" bash scripts/judge.sh --agent-only --output "$out" "${args[@]}" || status=$?
 if [[ -f "$out/results.json" ]]; then
