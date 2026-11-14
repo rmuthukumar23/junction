@@ -15,10 +15,11 @@ You own everything about how a plant grows, gets stressed and is harvested. Noth
 
 ## What you provide, and to whom
 
-- A `GrowthModel` (from `contracts.py`) for each crop spec. Max's `sim.py` calls `new_batch`, `step` every 5-minute sub-step, `estimate` for `get_batches`, and `harvest`.
+- `model_for(spec) -> GrowthModel` in `world/crop.py`, one model per crop spec (`GrowthModel` is in `contracts.py`, with a `crop_id` attribute). `sim.py` already calls `new_batch`, `step` every sub-step, `estimate` for `get_batches`, `harvest`, and the planning helpers `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)` and `min_days_before_end()`.
 - `transpiration_kg_h` and `co2_uptake_kg_h`, which Emre's climate balance uses. Agree the units with Emre early.
-- `HarvestResult`, which Rowan prices using the grades in your crop file.
-- What the agent sees: `CropSpec` must be convertible to plain JSON for `get_rules` (`dataclasses.asdict` is enough).
+- `HarvestResult`, including `grade` and `price_factor` from your crop file's grades. Rowan multiplies the market base price by `price_factor`.
+- `describe()`: the crop's published rules for `get_rules`, as plain JSON.
+- `tests/greenhouse/fakes.py` (`FakeCrop`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
 
 What you consume: a `ClimateSample` each sub-step. Write tests with hand-made samples; you don't need Emre's code.
 

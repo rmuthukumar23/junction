@@ -33,7 +33,7 @@ def _project_root() -> Path:
     if (PKG_ROOT / "manifest.json").exists():  # running from inside a bundle
         return PKG_ROOT
     for candidate in (PKG_ROOT, *PKG_ROOT.parents):
-        if (candidate / "scenarios").is_dir():
+        if (candidate / "scenarios").is_dir() or (candidate / "pyproject.toml").is_file():
             return candidate
     return PKG_ROOT
 
@@ -59,6 +59,11 @@ def source_files(scenario: Scenario, root: Path = ROOT, pkg_root: Path = PKG_ROO
     add_package(scenario.env_path.partition(":")[0].split(".")[0])
 
     files["scenario.toml"] = scenario.source.encode()
+    for rel in scenario.env_class().data_files(scenario.env_config):
+        rel_path = Path(rel)
+        if rel_path.is_absolute() or ".." in rel_path.parts:
+            raise ValueError(f"data file {rel!r} must be a path inside the project")
+        files[rel_path.as_posix()] = (root / rel_path).read_bytes()
     for name in [scenario.reference, *scenario.anchors]:
         if name.startswith("replay:"):
             rel = name.partition(":")[2]

@@ -82,11 +82,16 @@ class HarvestResult:
     fresh_weight_g_per_unit: float
     quality: float                        # 0..1, sets the grade via the crop file
     sellable: bool                        # False below the crop's minimum sellable weight
+    grade: str = ""                       # grade name from the crop file
+    price_factor: float = 0.0             # the grade's factor on the market base price; 0 if not sellable
 
 
 class GrowthModel(Protocol):
     """A crop growth model, registered by name and selected by `growth_model`
-    in a crop data file. One instance per crop spec."""
+    in a crop data file. One instance per crop spec, built by
+    `greenhouse.world.crop.model_for(spec)` (Lucas)."""
+
+    crop_id: str
 
     def new_batch(self, batch_id: str, compartment_id: str, area_m2: float,
                   planted_hour: int, age_days: float = 0.0) -> BatchState: ...
@@ -105,6 +110,18 @@ class GrowthModel(Protocol):
 
     def co2_uptake_kg_h(self, batch: BatchState, climate: ClimateSample) -> float:
         """CO2 the batch takes from the compartment air (for the CO2 balance)."""
+
+    def labour_hours(self, action: Literal["plant", "harvest"], area_m2: float) -> float:
+        """Worker-hours to plant or harvest this area, from the crop file."""
+
+    def seedlings_needed(self, area_m2: float) -> int:
+        """Seedlings consumed by planting this area (density from the crop file)."""
+
+    def min_days_before_end(self) -> float:
+        """Planting is refused when fewer days than this remain in the episode."""
+
+    def describe(self) -> dict[str, Any]:
+        """The crop's published rules for get_rules: JSON-ready, no hidden values."""
 
 
 # -- money -------------------------------------------------------------------------------
@@ -140,6 +157,11 @@ class Metered:
     heat_delivered_kwh: dict[str, float] = field(default_factory=dict)  # compartment id -> kWh
     heat_lost_kwh: float = 0.0
     buffer_change_kwh: float = 0.0
+    # that hour's energy prices, from the energy-price series (Emre), so the ledger
+    # (Rowan) can price the flows without reading the series itself
+    gas_eur_per_m3: float = 0.0
+    import_eur_per_kwh: float = 0.0
+    export_eur_per_kwh: float = 0.0
 
 
 # -- equipment, events, alarms -------------------------------------------------------------
@@ -156,7 +178,8 @@ class EquipmentEffect:
     until_hour: int | None = None         # None = until repaired
 
 
-AlarmKind = Literal["equipment", "delivery", "frost_risk", "batch_ready", "stock_low", "staff", "price"]
+AlarmKind = Literal["equipment", "delivery", "frost_risk", "batch_ready", "batch_lost", "stock_low", "staff",
+                    "price"]
 
 
 @dataclass(frozen=True)
@@ -177,3 +200,195 @@ class Observable(Protocol):
     `rng` is a fresh stream for this module and hour (see module notes)."""
 
     def view(self, hour: int, rng: Rng) -> dict[str, Any]: ...
+
+
+class RuleError(ValueError):
+    """An agent action is not allowed. Raise it before changing anything; the
+    message is shown to the agent and should say what to fix."""
+
+
+# -- standing settings the agent controls (spec 5) -------------------------------------------
+
+ScreenMode = Literal["auto", "open", "closed"]
+BoilerMode = Literal["auto", "off"]
+BufferMode = Literal["auto", "charge", "hold", "discharge"]
+
+
+@dataclass(frozen=True)
+class ClimateSetpoints:
+    """One compartment's standing setpoints (`set_climate`). The controller (Emre)
+    turns them into actuator positions every sub-step."""
+    heat_day_c: float
+    heat_night_c: float
+    vent_min_pct: float
+    vent_max_pct: float
+    co2_ppm: float                        # dosing target; 0 = no dosing
+    screen: ScreenMode
+    lamp_hours: tuple[int, ...]           # hours of the day (0-23) the lamps are on
+    lamp_intensity_pct: float
+
+
+@dataclass(frozen=True)
+class EnergySettings:
+    """The energy centre's standing settings (`set_energy`)."""
+    chp_load: float                       # 0 = off, else the CHP's min_load to 1
+    boiler: BoilerMode
+    buffer: BufferMode
+    external_co2_kg_h: float
+    priority: dict[str, int] = field(default_factory=dict)       # compartment -> level; higher is served first
+    heat_cap_kw: dict[str, float] = field(default_factory=dict)  # compartment -> cap when supply is short
+    co2_cap_kg_h: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StartBatch:
+    compartment_id: str
+    crop_id: str
+    age_days: float
+    area_m2: float
+
+
+@dataclass(frozen=True)
+class CropLoad:
+    """What the crops in one compartment do to its air, summed over batches."""
+    planted_m2: float
+    transpiration_kg_h: float
+    co2_uptake_kg_h: float
+
+
+# -- the two subsystems sim.py composes ---------------------------------------------------------
+
+class FacilityModel(Protocol):
+    """Weather, compartments, controller and energy centre (Emre).
+
+    Built by `greenhouse.world.energy.build_facility(facility, climate,
+    energy_prices, rng)` from the resolved specs. sim.py calls, every hour:
+    `substep` (12 times by default), then `end_hour`."""
+
+    compartment_ids: tuple[str, ...]
+
+    def floor_area_m2(self, compartment_id: str) -> float: ...
+
+    def crop_id(self, compartment_id: str) -> str:
+        """The crop this compartment grows (facility file)."""
+
+    def start_batches(self) -> list[StartBatch]:
+        """Batches standing at hour 0 (facility file `start_batches`)."""
+
+    def equipment_ids(self) -> tuple[str, ...]:
+        """Every id an EquipmentEffect or a repair may target."""
+
+    def fallback_climate(self) -> dict[str, ClimateSetpoints]:
+        """The facility file's [fallback]: in effect at the start and after a stop."""
+
+    def fallback_energy(self) -> EnergySettings: ...
+
+    def check_climate(self, compartment_id: str, setpoints: ClimateSetpoints) -> None:
+        """Raise RuleError if a setpoint is outside equipment limits."""
+
+    def check_energy(self, settings: EnergySettings) -> None: ...
+
+    def apply_effect(self, effect: EquipmentEffect) -> None: ...
+
+    def clear_effect(self, target: str) -> None:
+        """A repair finished: the equipment works normally again."""
+
+    def receive_co2(self, kg: float) -> None:
+        """A CO2 delivery arrived: add it to the store (capped by its capacity)."""
+
+    def substep(self, hour: int, dt_h: float, climate: dict[str, ClimateSetpoints],
+                energy: EnergySettings, loads: dict[str, CropLoad]) -> dict[str, ClimateSample]:
+        """Run the controller, the energy centre and every compartment's balances
+        for dt_h; return the true climate per compartment."""
+
+    def end_hour(self, hour: int) -> tuple[Metered, list[Alarm]]:
+        """Close the hour: metered flows with that hour's prices, and any alarms
+        (equipment state, frost risk, CO2 store low)."""
+
+    def view(self, hour: int, rng: Rng) -> dict[str, Any]:
+        """Sensor readings (with noise) and exact equipment state, per compartment
+        and for the energy centre."""
+
+    def forecast(self, hour: int, hours: int) -> dict[str, Any]:
+        """Weather and energy-price forecast issued at `hour`; a pure function of (seed, hour)."""
+
+    def rules(self) -> dict[str, Any]:
+        """Published mechanisms, equipment limits and hidden-parameter ranges."""
+
+
+TaskKind = Literal["plant", "harvest", "repair"]
+
+
+@dataclass(frozen=True)
+class Task:
+    """Work that needs worker-hours. Queued by sim.py, scheduled by the business (Rowan)."""
+    id: str
+    kind: TaskKind
+    target: str                           # compartment (plant), batch id (harvest), equipment id (repair)
+    worker_hours: float
+    queued_hour: int
+    detail: dict[str, Any] = field(default_factory=dict)   # e.g. {"area_m2": 500.0, "crop_id": "basil_genovese"}
+
+
+@dataclass(frozen=True)
+class Delivery:
+    order_id: str
+    item: str                             # "co2_kg" or "seedlings:<crop_id>"
+    quantity: float
+    hour: int
+
+
+@dataclass(frozen=True)
+class HourEnd:
+    """What the business did at the end of an hour."""
+    deliveries: tuple[Delivery, ...] = ()
+    completed: tuple[Task, ...] = ()
+    alarms: tuple[Alarm, ...] = ()
+
+
+class BusinessModel(Protocol):
+    """Market, orders, stock, staff, tasks, events and the ledger (Rowan).
+
+    Built by `greenhouse.world.operations.build_business(market, events,
+    crop_ids, equipment_ids, horizon_h, rng)` from the resolved specs. sim.py calls, every
+    hour: `start_hour` (events due), the facility's sub-steps, then `end_hour`.
+    sim.py routes CO2 deliveries to the facility and runs completed tasks."""
+
+    def start_hour(self, hour: int) -> tuple[list[EquipmentEffect], list[Alarm]]:
+        """Events that start now, as equipment effects for the facility and alarms."""
+
+    def end_hour(self, hour: int, metered: Metered) -> HourEnd:
+        """Price the metered energy, charge wages, progress the task queue with this
+        hour's worker-hours, deliver arriving orders."""
+
+    def place_order(self, hour: int, item: str, quantity: float) -> dict[str, Any]: ...
+
+    def cancel_order(self, hour: int, order_id: str) -> dict[str, Any]: ...
+
+    def hire(self, hour: int, workers: int) -> dict[str, Any]: ...
+
+    def release(self, hour: int, workers: int) -> dict[str, Any]: ...
+
+    def take_seedlings(self, hour: int, crop_id: str, count: int) -> None:
+        """Consume seedlings from stock; RuleError if there are not enough."""
+
+    def queue_task(self, hour: int, kind: TaskKind, target: str, worker_hours: float | None,
+                   detail: dict[str, Any]) -> Task:
+        """Queue work. worker_hours None means the business sets it (repairs, from the
+        market file); a repair's fee is charged here."""
+
+    def sell(self, hour: int, harvest: HarvestResult) -> LedgerEntry:
+        """Record a harvest's revenue (0 if not sellable) and return the entry."""
+
+    def cash_eur(self) -> float: ...
+
+    def profit_eur(self) -> float: ...
+
+    def totals(self) -> dict[str, float]:
+        """Money by LedgerCategory since the start."""
+
+    def view(self, hour: int, rng: Rng) -> dict[str, Any]:
+        """Stock, open orders with expected arrival, staff, task queue, money."""
+
+    def rules(self) -> dict[str, Any]:
+        """Published prices, lead times, minimum orders, wages, event types and rates."""

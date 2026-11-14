@@ -88,3 +88,11 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - No crop, facility, price or event value is hardcoded: they are TOML data files validated on load (spec section 3).
 - Fairness: simulated time moves only with `advance`; every model gets the same call budget; the wall-clock timeout is a safety net, and runs that hit it are labelled interrupted and rerun for model comparisons (spec 4.1).
 - Docker and Modal run the same generated task through `--backend`. Benchmark claims are confirmed on local Docker (spec 13).
+
+## Workstream 0: engine, loader, simulator and tools · 2026-11-14
+
+- envkit: `Environment.close_windows(n)` lets one call close several windows (one window = one simulated hour; `advance(hours)` costs one operation). `Environment.data_files(config)` puts data files into the bundle and its hash. Fixture and tests: `src/envs/clock.py`, `tests/envkit/test_clock.py`. The project root is now found by `pyproject.toml` as well as `scenarios/`, which fixes the root resolving to `src/` while `scenarios/` is empty.
+- `contracts.py` gained the subsystem interfaces `sim.py` calls: `FacilityModel` (Emre, `world/energy.py:build_facility`), `BusinessModel` (Rowan, `world/operations.py:build_business`), extra `GrowthModel` methods (Lucas, `world/crop.py:model_for`), settings types, `RuleError`, `Task`, `Delivery`, `HourEnd`, `StartBatch`, and energy prices on `Metered` and grades on `HarvestResult`. Owners replaced "propose an entry point" with these.
+- Staff, start cash and seedling stock move to the market file (Rowan). The CO2 store stays with the facility (Emre); sim routes CO2 deliveries to it.
+- Any hour nobody ran (a stop, the call limit, a timeout) switches the settings to the facility's `[fallback]` for the rest of the episode.
+- Subsystems are chosen by `[env] modules = "package.module:function"`. The default builds the real modules from data files. Tests use `fakes:build` (`tests/greenhouse/fakes.py`, never bundled).

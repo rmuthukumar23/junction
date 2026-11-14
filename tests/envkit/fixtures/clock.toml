@@ -1,0 +1,23 @@
+# Backend test fixture: multi-window advances and bundled data (see src/envs/clock.py). Not a task.
+
+[task]
+id = "clock-fixture"
+title = "Clock fixture"
+env = "envs.clock:Clock"
+seeds = [0]
+reference = "do-nothing"
+prompt = "Test fixture."
+
+[shift]
+windows = 30
+window_hours = 1
+ops_per_window = 1
+
+[env]
+data = "tests/envkit/fixtures/clock-data.toml"
+
+[[scoring.components]]
+name = "played"
+weight = 1.0
+kind = "mean"
+metrics = ["played"]

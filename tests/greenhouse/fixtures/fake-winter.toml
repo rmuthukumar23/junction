@@ -1,0 +1,27 @@
+# Test fixture: the greenhouse tools and simulator on fake subsystems
+# (tests/greenhouse/fakes.py). Not a task; never bundled.
+
+[task]
+id = "greenhouse-fake"
+title = "Greenhouse on fakes"
+env = "greenhouse.env:GreenhouseBench"
+seeds = [1]
+reference = "do-nothing"
+prompt = "Test fixture."
+
+[shift]
+windows = 240
+window_hours = 1
+ops_per_window = 1
+max_calls = 400
+
+[env]
+modules = "fakes:build"
+horizon_days = 10
+substeps_per_hour = 4
+
+[[scoring.components]]
+name = "profit"
+weight = 1.0
+kind = "mean"
+metrics = ["profit_eur"]

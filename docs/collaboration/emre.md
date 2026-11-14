@@ -23,7 +23,9 @@ You own the physics of the building and the energy centre: weather outside, heat
 - Hooks that honour `EquipmentEffect` (capacity factor, leakage factor) for Rowan's events.
 - Sensor readings for `get_status`: true value plus noise from a named stream, σ from the facility file.
 - The forecast for `get_forecast`.
-- An entry point Max's `sim.py` calls. Propose it in your first PR, for example `Facility.substep(hour, dt_h, setpoints, batches_load) -> dict[str, ClimateSample]` and `Facility.end_hour(hour) -> Metered`.
+- **One object implementing `FacilityModel` (in `contracts.py`)**, built by `build_facility(facility, climate, energy_prices, rng)` in `world/energy.py`. `sim.py` already calls it: `substep(hour, dt_h, climate_setpoints, energy_settings, crop_loads) -> {compartment: ClimateSample}` every sub-step, `end_hour(hour) -> (Metered, alarms)` every hour, plus `fallback_climate/energy`, `check_climate/energy` (raise `RuleError`), `apply_effect`, `clear_effect`, `receive_co2`, `crop_id`, `start_batches`, `floor_area_m2`, `equipment_ids`, `view`, `forecast`, `rules`. `tests/greenhouse/fakes.py` (`FakeFacility`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
+- `Metered` carries that hour's energy prices (`gas_eur_per_m3`, `import_eur_per_kwh`, `export_eur_per_kwh`) so Rowan can price it without your series.
+- Staff moved to the market file (Rowan). The facility file keeps the CO2 store, crops per compartment, `start_batches` and `[fallback]`.
 
 What you consume: setpoints (spec 5, `set_climate` and `set_energy` fields), and transpiration and CO2 uptake from crops (stub them as constants in tests).
 

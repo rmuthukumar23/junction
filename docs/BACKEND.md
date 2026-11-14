@@ -43,6 +43,9 @@ All commands run in the locked environment (`uv sync --locked --extra eval --ext
 
 ## Engine rules
 
+- **Multi-window calls.** A tool may call `self.close_windows(n)` before it returns. After a successful call the engine closes `n` windows in total, counting one closed by spending the last operation. The tool must advance the world itself, or `on_window_end` must. It is one call and one trace record, so replay stays exact (fixture: `src/envs/clock.py`).
+- **Data files.** `Environment.data_files(config)` lists the project-relative data files a configuration reads. The bundle copies them and its hash covers them, so editing a data file makes `envkit check` report stale tasks.
+
 - **Call limit.** `[shift] max_calls` (optional) caps the requests an episode takes, accepted or refused. Reaching it ends the episode as if the player had stopped (`end_reason = "call_limit"`): every remaining window runs unattended. It bounds the wall-clock length of a run.
 
 - **Operations.** Each accepted tool call spends its cost (one by default) from the current window's budget. Spending the last operation, or calling `end_window`, closes the window and advances the world. Time depends only on the action sequence.
