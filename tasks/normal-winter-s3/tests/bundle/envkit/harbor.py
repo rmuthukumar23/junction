@@ -72,6 +72,9 @@ def build_task(scenario: Scenario, seed: int, calibration: dict[str, Any], out_r
         notes.append("- `read_alerts` returns announcements and rumors that have arrived.")
     notes.append("- Every result is JSON with `ok`, then `result` or `error`, then a `header` with the "
                  "operations left (`ops_left`) and status. When `header.done` is true the episode is over.")
+    if scenario.shift.max_calls is not None:
+        notes.append("- `header.calls_left` is the number of tool calls you have left in the whole episode, "
+                     "every request counted. `header.ops_left` only counts operations in the current window.")
     notes.append("- There is no reset and no second attempt. Your result is computed from the state of "
                  "the world when the episode ends.")
 

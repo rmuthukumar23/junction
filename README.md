@@ -109,7 +109,7 @@ the model runs. No gap is claimed until three agent runs exist.
 ## Reward integrity
 
 `envkit audit normal-winter` plays the strategies a judge would try and fails if any pays
-(seed 1 shown; it runs on every committed seed in `scripts/check.sh`):
+(seed 1 shown; it passes on seeds 1, 2 and 3, and `scripts/check.sh` runs it on every committed seed):
 
 | Strategy | Score |
 |---|---|
