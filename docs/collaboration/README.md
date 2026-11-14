@@ -4,12 +4,16 @@ Start here. Each person has one file in this folder with their tasks, the files 
 
 | Person | File | Owns | First deliverable |
 |---|---|---|---|
-| Max | [max.md](max.md) | envkit changes, loader, `sim.py`, `env.py`, views, scenario, integration, merges, model runs | `advance(hours)` in envkit; loader |
+| Max | [max.md](max.md) | envkit changes, loader, `sim.py`, `env.py`, views, scenario, integration, merges, model runs | `close_windows` in envkit; loader |
 | Lucas | [lucas.md](lucas.md) | Crops: schema, growth models, lettuce and basil data | Lettuce growing in a unit test |
 | Emre | [emre.md](emre.md) | Facility: schema, weather, energy prices, climate, controller, energy centre | One compartment heating in a unit test |
 | Rowan | [rowan.md](rowan.md) | Operations: market and event schema, orders, staff, events, ledger, outcome, scripted policies | CO2 order arriving after its lead time |
 
 Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH_CONTEXT.md](../GREENHOUSE_BENCH_CONTEXT.md).
+
+> **Interface (round 3, current):** the agent's only tool is `submit_day(actions)`, one call a day at 06:00 (up to 5 actions: set_climate, set_energy, set_night_schedule, place_orders, cancel_order, hire, release, plant, harvest, book_contractor). There are no read tools (`get_*`, `advance`, `end_shift`, `repair` are gone); the rules and each morning's briefing reach the agent through the task instruction and the `submit_day` result (spec 14.1). Mentions of the old tools below are history.
+
+> **Viewer:** `scripts/viz` still shows the old tool names and was intentionally not updated.
 
 > **Round 3 is built** on branch `max/no-finish-episode` (14 Nov 2026), with a change from spec 14.1 as first written: the agent plays a **daily turn**, one decision point at 06:00 with at most 5 actions and no read tools. It sees the rules and each morning's briefing instead. See DECISIONS, "Round 3 built". **Rowan:** your business files (`config/market.py`, `world/{business,events,operations}.py`, `outcome.py`, new `world/contractors.py` and `world/news.py`, `data/{markets,events,news}/`, your tests) were edited by a subagent for storms, contractors, parts and news; please review. **Lucas:** lettuce plug lead time (336-504 h) is set in the market file. Benchmark checks on the new rules are not run yet.
 
@@ -21,9 +25,9 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 - `src/greenhouse/config/base.py`: `Table` (strict TOML reader: missing, stray and out-of-range keys fail with file and key), `Range` (hidden per-seed parameter), `resolve`, `ranges`, `ConfigError`.
 - `src/greenhouse/config/curves.py`: `parse_curve` and the curve kinds `cardinal`, `saturating`, `linear_above`, `linear_below`, `piecewise`.
 - `src/greenhouse/config/loader.py`: reads a scenario's data files, applies overrides, calls each owner's `parse_*` and draws hidden parameters per seed.
-- `src/greenhouse/world/sim.py`, `views.py`, `env.py`: the simulator and every tool of spec 5, wired against `FacilityModel`, `BusinessModel` and `GrowthModel` in `contracts.py`.
+- `src/greenhouse/world/sim.py`, `views.py`, `env.py`: the simulator and the `submit_day` tool and its actions (spec 5), wired against `FacilityModel`, `BusinessModel` and `GrowthModel` in `contracts.py`.
 - `tests/greenhouse/fakes.py` + `tests/greenhouse/fixtures/fake-winter.toml`: toy versions of all three subsystems, so the whole game runs end to end today. **Use them to test your module in context, and copy their shape (not their numbers).** Swap a fake for your real module by having `world/modules.py:build` find it. That needs no change to sim or env.
-- `envkit`: engine, MCP server, verifier, Harbor build, audit. New: `close_windows(n)` for multi-hour advances and `data_files()` for bundling data.
+- `envkit`: engine, MCP server, verifier, Harbor build, audit. New: `close_windows(n)` for multi-hour advances (a whole day in one `submit_day` call) and `data_files()` for bundling data.
 - Rowan's operations, events, ledger and outcome (PR #12), wired into the simulator by `world/business.py:build_business` (tests: `tests/greenhouse/test_business.py`).
 - **Smoke checks** (docs/MODAL.md, "Smoke checks"). Before every push: `uv run --no-sync python -m compileall -q src tests && uv run --no-sync python -m pytest tests -q && uv run --no-sync envkit check` (about 30 s). Before merging a change to tools or the game: one real model on `scenarios/smoke.toml` on Modal (about 3 min). Gemini Flash-Lite and Claude Haiku both play it.
 - **Bankruptcy:** cash below EUR 0 ends the episode. **Overrides** can address an array item by id (`facility.compartments.A.start_batches`).

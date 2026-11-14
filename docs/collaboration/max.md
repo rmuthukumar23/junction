@@ -6,7 +6,7 @@ You own the glue: the envkit changes, the loader, the simulator that composes ev
 
 | File | What |
 |---|---|
-| `src/envkit/core.py`, `src/envkit/bundle.py`, `src/envkit/scenario.py` | Multi-hour advance; data files in the bundle (spec 2.1) |
+| `src/envkit/core.py`, `src/envkit/bundle.py`, `src/envkit/scenario.py` | Multi-day-turn support (`close_windows`); data files in the bundle (spec 2.1) |
 | `src/greenhouse/contracts.py`, `config/base.py`, `config/curves.py` | Shared; already on `main` |
 | `src/greenhouse/config/loader.py` | Scenario `[env]` to resolved specs: reads each file through its owner's `parse_*`, applies `overrides`, draws hidden parameters per seed with `resolve` |
 | `src/greenhouse/world/sim.py` | `Greenhouse`: composes crop, facility, operations, events and ledger; runs hours and sub-steps in the order of spec 4.2; applies actions; raises `RuleError` before mutating |
@@ -18,7 +18,7 @@ You own the glue: the envkit changes, the loader, the simulator that composes ev
 ## Tasks, in order
 
 1. **Merge this branch** (`docs/greenhouse-bench-spec`) once CI is green, so everyone starts from the same `main`. Send everyone their file.
-2. **envkit: `advance(hours)`.** A tool asks the engine to close up to n windows, and `interrupt()` can stop it early. One operation, one trace record. Tests: `advance(5)` equals five `advance(1)` calls with no alarm; replay is identical; the call limit still works. Run the depot and strict fixture tests to make sure nothing else changed.
+2. **envkit: `advance(hours)` (done; superseded: the game uses `submit_day`, which closes a day in one call).** A tool asks the engine to close up to n windows, and `interrupt()` can stop it early. One operation, one trace record. Tests: `advance(5)` equals five `advance(1)` calls with no alarm; replay is identical; the call limit still works. Run the depot and strict fixture tests to make sure nothing else changed.
 3. **envkit: data files in the bundle.** Data files the scenario references are copied into the bundle and covered by the hash. Test: editing a crop file makes `envkit check` report stale tasks.
 4. **Loader.** `load(env_config, seed) -> Config`, calling `parse_crop` (Lucas), `parse_facility`/`parse_climate`/`parse_energy_prices` (Emre) and `parse_market`/`parse_event` (Rowan). Until theirs land, use stubs that return fixed test specs.
 5. **`sim.py` skeleton with stubs**, then `env.py` with every tool from spec 5 returning stub data. That unblocks Rowan's policies. Swap in real modules as their PRs merge.
@@ -41,13 +41,15 @@ Tasks 1–5 are done; Rowan's business runs inside the simulator through `world/
 
 Steps 1-5 below are done, with the daily turn replacing the shift and `advance` (DECISIONS, "Round 3 built"). `bash scripts/quick.sh` passes. Open: `envkit build normal-winter` and the ladder on the new rules, then model runs; step 8.
 
+> **Viewer:** `scripts/viz` still shows the old tool names and was intentionally not updated.
+
 ## Next steps (round 3: day shift, damage, news)
 
 Read context section 0 and spec section 14 first. Everyone waits on step 1, so do it first and push it as a contracts-only PR.
 
 1. **Contracts (within the hour).** `NightHour`; `EnergySettings.boiler_max_fraction` and `buffer_draw_max_kw` (optional); `EquipmentEffect.until_hour = None` means "until repaired"; `LedgerCategory` gains `contractors`, `parts`, `express`; `BusinessModel.start_hour(hour, weather)`; `book_contractor` on `BusinessModel`. Tell Rowan and Lucas when it is merged.
 2. **Shift clock.** Handover night 00:00–06:00 before the first call; `advance` stops at 18:00; at 18:00 only `end_shift` (`finish_episode` is removed); `end_shift` runs the night on the schedule inside one call (envkit `close_windows(12)`); night alarms logged, never stopping anything.
-3. **Tools:** `set_night_schedule`, `end_shift`, `get_night_report`, `get_news` wiring, `book_contractor` (replaces `repair`).
+3. **Tools (superseded by the daily turn):** originally `set_night_schedule`, `end_shift`, `get_night_report`, `get_news`, `book_contractor`; now these are actions inside `submit_day`, with no read tools.
 4. **Facility (Emre's files, yours this round):** `[fallback]` back to 5 °C, no CO2, lamps off (D5 revised; #15 set a running baseline). Dispatch honours `boiler_max_fraction` and `buffer_draw_max_kw` in the fixed order CHP, buffer, boiler. Glass damage (`A.glass`, `B.glass`) raises leakage until repaired.
 5. **Tests from spec 14.5,** especially the planned-vs-naive frost night and off-duty.
 6. **Scenario `normal-winter.toml`,** then `envkit build`, audit, Docker smoke. The real game already runs end to end (42 days in 1.6 s).

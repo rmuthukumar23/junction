@@ -15,10 +15,10 @@ You own everything about how a plant grows, gets stressed and is harvested. Noth
 
 ## What you provide, and to whom
 
-- `model_for(spec) -> GrowthModel` in `world/crop.py`, one model per crop spec (`GrowthModel` is in `contracts.py`, with a `crop_id` attribute). `sim.py` already calls `new_batch`, `step` every sub-step, `estimate` for `get_batches`, `harvest`, and the planning helpers `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)` and `min_days_before_end()`.
+- `model_for(spec) -> GrowthModel` in `world/crop.py`, one model per crop spec (`GrowthModel` is in `contracts.py`, with a `crop_id` attribute). `sim.py` already calls `new_batch`, `step` every sub-step, `estimate` for the briefing's batch list, `harvest`, and the planning helpers `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)` and `min_days_before_end()`.
 - `transpiration_kg_h` and `co2_uptake_kg_h`, which Emre's climate balance uses. Agree the units with Emre early.
 - `HarvestResult`, including `grade` and `price_factor` from your crop file's grades. Rowan multiplies the market base price by `price_factor`.
-- `describe()`: the crop's published rules for `get_rules`, as plain JSON.
+- `describe()`: the crop's published rules for the opening rules, as plain JSON.
 - `tests/greenhouse/fakes.py` (`FakeCrop`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
 
 What you consume: a `ClimateSample` each sub-step. Write tests with hand-made samples; you don't need Emre's code.
@@ -45,7 +45,7 @@ What you consume: a `ClimateSample` each sub-step. Write tests with hand-made sa
 Your branch has tasks 1–8 (schema, `leafy_vanhenten`, lettuce, basil, spinach fixture, estimates). It merged `main` before the full `GrowthModel` interface landed, so it is not merged yet.
 
 1. **Rebase onto `origin/main`** and open the PR.
-2. **Add the four methods `sim.py` calls that `LeafyVanHenten` lacks:** `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)`, `min_days_before_end()` and `describe()` (the crop's published rules as JSON for `get_rules`). Their values (worker-hours per m², planting density, days needed) go in the crop files with sources.
+2. **Add the four methods `sim.py` calls that `LeafyVanHenten` lacks:** `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)`, `min_days_before_end()` and `describe()` (the crop's published rules as JSON for the opening rules). Their values (worker-hours per m², planting density, days needed) go in the crop files with sources.
 3. **Fill `grade` and `price_factor` on every `HarvestResult`.** The business sells at market price × `price_factor`; 0 when not sellable.
 4. **Play it in the game:** a test that runs your model in place of `FakeCrop` on the fake fixture for 10 days (copy the builder pattern in `tests/greenhouse/test_business.py`). Check speed: about 1,000 hours × 12 sub-steps × 8 batches must stay well under a few seconds.
 5. **D5 research (spec 7):** how fast a ready but unharvested batch loses quality and when it becomes unsellable; with that, doing nothing loses its crop.

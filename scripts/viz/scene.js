@@ -272,7 +272,7 @@ const Scene = (() => {
       H.marks.forEach((m, i) => { m.rotation.y = t * 2; m.position.y = 2.2 + Math.sin(t * 4 + i) * 0.2; });
     }
     // energy centre
-    const e = f.ec, broken = f.faults.length > 0, heatK = clamp(e.heat / (meta.maxHeatAll || 1), 0, 1);
+    const e = f.ec, broken = f.faults.some((x) => !ids.includes(x.split(".")[0])), heatK = clamp(e.heat / (meta.maxHeatAll || 1), 0, 1);
     world.pipe.material.emissive = mixc("#000000", "#ff5a2a", heatK * 0.9);
     ec.winMat.color = col(dark > 0.4 ? 0xffd977 : 0x9cc8e0);
     ec.beacon.material.color = col(broken ? (Math.sin(t * 10) > 0 ? 0xff3b30 : 0x5a1410) : 0x5ee06a);
@@ -332,7 +332,8 @@ const Scene = (() => {
     for (const id of ids) {
       const H = houses[id], c = f.c[id], crop = (meta.compartments[id].crop || "").split("_")[0];
       const cls = c.t < c.sp_night - 1 ? "cold" : c.t > c.sp_day + 3 ? "hot" : "ok";
-      const html = `${id} ${crop.toUpperCase()} <b class="${cls}">${c.t.toFixed(1)}°</b>`;
+      const dmg = f.faults.filter((x) => x.startsWith(id + ".")).map((x) => x.split(".")[1].replace(/_/g, " ").toUpperCase());
+      const html = `${id} ${crop.toUpperCase()} <b class="${cls}">${c.t.toFixed(1)}°</b>${dmg.length ? ` <b class="hot">⚠ ${dmg.join(" ")}</b>` : ""}`;
       if (H.lbl.innerHTML !== html) H.lbl.innerHTML = html;
       const [x, y] = toScreen(H.cx, 0, HD / 2 + 1.6); H.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, 0)`;
     }

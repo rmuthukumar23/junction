@@ -69,7 +69,7 @@ Dependency direction: `config` <- `world` <- `views`/`outcome` <- `env` <- `poli
 
 ### 2.1 Changes to `envkit` (small, shared, do first)
 
-1. **Multi-hour advance.** A tool can ask the engine to close more windows after it returns, e.g. `self.advance_windows(n, interrupt=callable)`. The engine closes up to `n` windows and stops early when `interrupt()` returns a reason (a new alarm). It costs one operation and is one trace record, so replay stays exact. Test: `advance(5)` matches five separate `advance(1)` calls when no alarm fires.
+1. **Multi-hour advance (used by `submit_day`, which closes a whole day in one call).** A tool can ask the engine to close more windows after it returns, e.g. `self.advance_windows(n, interrupt=callable)`. The engine closes up to `n` windows and stops early when `interrupt()` returns a reason (a new alarm). It costs one operation and is one trace record, so replay stays exact. Test: `advance(5)` matches five separate `advance(1)` calls when no alarm fires.
 2. **Data files in the bundle.** `[task].data = ["data/crops/lettuce_butterhead.toml", ...]`, or the loader's resolved list, is copied into the bundle and covered by the bundle hash, so a changed crop file makes the calibration stale.
 
 Everything else in envkit (trace, replay verifier, calibration, audit, Harbor build) is reused as is.
@@ -102,7 +102,7 @@ seedling_cost_eur = 0.08           # per plant
 plant_worker_hours_per_1000 = 1.5
 harvest_worker_hours_per_1000 = 3.0
 
-[growth]                           # leafy_vanhenten parameters, published by get_rules
+[growth]                           # leafy_vanhenten parameters, published in the opening rules
 light_use_efficiency = 0.0         # TODO fill from Van Henten 1994 / van Straten 2010 table
 co2_compensation_ppm = 0.0
 canopy_closure_coeff = 0.0
@@ -206,7 +206,7 @@ schema = "event/1"
 id = "boiler_trip"
 rate_per_day = 0.04                 # published
 duration_h = {min = 6, max = 30}    # published as a range
-signal = "alarm"                    # what the agent sees: alarm text in get_status/advance result
+signal = "alarm"                    # what the agent sees: alarm text in the morning briefing
 effect = { target = "boiler", capacity_factor = 0.0 }
 repair = { cost_eur = 1200, worker_hours = 4, shortens_to_h = 3 }
 ```
@@ -237,8 +237,7 @@ overrides = { "market.crops.basil_genovese.price_eur_per_kg" = 9.0 }   # optiona
 
 - **One window is one simulated hour.** With `horizon_days = 42` that is 1,008 windows, `ops_per_window = 1`.
 - Inside an hour the simulator runs **12 sub-steps of 5 minutes**. The climate controller and the physics run on sub-steps; the agent never sees them.
-- `advance(hours)` (1 to 24) is the only tool that moves time. It runs whole hours with the setpoints in effect and **stops early at the end of the hour in which a new alarm appears** (equipment trip, delivery arrived or late, frost risk, a batch becoming ready, stock below a warning level). The result says why it stopped. Everything else costs no operation.
-- A careful agent needs roughly 60 to 150 advance calls plus reads. Budgets and timeouts are set for fairness, not speed: see section 4.1.
+- **The agent acts once a day, at 06:00 (round 3, section 14.1).** `submit_day(actions)` is the only tool: it applies the actions, then runs the day (06:00-18:00) and the night (18:00-06:00) with nobody acting and nothing stopping it, and returns the next morning's briefing. One call is one day, so a run is about 42 calls. There are no read tools and nothing stops early on an alarm; alarms are reported in the briefing.
 
 **Episode length (D1, decided: try 42 days, shorten if evals take too long).** With lettuce at a 32-day cycle and starting ages 0/8/16/24, 35 days lets no new lettuce planting finish, so seedling orders would never matter. **42 days** lets the first freed space (day 8) be replanted and harvested, and leaves the day-16 freed space as a real choice: plant and push climate hard to finish, or leave it empty. Basil's repeated cuts carry on throughout.
 
@@ -246,12 +245,12 @@ overrides = { "market.crops.basil_genovese.price_eur_per_kg" = 9.0 }   # optiona
 
 Every model gets the same simulated world and the same decision budget. Thinking time never changes what a model can do.
 
-- **Simulated time moves only with `advance`.** A model that thinks for 10 minutes before one call faces exactly the same world as one that answers in 2 seconds.
+- **Simulated time moves only with `submit_day`.** A model that thinks for 10 minutes before one call faces exactly the same world as one that answers in 2 seconds.
 - **The call budget is the same for everyone and generous:** `max_calls = 400` (D4), at least 2.5x what the reference uses. It exists only so that a looping agent ends. Reaching it is a legitimate agent outcome (`end_reason = "call_limit"`) and is reported as such.
-- **The agent works the day shift only (round 3, section 14.1).** It can act from 06:00 to 18:00. The night runs inside one `end_shift` call on the hourly schedule it committed. That gives 42 `end_shift` calls plus the day calls, well inside 400. The earlier "always-on agent" rationale is replaced: night events are answered by planning ahead (redundancy, a charged buffer, spare parts), not by reacting, and context 0.5 sets the guardrails that keep this fair.
+- **The agent works the day shift only (round 3, section 14.1).** It can act from 06:00 to 18:00. The day and night run inside the one `submit_day` call on the settings and hourly night schedule it committed. That gives 42 calls, well inside 400. The earlier "always-on agent" rationale is replaced: night events are answered by planning ahead (redundancy, a charged buffer, spare parts), not by reacting, and context 0.5 sets the guardrails that keep this fair.
 - **The wall-clock timeout is a safety net, not a rule.** `agent_timeout_sec` is set to several times the slowest model's measured full run (start: 3 hours; tune after the first Pro/Hydrogen run). A run that hits it is labelled `interrupted` in the report, kept out of model-comparison means, and rerun. It still gets the stop-early score in the judges' protocol, because reward integrity requires that.
 - **Provider failures are not agent results.** Rate limits, auth errors and API outages are infrastructure failures (no reward), as envkit does today. Concurrent attempts per model are capped so that rate limits do not slow one model more than another.
-- **The report states, per run:** calls used, `advance` calls, simulated hours reached, wall time, end reason. So "ran out of time" and "chose to stop" can never be confused.
+- **The report states, per run:** calls used, simulated hours reached, wall time, end reason. So "ran out of time" and "chose to stop" can never be confused.
 
 ### 4.2 Order of one sub-step
 
@@ -276,27 +275,25 @@ Every tool's docstring is what the agent reads; the names below are the contract
 
 | Tool | Cost | Arguments | Effect |
 |---|---|---|---|
-| `get_rules` | 0 | — | Every mechanism, formula, curve, crop file, market price, lead time, event type and rate, the ranges of hidden parameters, scoring. |
-| `get_status` | 0 | — | Clock, per-compartment sensor readings and actuator states, energy centre state, stock, open orders, staff, alarms, money. |
-| `get_batches` | 0 | — | Every batch: crop, compartment, area, age, estimated fresh weight, days to ready, quality estimate, status. |
-| `get_forecast` | 0 | `hours` (≤ 72) | Weather and electricity price forecast. |
-| `get_history` | 0 | `compartment`, `from_hour`, `to_hour` | Hourly readings, setpoints and metered use. |
-| `set_climate` | 0 | `compartment`, any of: `heat_day_c`, `heat_night_c`, `vent_min_pct`, `vent_max_pct`, `co2_ppm`, `screen` (`auto`/`open`/`closed`), `lamp_hours` (list of hours), `lamp_intensity_pct` | Change standing setpoints. Values are checked against equipment limits. |
-| `set_energy` | 0 | any of: `chp_load` (0 or `min_load` to 1), `boiler` (`auto`/`off`), `buffer` (`charge`/`hold`/`discharge`/`auto`), `external_co2_kg_h`, `priority` (map), `caps` (map) | Change standing energy-centre settings. |
-| `place_order` | 0 | `item` (`co2_kg`, `seedlings:<crop>`), `quantity` | Charged on delivery; shows the expected arrival. Minimum quantities apply. |
-| `cancel_order` | 0 | `order_id` | Only before dispatch (fee). |
-| `hire` / `release` | 0 | `workers` | Arrive or leave after notice days; fee and wages from the market file. |
-| `plant` | 0 | `compartment`, `area_m2` | Queues planting; uses seedlings and worker-hours. Refused if too few days remain. |
-| `harvest` | 0 | `batch_id` | Queues harvest; uses worker-hours. Underweight produce sells for 0. |
-| `repair` | 0 | `equipment_id` | **Removed in round 3:** replaced by `book_contractor` (section 14.2). |
-| `advance` | 1 | `hours` (1–12) | Runs day hours; stops early on a new alarm and at 18:00 at the latest. Returns what happened, alarms and the new status. |
-| `set_night_schedule` | 0 | `hours` (list of night-hour entries, section 14.1) | Replaces the night schedule; repeats every night until changed. |
-| `end_shift` | 1 | — | Only at 18:00. Runs 18:00 to 06:00 on the night schedule in one call; returns nothing about the night (read `get_night_report`). |
-| `get_night_report` | 0 | — | The morning report (section 14.1). |
-| `book_contractor` | 0 | `trade`, `job`, `target`, `urgent` | Section 14.2. Replaces `repair`. |
-| ~~`finish_episode`~~ | — | — | **Removed (14 Nov 2026):** there is no tool to stop. An agent that stops calling tools has stopped; the rest runs with the last day settings and night schedule, and nobody acting (D5). |
+| `submit_day` | 1 | `actions` (list, at most `actions_per_day` = 5) | The only tool (section 14.1). Applies the actions in order (a refused action changes nothing and the rest still apply; more than 5 refuses the whole call), then runs the day and the night. Returns per-action results and the next morning's briefing. |
 
-`plant`, `harvest` and `repair` are tasks: they use worker-hours from the day's pool in queue order. A task that does not get enough hours waits. A ready batch loses quality each day it waits (a crop parameter).
+Each action is `{"tool": <name>, ...arguments}`; there are no separate tools. Every rule is in the task instruction (`Environment.opening()`), which also holds day 1's briefing. Action names and arguments:
+
+| Action | Arguments | Effect |
+|---|---|---|
+| `set_climate` | `compartment`, any of: `heat_day_c`, `heat_night_c`, `vent_min_pct`, `vent_max_pct`, `co2_ppm`, `screen` (`auto`/`open`/`closed`), `lamp_hours` (list of hours), `lamp_intensity_pct` | Change standing day setpoints. Values are checked against equipment limits. |
+| `set_energy` | any of: `chp_load` (0 or `min_load` to 1), `boiler_max_fraction`, `buffer` (`charge`/`hold`/`discharge`/`auto`), `buffer_draw_max_kw`, `external_co2_kg_h`, `priority` (map), `caps` (map) | Change standing day energy-centre settings. |
+| `set_night_schedule` | `from_hour` and one entry's fields (section 14.1) | Sets one night entry; the schedule repeats every night until changed. |
+| `place_orders` | `items` (`co2_kg`, `seedlings:<crop>`, `part:<id>`), `quantity`, `express` | Charged on delivery; shows the expected arrival. Minimum quantities apply. |
+| `cancel_order` | `order_id` | Only before dispatch (fee). |
+| `hire` / `release` | `workers` | Arrive or leave after notice days; fee and wages from the market file. |
+| `plant` | `compartment`, `area_m2` | Queues planting; uses seedlings and worker-hours. Refused if too few days remain. |
+| `harvest` | `batch_id` | Queues harvest; uses worker-hours. Underweight produce sells for 0. |
+| `book_contractor` | `trade`, `target` | Section 14.2. Repairs need a contractor, a part and a day-shift hour. |
+
+**Removed:** `get_rules`, `get_status`, `get_batches`, `get_forecast`, `get_history`, `get_night_report`, `get_news`, `advance`, `end_shift`, `repair`, `finish_episode`. There is no tool to stop: an agent that stops calling tools has stopped; the rest runs with the last day settings and night schedule, and nobody acting (D5).
+
+`plant` and `harvest` are tasks (and repair jobs use contractor hours): they use worker-hours from the day's pool in queue order. A task that does not get enough hours waits. A ready batch loses quality each day it waits (a crop parameter).
 
 ---
 
@@ -359,7 +356,7 @@ Mechanisms that must hold, each with a test in `tests/greenhouse/`:
 | **reference** | Rule-based plus a 48-hour look-ahead each simulated day. Hidden parameters are estimated from the first day's readings. It plans with the public model (the published equations from `get_rules` and its own estimates), using forecasts only. Thresholds are tuned on dev seeds 1–6 | The bar; 0.8 by construction |
 | exploiter | Each exploit in section 8 | ≈ 0 |
 
-The reference may import the same equations as the simulator, because they are published, but it must take every number from tool results: forecasts, readings, `get_rules` and its own estimates.
+The reference may import the same equations as the simulator, because they are published, but it must take every number from tool results: forecasts, readings, the opening rules and its own estimates.
 
 ---
 
@@ -459,7 +456,7 @@ Implements [context section 0](GREENHOUSE_BENCH_CONTEXT.md). Scope for v1 is con
 
 **One call per day (final).** The whole turn is one call, `submit_day(actions)`, the only tool: up to `actions_per_day` actions, each `{"tool": <action>, ...its arguments}`, applied in order, then the day and night run. The paragraph below describes the actions; read "the day ends" as the end of that call.
 
-**The turn.** At 06:00 the agent takes at most `actions_per_day` actions (scenario `[env]`, 5). An action is any tool that changes something: `set_climate` (one or more compartments), `set_energy`, `set_night_schedule` (one entry), `place_orders` (several items), `cancel_order`, `hire`, `release`, `plant` (several compartments), `harvest` (several batches), `book_contractor`. A list is one action and reports what was accepted and what was refused; a call with nothing accepted is refused. A refused action is free and does not count. The day ends with `end_shift` (cost 1), or by itself with the last allowed action: the day (06:00-18:00 on the day settings, crew at work) and the night (18:00-06:00 on the night schedule) then run inside that call with nobody acting and nothing stopping it, and the result carries the next briefing. A day takes at most 6 calls, so 42 days fit well inside `max_calls = 400`.
+**The turn.** At 06:00 the agent makes one `submit_day` call (cost 1) with at most `actions_per_day` actions (scenario `[env]`, 5): `set_climate`, `set_energy`, `set_night_schedule` (one entry), `place_orders` (several items, optional `express`), `cancel_order`, `hire`, `release`, `plant` (several compartments), `harvest` (several batches), `book_contractor`. A list is one action and reports what was accepted and what was refused. Actions apply in order; a refused one changes nothing and the rest still apply; more than the limit refuses the whole call. The day (06:00-18:00 on the day settings, crew at work) and the night (18:00-06:00 on the night schedule) then run inside that call with nobody acting, and the result carries the next briefing. One call is one day, so 42 days fit well inside `max_calls = 400`.
 
 **Night schedule.** `set_night_schedule(from_hour, ...)` sets one entry; the schedule repeats every night until changed. Each entry is a `NightHour`:
 
@@ -513,7 +510,7 @@ Seedling items become plugs from a propagator with a 2–3 week lead time (marke
 
 | Area | Owner | Files |
 |---|---|---|
-| Contract types, shift clock, `end_shift`, off-duty, `set_night_schedule`, morning report, `get_news` wiring, scenario | Max | `contracts.py`, `sim.py`, `env.py`, `views.py`, envkit if needed |
+| Contract types, daily turn, `submit_day`, `set_night_schedule`, morning briefing, news wiring, scenario | Max | `contracts.py`, `sim.py`, `env.py`, `views.py`, envkit if needed |
 | Day and night dispatch with boiler level and buffer draw caps, glass effect on leakage, `[fallback]` = 5 °C | Max (Emre's files, handed over for this round) | `world/{energy,controller,climate}.py`, `config/facility.py`, `data/facilities/` |
 | Storm event, persistent damage, contractors, parts with surge and express, `book_contractor`, news feed, new ledger categories, CO2 cleanup, policies under shift rules | Rowan | `config/market.py`, `world/{operations,events,ledger,business}.py`, `outcome.py`, `data/{markets,events,news}/`, `policies/` |
 | Lettuce at 24 days and light scaling, frost damage on near-ready batches, plug lead times (research), storm and frost news inputs from the recorded weather (D3 itself landed in #15) | Lucas | `config/crop.py`, `world/crop.py`, `data/crops/`, plus `world/weather.py`, `data/{climates,energy_prices}/` (Emre's, handed over for this round) |
