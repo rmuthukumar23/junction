@@ -237,5 +237,5 @@ def check_task(scenario: Scenario, seed: int, calibration: dict[str, Any], out_r
 
 def _write(path: Path, text: str, executable: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
+    path.write_text(text, newline="\n")  # LF always: CRLF breaks #! scripts inside Linux containers
     path.chmod(0o755 if executable else 0o644)

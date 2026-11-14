@@ -1,0 +1,8 @@
+# Ignore accidental local copies; the canonical files have no numeric suffix.
+docs/SCENARIO 2.md
+src/junction_env/adapters/harbor_results 2.py
+src/junction_env/adapters/harbor_task 2.py
+src/junction_env/adapters/service 2.py
+src/junction_env/scheduling/types 2.py
+src/junction_env/scheduling/verifier 2.py
+tests/test_mcp 2.py

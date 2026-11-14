@@ -97,6 +97,6 @@ Each Harbor trial directory contains `verifier/reward.txt`, `verifier/score.json
 
 ## Limits
 
-- The sidecar needs a Compose-capable Harbor provider. Local Docker and Podman work; Harbor's documentation says multi-container tasks are not supported on its cloud sandboxes, so the Modal path is unverified.
+- The sidecar needs a Compose-capable Harbor provider. Local Docker and Podman work; Harbor's multi-container docs list `modal` as Docker-in-Docker Compose, and the scripted judge (including sidecar collection and separate verification) passed on Modal on 2026-11-14; see [MODAL.md](MODAL.md). E2B and Runloop are listed as unsupported.
 - No run with OpenCode and a model has been made. Harbor installs OpenCode 1.19.5 into the agent image without errors and the oracle reaches the MCP server from that container, but OpenCode connecting and playing is untested.
 - On Podman, `podman-compose` 1.x has no `cp`; Harbor logs `compose cp failed; retrying upload with tar stream` and then succeeds.

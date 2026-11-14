@@ -60,6 +60,27 @@ def pick_backend(requested: str) -> str:
     raise RuntimeError("neither docker nor podman is on PATH; pass --backend modal to use Modal")
 
 
+# OpenCode's Google provider reads only this variable; Harbor does not map the host's
+# GEMINI_API_KEY onto it, so without the forward below the agent dies with ProviderAuthError.
+GOOGLE_OPENCODE_KEY = "GOOGLE_GENERATIVE_AI_API_KEY"
+
+
+def is_google_model(model: str | None) -> bool:
+    return bool(model) and model.split("/", 1)[0] in ("google", "gemini")
+
+
+def credential_env_name(a: argparse.Namespace) -> str:
+    return a.credential_env or ("GEMINI_API_KEY" if is_google_model(a.model) else "OPENAI_API_KEY")
+
+
+def credential_forwarding(a: argparse.Namespace) -> list[str]:
+    """`--ae` arguments that hand the host credential to the agent without putting its value
+    on the command line: Harbor expands the ${NAME} template inside its own process."""
+    if a.agent == "opencode" and is_google_model(a.model):
+        return ["--ae", f"{GOOGLE_OPENCODE_KEY}=${{{credential_env_name(a)}}}"]
+    return []
+
+
 def preflight(a: argparse.Namespace, backend: str) -> None:
     if not shutil.which("harbor"):
         raise RuntimeError("harbor is not on PATH; run `uv sync --locked --extra eval --extra mcp --extra harbor` "
@@ -75,8 +96,8 @@ def preflight(a: argparse.Namespace, backend: str) -> None:
     elif not (os.environ.get("MODAL_TOKEN_ID") and os.environ.get("MODAL_TOKEN_SECRET")) \
             and not (Path.home() / ".modal.toml").exists():
         raise RuntimeError("Authenticate Modal first (modal setup), or set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET")
-    if a.model and not os.environ.get(a.credential_env):
-        raise RuntimeError(f"Set {a.credential_env} for model runs; never put its value in CLI arguments")
+    if a.model and not os.environ.get(credential_env_name(a)):
+        raise RuntimeError(f"Set {credential_env_name(a)} for model runs; never put its value in CLI arguments")
 
 
 def run_command(command: list[str], log: Path) -> dict[str, Any]:
@@ -137,6 +158,7 @@ def run_eval(a: argparse.Namespace, scenario: Scenario) -> int:
                     command += ["--agent", a.agent, "--model", a.model]
                     if a.agent == "opencode":
                         command += ["--agent-kwarg", f"version={a.opencode_version}"]
+                    command += credential_forwarding(a)
                 elif label == "do-nothing":
                     command += ["--agent", "nop"]
                 else:
