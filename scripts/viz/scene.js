@@ -1,7 +1,9 @@
 // The greenhouse site in 3D: an orthographic (isometric) camera, rendered at low resolution
-// and scaled up without smoothing for a voxel/pixel look. Drag to rotate, scroll to zoom.
-const Scene = (() => {
-  const PIX = 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
+// and scaled up without smoothing for a voxel/pixel look. Drag to rotate (left/right turns,
+// up/down tilts), scroll to zoom. makeScene() returns one independent scene per canvas, so
+// several growers can be watched side by side.
+const makeScene = (opts = {}) => {
+  const PIX = opts.pix || 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
   const SLOPE = Math.atan2(2.2, 5);              // roof pitch: RIDGE over half the width
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, k) => a + (b - a) * k;
   const col = (h) => new THREE.Color(h);
@@ -9,7 +11,7 @@ const Scene = (() => {
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
   let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
-  let az = Math.PI / 4, zoom = 1, layerLbl, bubbles = [], workers = [], lastHour = -1;
+  let az = Math.PI / 4, el = 0.6, zoom = opts.zoom || 1, layerLbl, bubbles = [], workers = [], lastHour = -1, flashes = [];
   const lambert = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
   const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
   const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -27,8 +29,9 @@ const Scene = (() => {
     layerLbl = document.createElement("div"); layerLbl.className = "scene-labels"; stage.appendChild(layerLbl);
     // drag to rotate, wheel to zoom; a click without a drag opens details
     let down = null;
-    canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, az, moved: false }; canvas.setPointerCapture(e.pointerId); });
-    canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 3) down.moved = true; az = down.az - dx * 0.008; });
+    canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, az, el, moved: false }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) down.moved = true; az = down.az - dx * 0.008; el = clamp(down.el + dy * 0.006, 0.15, 1.35); });
     canvas.addEventListener("pointerup", (e) => { if (down && !down.moved) canvas.dispatchEvent(new CustomEvent("scenepick", { detail: pick(e) })); down = null; });
     const qz = +new URLSearchParams(location.search).get("zoom"); if (qz) zoom = clamp(qz, 0.6, 3);
     canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoom = clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 3); }, { passive: false });
@@ -36,7 +39,7 @@ const Scene = (() => {
 
   function clearWorld() {
     while (scene.children.length > 3) scene.remove(scene.children[3]);
-    layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; lastHour = -1;
+    layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; flashes = []; lastHour = -1;
   }
 
   function setData(m) {
@@ -302,6 +305,10 @@ const Scene = (() => {
       world.truck.visible = true; world.truck.position.x = k < 0.4 ? lerp(a, stop, k / 0.4) : k < 0.65 ? stop : lerp(stop, b, (k - 0.65) / 0.35);
     }
     updateWorkers(f, hd, dt, speed);
+    // outlines around whatever the grower's latest decision touched
+    flashes = flashes.filter((x) => { x.life += dt; if (x.life > 3.5) { scene.remove(x.m); return false; }
+      x.m.material.opacity = (x.life > 2.7 ? (3.5 - x.life) / 0.8 : 1) * (0.65 + 0.35 * Math.sin(x.life * 9));
+      const k = 1 + 0.04 * Math.sin(x.life * 9); x.m.scale.set(k, k, k); return true; });
     // snow or rain
     const snow = f.out.t <= 0.5 && f.out.rh >= 82, rain = !snow && f.out.rh >= 94, fl = world.flakes;
     fl.visible = snow || rain; fl.material.color = col(snow ? 0xffffff : 0x9cc0ff);
@@ -314,7 +321,7 @@ const Scene = (() => {
   }
 
   function placeCamera() {
-    const cx = world.x0 + world.span / 2, el = 0.6, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    const cx = world.x0 + world.span / 2, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
     camera.position.set(cx + Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d);
     camera.lookAt(cx, 2, 0);
     const halfW = (world.span * 0.52) / zoom, halfH = halfW / aspect;
@@ -361,6 +368,19 @@ const Scene = (() => {
     const hit = ray.intersectObjects(targets, false)[0];
     return hit ? hit.object.userData.pick : "weather";
   }
-  function reset() { bubbles.forEach((b) => b.el.remove()); bubbles = []; }
-  return { init, setData, render, bubble, reset };
-})();
+  // Outline the buildings a decision acts on: houses by id, "energy", "co2" or "road".
+  function flash(wheres, color) {
+    if (!ids.length) return;
+    for (const w of new Set(wheres)) {
+      let g, at;
+      if (houses[w]) { g = new THREE.BoxGeometry(HW + 0.9, WALL + RIDGE + 0.9, HD + 0.9); at = [houses[w].cx, (WALL + RIDGE) / 2, 0]; }
+      else if (w === "energy" || w === "co2") { g = new THREE.BoxGeometry(15, 10, 10); at = [ec.x + 3, 4.6, -1]; }
+      else if (w === "road") { g = new THREE.BoxGeometry(9, 4, 5); at = [ec.x - 5, 2, ROAD_Z]; }
+      else continue;
+      const m = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+      m.renderOrder = 10; m.position.set(...at); scene.add(m); flashes.push({ m, life: 0 });
+    }
+  }
+  function reset() { bubbles.forEach((b) => b.el.remove()); bubbles = []; flashes.forEach((x) => scene.remove(x.m)); flashes = []; }
+  return { init, setData, render, bubble, flash, reset };
+};

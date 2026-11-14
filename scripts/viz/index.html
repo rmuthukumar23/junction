@@ -17,47 +17,24 @@
       <p class="sub" id="subtitle">Loading the real simulator…</p>
     </div>
   </div>
+  <div class="clock" aria-label="Shared clock">
+    <div class="hud-item"><span class="hud-label">DAY</span><span class="hud-val" id="hud-day">1</span></div>
+    <div class="hud-item"><span class="hud-label">TIME</span><span class="hud-val" id="hud-time">00:00</span></div>
+    <div class="hud-item"><span class="hud-label">OUTSIDE</span><span class="hud-val" id="hud-temp">–</span></div>
+  </div>
   <form class="newrun" id="newrun">
-    <label>Grower
-      <select id="policy">
-        <option value="reference">Expert planner (reference)</option>
-        <option value="rule-based">Rule-based grower</option>
-        <option value="naive">Naive grower</option>
-        <option value="do-nothing">Nobody (do nothing)</option>
-      </select>
-    </label>
     <label>Seed <input id="seed" type="number" min="1" max="9999" value="1"></label>
-    <button type="submit" class="btn primary">Run new test</button>
+    <button type="submit" class="btn primary">Run all six</button>
+    <button type="button" class="btn" id="rescan" title="Look for new model runs under artifacts/">↻ Model runs</button>
   </form>
 </header>
 
 <main>
-  <section class="stage-wrap">
-    <div class="stage">
-      <canvas id="scene" aria-label="3D view of the greenhouse site"></canvas>
-      <div class="hint">Drag to rotate · scroll to zoom · click a building</div>
-      <div class="hud hud-left">
-        <div class="hud-item"><span class="hud-label">DAY</span><span class="hud-val" id="hud-day">1</span></div>
-        <div class="hud-item"><span class="hud-label">TIME</span><span class="hud-val" id="hud-time">00:00</span></div>
-        <div class="hud-item"><span class="hud-label">OUTSIDE</span><span class="hud-val" id="hud-temp">–</span></div>
-      </div>
-      <div class="hud hud-right"><span class="hud-label">PROFIT</span><span id="hud-profit">€0</span></div>
-      <div class="loading" id="loading"><div class="spinner"></div><p id="loading-text">Simulating 42 days…</p></div>
-      <div class="done" id="done" hidden>
-        <h2>42 days done</h2>
-        <div class="done-grid">
-          <div><span class="k">Final profit</span><span class="v" id="done-profit">–</span></div>
-          <div><span class="k">If nobody acted</span><span class="v" id="done-base">–</span></div>
-          <div><span class="k">Harvests sold</span><span class="v" id="done-harv">–</span></div>
-          <div><span class="k">Breakdowns</span><span class="v" id="done-faults">–</span></div>
-        </div>
-        <p id="done-verdict"></p>
-        <div class="row"><button class="btn" id="replay">Watch again</button><button class="btn primary" id="done-details">Open all details</button></div>
-      </div>
-    </div>
-
+  <section class="left">
+    <div class="grid6" id="grid"></div>
     <div class="controls">
-      <button class="btn icon" id="play" aria-label="Pause">❚❚</button>
+      <button class="btn icon" id="play" aria-label="Play">▶</button>
+      <button class="btn icon" id="next" title="Jump to the selected grower's next decision (N)">⏭</button>
       <div class="speeds" role="group" aria-label="Speed">
         <button data-speed="0.5">½×</button><button data-speed="1" class="on">1×</button><button data-speed="3">3×</button><button data-speed="10">10×</button>
       </div>
@@ -67,33 +44,43 @@
         <div class="tl-head" id="tl-head"></div>
       </div>
       <span class="tl-time" id="tl-time">0 / 42 d</span>
+      <label class="stopper" title="Pause every time the selected grower makes a decision"><input type="checkbox" id="stop-at-dec"> pause at its decisions</label>
     </div>
   </section>
 
-  <aside class="feed">
-    <div class="feed-head"><h2>What's happening</h2><button class="link" data-open="log">Full log</button></div>
-    <ol id="feed"></ol>
+  <aside class="side">
+    <section class="box">
+      <div class="box-head"><h2>Standings now</h2><span class="note-s">click to select</span></div>
+      <ol class="standings" id="standings"></ol>
+    </section>
+    <section class="box sel">
+      <div class="box-head"><h2 id="sel-name">–</h2><button class="link" data-open="money">Details →</button></div>
+      <div class="cards" id="cards">
+        <article class="card" data-open="money"><h3>Money</h3><div class="big" id="c-money">–</div><p class="small" id="c-money-sub">–</p></article>
+        <article class="card" data-open="weather"><h3>Outside</h3><div class="big" id="c-out">–</div><p class="small" id="c-out-sub">–</p></article>
+        <article class="card" data-open="energy"><h3>Energy centre</h3><div class="big" id="c-en">–</div><p class="small" id="c-en-sub">–</p></article>
+      </div>
+    </section>
+    <section class="box feed">
+      <div class="feed-head"><h2>Decisions and events</h2><button class="link" data-open="log">Full log</button></div>
+      <ol id="feed"></ol>
+    </section>
   </aside>
-
-  <section class="cards" id="cards">
-    <article class="card" data-open="money">
-      <h3>Money</h3><div class="big" id="c-money">–</div><p class="small" id="c-money-sub">–</p>
-      <button class="link">Details →</button>
-    </article>
-    <article class="card" data-open="weather">
-      <h3>Outside</h3><div class="big" id="c-out">–</div><p class="small" id="c-out-sub">–</p>
-      <button class="link">Details →</button>
-    </article>
-    <article class="card" data-open="energy">
-      <h3>Energy centre</h3><div class="big" id="c-en">–</div><p class="small" id="c-en-sub">–</p>
-      <button class="link">Details →</button>
-    </article>
-  </section>
 </main>
+
+<div class="done" id="done" hidden>
+  <div class="done-card">
+    <h2 id="done-title">42 days done</h2>
+    <p class="note" id="done-note"></p>
+    <table id="done-table"></table>
+    <div class="row"><button class="btn" id="replay">Watch again</button><button class="btn primary" id="done-close">Close</button></div>
+  </div>
+</div>
 
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-hidden="true">
   <div class="drawer-head">
+    <div class="drawer-title" id="drawer-title"></div>
     <nav class="tabs" id="tabs">
       <button data-tab="energy">Energy</button><button data-tab="weather">Weather</button>
       <button data-tab="money">Money</button><button data-tab="log">Grower log</button>
@@ -106,6 +93,26 @@
   </div>
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
+
+<template id="panel-tpl">
+  <article class="panel">
+    <div class="p-stage">
+      <canvas aria-label="3D view of this grower's greenhouse"></canvas>
+      <div class="p-head">
+        <div class="p-title"><span class="p-num"></span><b class="p-name">–</b></div>
+        <div class="p-sub">–</div>
+      </div>
+      <select class="p-pick" aria-label="Grower in this panel"></select>
+      <div class="p-money"><span class="p-profit">€0</span><span class="p-score"></span></div>
+      <div class="p-hint">drag to rotate · scroll to zoom · click a building</div>
+      <div class="p-loading"><div class="spinner"></div><p>Simulating…</p></div>
+    </div>
+    <div class="p-decision" title="The grower's latest decision, as the simulator answered it. Click to select this panel.">
+      <div class="p-when">Waiting for the first decision…</div>
+      <ul class="p-acts"></ul>
+    </div>
+  </article>
+</template>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="scene.js"></script>

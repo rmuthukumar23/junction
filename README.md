@@ -143,7 +143,9 @@ recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
   [spec 14](docs/GREENHOUSE_SPEC.md)). The ladder, audit table and calibration above were
   measured on the old rules (any-hour tools, `repair`) and are stale until `normal-winter`
   is rebuilt and re-measured. No model has played the current rules. The viewer
-  (`scripts/viz`) still shows the old tool names.
+  (`uv run python scripts/viz/server.py`, then http://localhost:8765) plays six growers side
+  by side on the current rules: scripted ones live, model runs replayed from their trace
+  under `artifacts/`, each decision shown and outlined at the hour it was made.
 - **Lettuce sells per head at any weight above the minimum.** Cutting at the minimum
   sellable weight earns as much per head as waiting, and the reference does it. Weight
   grades would change that; it is an open question for the crop and market files.
