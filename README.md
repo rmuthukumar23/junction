@@ -116,6 +116,7 @@ Modal as unverified. No Verda training, Entire setup, database or UI is required
 | `docs/BACKEND.md` | How the backend works, its commands, and how to add an environment |
 | `docs/SCENARIO.md` | Exact public contract and calibration rules |
 | `docs/HARNESS.md` | Runtime requirements, isolation, official compatibility gates |
+| `docs/MODAL.md` | Modal setup for teammates, verification scripts, measured results |
 | `docs/EXPERIMENTS.md` | Observed evidence and remaining evaluation work |
 | `docs/WORKFLOW.md` | Flexible task claims and integration workflow |
 
