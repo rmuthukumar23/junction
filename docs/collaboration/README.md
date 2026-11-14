@@ -51,4 +51,4 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 | Max | | | |
 | Lucas | | | |
 | Emre | | | |
-| Rowan | | | |
+| Rowan | `rowan/operations` | Operations, events, ledger, outcome | Tasks 1–6 done with tests; policies wait for `env.py` tool stubs |
