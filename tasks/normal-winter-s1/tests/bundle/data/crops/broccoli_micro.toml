@@ -1,0 +1,96 @@
+# Broccoli microgreens, sown in trays, single cut, sold per kg.
+#
+# Same leafy_vanhenten model as lettuce: microgreens are a dense leafy C3 canopy harvested
+# whole, so canopy photosynthesis minus maintenance respiration is a fair basis. The
+# leaf-level coefficients are Van Henten's lettuce values; only canopy_closure_m2_kg is
+# calibrated. Values and sources: docs/CROPS.md section 2.
+#
+# No germination phase (decided 14 Nov 2026): a batch starts as an emerged seedling that
+# grows on light from hour 0, and the blackout days are inside nominal_days.
+#
+# Sources (cited per value below by their tag):
+#   [VH94]  Van Henten, E.J. (1994). Greenhouse climate management: an optimal control
+#           approach. PhD thesis, Wageningen University (with [VS10] and [BvM] as in the lettuce file).
+#   [JSS]   Johnny's Selected Seeds, Micro Greens Yield Trial tech sheet (2017): 12.5 days to the
+#           first true leaf, 326 g per 10x20-inch tray (2.5 kg/m2), 100 g seed per m2.
+#   [ORT]   Ortiz et al. (2024), Technology in Horticulture: highest broccoli yield on day 13.
+#   [GC16]  Gerovac et al. (2016), HortScience 51(5): 497-503: grown at 21/17 C; DLI 6-18.
+#   [SHB22] Shibaeva et al. (2022), Plants: 16 h at DLI 15.6 as the usual baseline.
+#   [SR24]  Microgreen nutrient table, broccoli moisture 90.72 g/100 g (PMC5362588, table 1).
+#   [MCR]   Thimijan and Heins (1983), HortScience 18: 818-822 (4.57 umol per J).
+#   [CAL]   Calibrated so a batch under the target climate below is ready in nominal_days.
+#   [DES]   Design value for the benchmark: plausible, not a single published number.
+
+schema = "crop/1"
+id = "broccoli_micro"
+name = "Broccoli microgreens"
+growth_model = "leafy_vanhenten"
+
+[cycle]
+harvest_mode = "single"
+nominal_days = 12                  # [JSS] 12.5 days to the first true leaf; [ORT] best on day 13
+min_days_before_end = 12           # [DES] same as the cycle
+ready_fresh_weight_g = 0.086       # 2.5 kg/m2 [JSS] / 29,000 plants per m2
+
+[planting]
+density_per_m2 = 29000             # [DES] 100 g seed per m2 [JSS] at an assumed 3.5 g per 1000 seeds
+transplant_dry_weight_g = 0.0012   # [DES] an emerged seedling (about 13 mg fresh), not the seed: no germination phase
+plant_worker_hours_per_1000 = 0.000069   # [DES] 2 worker-hours per 1000 m2 (machine sowing), per 1000 plants
+harvest_worker_hours_per_1000 = 0.00034  # [DES] 10 worker-hours per 1000 m2 (hand cutting), per 1000 plants
+
+[growth]                           # leafy_vanhenten parameters; symbols from [VH94]
+dry_matter_fraction = 0.093        # [SR24] 1 - 90.72/100
+yield_factor = 0.544               # c_alpha_beta [VH94]
+light_use_efficiency_kg_j = 17.0e-9 # c_epsilon [VH94]
+radiation_j_per_umol = 0.2188      # [MCR] 1/4.57
+canopy_closure_m2_kg = 31.9        # [CAL] ready in 11.7 days under the target midpoints
+boundary_conductance_m_s = 0.007   # g_bnd [VH94]
+stomatal_conductance_m_s = 0.005   # g_stm [VH94]
+carboxylation_conductance_max_m_s = 1.959e-3   # peak of [VH94]'s g_car, as lettuce
+temperature = { curve = "cardinal", t_min = 2.925, t_opt = 22.505, t_max = 42.085 }   # [VH94] as lettuce: a cool-season crop
+co2_kg_m3_per_ppm = 1.8295e-6      # ideal gas, CO2 0.04401 kg mol-1 at 20 C and 101.325 kPa
+co2_saturation_ppm = 1200.0        # [DES] as lettuce
+co2_compensation_kg_m3 = 5.2e-5    # c_Gamma [VH94]
+co2_compensation_q10 = 2.0         # [VH94]
+co2_compensation_ref_c = 20.0      # [VH94]
+respiration_dry_per_s = 2.65e-7    # c_resp,d [VH94]
+respiration_co2_per_s = 4.87e-7    # c_resp,c [VH94]
+respiration_q10 = 2.0              # [VH94]
+respiration_ref_c = 25.0           # [VH94]
+
+[growth.transpiration]             # [VH94]
+canopy_conductance_m_s = 3.6e-3
+vapour_c1_j_m3 = 9348.0
+gas_constant_j_kmol_k = 8314.0
+celsius_to_kelvin = 273.15
+vapour_c2 = 17.4
+vapour_c3_c = 239.0
+
+[climate_targets]                  # advice published to the agent; nominal_days holds at the midpoints
+day_temp_c = [18, 22]              # [GC16] grown at 21 C by day
+night_temp_c = [16, 18]            # [GC16] 17 C by night
+co2_ppm = [800, 1000]              # [DES] as lettuce
+dli_mol_m2_d = [12, 17]            # [GC16][SHB22]
+rh_pct = [60, 75]                  # [DES] dense trays damp off at high humidity
+photoperiod_h = 16                 # [SHB22]
+
+[stress]                           # each counter adds curve(signal) per day; quality = 1 - sum of counters
+# dli_excess carries the day's light integral itself; a linear_below curve on it is low light.
+stretch = { signal = "dli_excess", curve = "linear_below", threshold = 6.0, rate = 0.03 }    # [DES] long weak stems [GC16]
+heat    = { signal = "temp_day_mean", curve = "linear_above", threshold = 24.0, rate = 0.02 } # [DES] per C above
+cold    = { signal = "temp_min", curve = "linear_below", threshold = 6.0, rate = 0.05 }      # [DES] per C below
+frost_kill_c = -1.0                # [DES]
+# Past the first true leaf stems toughen: grade A for 2.5 days, grade B to about day 7,
+# then waste [ORT]. [DES]
+ready_loss_per_day = 0.06
+
+[market]
+unit = "kg"
+min_sellable = { fresh_weight_g = 0.043 }   # [DES] half the target yield (1.25 kg/m2)
+grades = [ { name = "A", min_quality = 0.85, price_factor = 1.0 },   # [DES] as lettuce
+           { name = "B", min_quality = 0.60, price_factor = 0.6 },
+           { name = "waste", min_quality = 0.0, price_factor = 0.0 } ]
+
+[estimate]                         # what get_batches shows
+weight_rel_sigma = 0.10            # [DES] tray weight by eye
+quality_sigma = 0.03               # [DES]
