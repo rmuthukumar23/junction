@@ -1,0 +1,27 @@
+{
+  "name": "greenhouse-bench-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Greenhouse Bench pixel site: replays recorded runs. API served by scripts/pixel/server.py.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "check": "tsc -b && vitest run"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

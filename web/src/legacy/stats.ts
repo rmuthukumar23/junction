@@ -1,9 +1,9 @@
+// @ts-nocheck
+// Legacy port of scripts/pixel/stats.js (vanilla JS). Untyped on purpose: replaced by the sprite system (web/src/engine).
 /* Greenhouse Bench pixel site: analytics + stats page.
    window.PixelStats.mount(containerEl, { fetchJson })
    fetchJson('/api/stats') -> analytics.compute_stats output, or {"error": "..."}.
    Vanilla JS, inline SVG, no dependencies. Pixel look: crisp edges, stepped bars, no gradients. */
-(function () {
-  "use strict";
 
   var PALETTE = ["#f2b134", "#4fb0c6", "#e8604c", "#7bc950", "#b48ead", "#ff8fa3", "#9fa8da", "#d4a373", "#59d8b0", "#c0c0c0"];
   var TOOL_PALETTE = ["#4fb0c6", "#f2b134", "#7bc950", "#b48ead", "#ff8fa3", "#d4a373", "#9fa8da", "#59d8b0", "#e0e0e0"];
@@ -311,5 +311,4 @@
     });
   }
 
-  window.PixelStats = { mount: mount };
-})();
+  export const PixelStats = { mount: mount };

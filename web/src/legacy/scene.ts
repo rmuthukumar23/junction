@@ -1,8 +1,9 @@
+// @ts-nocheck
+// Legacy port of scripts/pixel/scene.js (vanilla JS). Untyped on purpose: replaced by the sprite system (web/src/engine).
+import { Sprites } from "./sprites";
 // Side-view pixel greenhouse world. Draws one logical 480x270 frame from Replay frame data.
 // window.PixelScene.create(canvas, {onPick}) -> {setData, render, trigger, bubble, flash, reset, hit, setHover}
-(function () {
-  "use strict";
-  const S = window.Sprites, P = S.P;
+  const S = Sprites, P = S.P;
   const W = 480, H = 270, GY = 214, EY = 156, RY = 128, BY = 198, WIRE = 108;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -509,5 +510,4 @@
     return { setData, render, trigger, bubble, flash, reset, hit, setHover, resolve, get cids() { return cids; }, get mascot() { return mascot; } };
   }
 
-  window.PixelScene = { create, W, H };
-})();
+  export const PixelScene = { create, W, H };

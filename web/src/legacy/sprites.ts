@@ -1,7 +1,7 @@
+// @ts-nocheck
+// Legacy port of scripts/pixel/sprites.js (vanilla JS). Untyped on purpose: replaced by the sprite system (web/src/engine).
 // Palette, bitmap font, mascots and crop sprites for the Greenhouse Bench pixel site.
 // Everything is procedural: no images, no fonts. All draw calls are allocation free.
-(function () {
-  "use strict";
 
   const P = {
     ink: "#0b1018", plate: "#10151f", plateEdge: "#2c3a52", white: "#f2f6fb", snow: "#e6eef7",
@@ -196,5 +196,4 @@
     return c;
   }
 
-  window.Sprites = { P, text, textWidth, plate, rect, line, hash, hashStr, mascotFor, mascot, mascotCanvas, plant, family, SPACING, GLYPH_NAMES, cloudSprite };
-})();
+  export const Sprites = { P, text, textWidth, plate, rect, line, hash, hashStr, mascotFor, mascot, mascotCanvas, plant, family, SPACING, GLYPH_NAMES, cloudSprite };

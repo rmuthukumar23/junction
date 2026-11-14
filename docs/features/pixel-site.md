@@ -1,12 +1,26 @@
-# Pixel site backend
+# Pixel site
 
-A separate site (port 8800) that replays recorded Greenhouse Bench runs as a pixel-art greenhouse. This page covers the backend in `scripts/pixel/` (`server.py`, `runs.py`, `replay.py`); the page and analytics are other files.
+A separate site that replays recorded Greenhouse Bench runs as a pixel-art greenhouse. Two parts:
 
-Run: `python scripts/pixel/server.py [--port 8800] [--artifacts <dir>] [--policy-scenario normal-winter]`, then open http://127.0.0.1:8800. Needs the repo venv with `PYTHONPATH=src`. Stdlib only. `--selftest` replays `scenarios/smoke.toml` and prints sizes. It calls no model and runs no benchmark: recorded traces are replayed through the simulator, and scripted policies play through the same tools.
+- **Frontend: `web/`.** React 19 + TypeScript + Vite. Node and npm stay inside this folder. `src/views/` holds the screens (intro, runs, replay, stats, how), `src/lib/` the API types, formatting, hash router and the `?mock=1` run, `src/legacy/` the canvas world and stats page ported from the old vanilla JS (untyped until the sprite system replaces them). `public/hero.png` is the reference art.
+- **Backend: `scripts/pixel/`** (`server.py`, `runs.py`, `replay.py`, `analytics.py`). Python stdlib; replays recorded traces through the simulator and serves the API below. Tests: `tests/pixel/`.
+
+## Run
+
+```
+cd web && npm ci && npm run build          # once, and after frontend changes
+cd .. && PYTHONPATH=src .venv/Scripts/python scripts/pixel/server.py --port 8800 --policy-scenario smoke
+```
+
+Open http://127.0.0.1:8800 (add `?mock=1` for a fabricated run that needs no backend data). For live reload, keep the Python server running and run `npm run dev` in `web/` (http://localhost:5173; `/api` is forwarded to `PIXEL_API`, default `http://127.0.0.1:8800`).
+
+Checks: `npm run check` in `web/` (type-check and frontend tests); `.venv/Scripts/python -m pytest tests/pixel -q` for the backend. `bash scripts/quick.sh` covers the backend tests only.
+
+Server options: `--port` (8800), `--artifacts <dir>` (default: `artifacts/` of the main checkout), `--policy-scenario` (`normal-winter`), `--static <dir>` (default `web/dist`). `--selftest` replays `scenarios/smoke.toml` and prints sizes. It calls no model and runs no benchmark: recorded traces are replayed through the simulator, and scripted policies play through the same tools.
 
 ## API
 
-- `GET /` serves `scripts/pixel/index.html` (a placeholder if missing); other files under `scripts/pixel/` (and `assets/`) by name. `.py` files and traversal are refused. All responses are `no-store`.
+- `GET /` serves the built frontend's `index.html` from `web/dist` (a placeholder with build instructions if missing); other files there by name. `.py` files, dotfiles and traversal are refused. All responses are `no-store`.
 - `GET /api/runs` gives `{"runs": [RunMeta]}`, agent runs newest first, then the scripted policies. RunMeta: `id, label, kind ("agent"|"policy"), model, policy, scenario, seed, score, profit_eur, baseline_profit_eur (do-nothing profit, the score's zero), days, status ("complete"|"partial"|"failed"), failure, started, source`.
   - Agent runs are Harbor trials found under the artifacts dir (default: `artifacts/` of the main checkout) as `**/artifacts/var/lib/envkit/trace.jsonl`, with `result.json`, `config.json`, `exception.txt` and `verifier/` beside them. Id `agent:<hash>`.
   - Policies `reference`, `rule-based`, `naive`, `do-nothing` for seeds 1-3 have id `policy:<name>:s<seed>`; they are played on demand (the first fetch of a 42-day one takes about 7 s). Listed scores come from `calibration.json` and are replaced by the recomputed score when the run is fetched.

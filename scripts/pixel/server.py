@@ -1,9 +1,10 @@
 """Greenhouse Bench pixel site server (stdlib only): replays recorded runs as a pixel greenhouse.
 
-    python scripts/pixel/server.py [--port 8800] [--artifacts <dir>] [--policy-scenario normal-winter]
+    python scripts/pixel/server.py [--port 8800] [--artifacts <dir>] [--policy-scenario normal-winter] [--static <dir>]
     python scripts/pixel/server.py --selftest          # replays scenarios/smoke.toml, prints sizes
 
-API: GET /api/runs, /api/runs/<id>, /api/stats. See docs/features/pixel-site.md.
+API: GET /api/runs, /api/runs/<id>, /api/stats. Other paths serve the built frontend (web/dist, from
+`npm run build` in web/). See docs/features/pixel-site.md.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 HERE = Path(__file__).resolve().parent
+WEB_DIST = HERE.parents[1] / "web" / "dist"
 sys.path.insert(0, str(HERE))
 
 import replay as rp  # noqa: E402
@@ -26,21 +28,23 @@ import runs as runs_mod  # noqa: E402
 
 PLACEHOLDER = (b"<!doctype html><meta charset=utf-8><title>Greenhouse Bench</title>"
                b"<body style='font:16px sans-serif;padding:2em'><h1>Greenhouse Bench pixel site</h1>"
-               b"<p>index.html has not been built yet. The API is up: "
+               b"<p>The frontend is not built yet: run <code>npm ci</code> and <code>npm run build</code> in <code>web/</code> "
+               b"(or <code>npm run dev</code> there for live reload). The API is up: "
                b"<a href=/api/runs>/api/runs</a>, <a href=/api/stats>/api/stats</a>.</p>")
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
          ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml",
          ".png": "image/png", ".webp": "image/webp", ".mjs": "text/javascript; charset=utf-8"}
-STATE: dict[str, object] = {}
+STATE: dict[str, object] = {"static": WEB_DIST}
 
 
 def safe_path(rel: str) -> Path | None:
-    """A file inside scripts/pixel/ by relative name; None for anything that escapes it."""
+    """A file inside the static root (default web/dist) by relative name; None for anything that escapes it."""
+    root = Path(STATE["static"]).resolve()  # type: ignore[arg-type]
     if not rel or "\x00" in rel or "\\" in rel:
         return None
-    p = (HERE / rel).resolve()
+    p = (root / rel).resolve()
     try:
-        p.relative_to(HERE)
+        p.relative_to(root)
     except ValueError:
         return None
     if any(part.startswith(".") for part in Path(rel).parts) or p.suffix in (".py", ".pyc"):
@@ -152,10 +156,13 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8800)
     ap.add_argument("--artifacts", default=None, help="directory scanned for Harbor trial traces")
     ap.add_argument("--policy-scenario", default="normal-winter", help="scenario the scripted policy runs play")
+    ap.add_argument("--static", default=None, help="built frontend to serve (default: web/dist)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         return selftest()
+    if a.static:
+        STATE["static"] = Path(a.static)
     STATE["runs"] = runs_mod.Runs(Path(a.artifacts) if a.artifacts else None, a.policy_scenario)
     print(f"Greenhouse pixel site on http://127.0.0.1:{a.port}  artifacts={STATE['runs'].artifacts}  (Ctrl+C to stop)")
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
