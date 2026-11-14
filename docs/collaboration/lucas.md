@@ -51,6 +51,18 @@ Your branch has tasks 1–8 (schema, `leafy_vanhenten`, lettuce, basil, spinach 
 5. **D5 research (spec 7):** how fast a ready but unharvested batch loses quality and when it becomes unsellable; with that, doing nothing loses its crop.
 6. **D8 research (open, don't build yet):** nutrient (fertiliser) uptake per m² per day for lettuce and basil, so nutrients can become a consumable after v1.
 
+## Next steps (round 3: lettuce timing, frost, weather signals)
+
+Round 2 is on `main`. Read context section 0 (especially 0.8 and 0.9) and spec sections 14.3 and 14.4. This round you also hold Emre's weather files (`world/weather.py`, `data/climates/`, `data/energy_prices/`); #15 already put the recorded series in, with separate development and evaluation windows.
+
+1. **Lettuce timing.** About 24 days from transplant to harvest at DLI 17 (Cornell), scaling roughly with light (half the light, about twice as long). 24/19 °C day/night are targets, not maxima. Retune `leafy_vanhenten` and the lettuce file, and test the 24-day and the half-light cases.
+2. **The 5 °C baseline (D5 revised).** Under 5 °C for 42 days, crops survive but stall below sellable weight. Frost damage hits only near-ready batches. Test both.
+3. **Start-batch ages** for the 24-day cycle and the 42-day horizon: propose new ages to Max (they sit in the facility file, which Max holds this round), so a replanting choice still matters before the end.
+4. **Plugs research:** propagator lead time (2–3 weeks, longer in winter) and plug price per plant, with sources. Give the numbers to Rowan for the market file.
+5. **Weather-based signals:** from the recorded weather, the hours that count as a storm (wind threshold) and a frost night (temperature threshold), as data values. Rowan's storm event and news feed read them. Forecasts must stay a pure function of (seed, issue hour).
+6. **Sanity check** against the Wageningen 2022 Autonomous Greenhouse Challenge lettuce data (4TU.ResearchData, CC BY 4.0): weight over time under a similar climate. Record what you compared and the result in DECISIONS.
+7. **Later, don't build yet:** pests (context 0.8) and in-house sowing. If you have time, write their crop-file fields as a proposal.
+
 ## Watch out
 
 - An exploit judges will try is harvesting everything early. Your minimum sellable weight blocks it. Test it.

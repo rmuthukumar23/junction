@@ -9,6 +9,136 @@ Related material:
 
 ---
 
+## 0. Pinned decisions (14 Nov 2026, round 3)
+
+**This section overrides anything later in this file that disagrees with it.** Where the team refined a pinned point, the refinement is marked *Agreed refinement*. The build spec ([GREENHOUSE_SPEC.md](GREENHOUSE_SPEC.md), section 14) turns this into interfaces; who builds what is in [collaboration/](collaboration/).
+
+### 0.1 Setting: the Netherlands
+
+- The default facility is a Dutch glasshouse: CHP, peak boiler, heat buffer, OCAP-style CO2 supply, grid buy and sell.
+- Reason: far more data and market. Dutch glasshouse area is about 9,000 to 10,000 ha, against a total Finnish greenhouse sector of EUR 410 m. Van Henten, GreenLight and GL-Gym are all calibrated on Dutch greenhouses. Wageningen's open lettuce dataset from the 2022 Autonomous Greenhouse Challenge (4TU.ResearchData, CC BY 4.0) can be used to sanity-check the simulator.
+- Finland is not implemented. At most it is one line in the pitch.
+
+### 0.2 The agent works the day shift only (hard stop)
+
+**Rule.** The agent is on duty 06:00 to 18:00 simulated time, every day. At 18:00 it is switched off: it cannot act, read or receive anything until 06:00. The simulator runs the night with no agent involvement. At 06:00 the agent wakes and must find out what happened overnight through the normal tools.
+
+**What the agent may set for the night: only an hourly schedule of fixed values.** For each night hour and compartment: heating setpoint, vent limits, screen position, lamps on/off and intensity, CO2 setpoint. For the facility, per hour: CHP load, boiler on/off and level, buffer charge/draw. If nothing new is set, the last submitted schedule carries over. The schedule must be committed before 18:00; anything not committed is ignored.
+
+**What the agent may not do for the night.** No conditional rules ("if the temperature drops below X ..."), no triggers or thresholds that change behaviour, no on-call callouts, no alarms the agent can respond to, no background scripts. Nobody comes in at night.
+
+*Agreed refinement: how the equipment behaves at night (replaces "no automatic switching").* Real Dutch climate computers (Priva, Hoogendoorn, Ridder) do sequence heat sources automatically, and real sites have an on-call grower. We keep the first, because it is ordinary equipment behaviour, and drop the second on purpose. The rule:
+- Each night hour, the schedule says which equipment is **available** and up to what level: boiler (off, or up to a level), buffer draw (off, or up to a kW), CHP (a fixed load), external CO2 (up to a rate).
+- The climate computer works like a thermostat: within the hour it draws heat from the available sources in a fixed, published order (CHP at its fixed load, then buffer, then boiler) up to what the setpoints need.
+- Equipment that is not available that hour never starts. If an available source fails, the others take up the slack only as far as they were made available. Nothing re-plans: no rule changes the schedule, and nothing unscheduled turns on.
+- This keeps the trade-off: insurance has to be paid for in advance. A full buffer must be charged during the day. The CHP runs at its scheduled load whether or not heat is needed (gas burnt, power sold at night prices). The boiler's scheduled level caps it.
+- The strict version (only exactly scheduled output, no thermostat) was considered and rejected: real equipment does not work like that, and judges would call the losses artificial.
+
+*Agreed refinement: sharing heat and CO2 when there is not enough.* "Scarce" means the available sources cannot deliver what all compartments ask for at once. Example: the boiler fails, the buffer gives 400 kW, and A and B together want 900 kW. The night schedule may hold **priority and caps per hour as fixed values**: "A has priority" means A is kept at its setpoint as far as possible no matter what, and B gets what is left. Caps set an exact maximum per compartment. These are fixed values, not conditional rules, so they are allowed. If the schedule sets none, supply is shared in proportion to demand. By day the agent can change them at any time (D2).
+
+*Agreed refinement: 06:00.* At 06:00 the day settings the agent had in force at 18:00 the previous day resume. The night schedule repeats every night until the agent changes it.
+
+**What still happens automatically (physics, not decisions).** The thermostat behaviour above. If scheduled equipment fails, it stops, and the shortfall in heat or CO2 is real; the crop experiences it.
+
+**The morning report.** At 06:00 these are readable through MCP tools: an overnight event and alarm log with timestamps (what failed, when), hourly climate per compartment for the night, crop damage and stress changes per batch, deliveries that arrived, stock levels, money spent overnight. The agent has to read them; nothing is pushed.
+
+**Physical work.** Staff exist only during the day shift. Planting, harvesting, repairs and inspections can only be scheduled into 06:00 to 18:00 and consume worker-hours. A repair for something that broke at night starts the next morning at the earliest.
+
+**Baseline and stopping (D5, revised).** At hour 0 the facility runs the anti-freeze baseline: 5 °C heating, no CO2, lamps off, as day settings and as the night schedule. An agent that does nothing keeps it for 42 days: crops survive but stall below sellable weight, nothing is harvested, wages and gas are paid. That is the heavy punishment for doing nothing. When an agent stops for any reason, its last day settings and night schedule run for the rest of the episode and nobody acts.
+
+### 0.3 Forecasts and information policy
+
+**Allowed during the shift.** Weather forecasts several days ahead with error (temperature, sun, wind, cold snaps, storms). Energy price forecasts (gas, hourly electricity, spike risk). General news-style signals written as real headlines, for example "Storm warning for the coast from Thursday night", "Cold spell expected, frost likely overnight", "Gas prices rising on supply fears", "Trade disruption affecting CO2 and fertiliser shipments", "Grid operator warns of congestion this week", "CO2 supplier announces maintenance at its main source". Documented event types and base rates, in the task description.
+
+**Not allowed (would give the answer away).** No warning that a specific piece of equipment will fail, or when. No warning that a sensor is drifting. No exact timing of any event. No hidden facility parameters.
+
+Rule of thumb: a news signal is something a real grower could read in the news or a weather report. It raises the probability of an event type; it never names the exact event or time. *Agreed refinement:* signals also appear when nothing follows (false alarms, at a documented rate), and storm and frost signals follow the recorded weather (D3), so they are honest forecasts, not hints.
+
+### 0.4 Why this is defensible (README and pitch)
+
+- Real Dutch greenhouse floor work is day-shift: Westland jobs typically start around 06:00 with 8-hour shifts. At night the climate computer runs on its settings and nobody is on the floor. Dutch alarm systems even defer low-priority night alarms to the next morning.
+- No published percentage of greenhouses with night staff was found. Do **not** claim a number such as "under 5%". Say "greenhouse floor work is day-shift; nights are unstaffed."
+- The hard stop is a deliberate modelling choice: we model the day operator, not an on-call technician. Real sites often have an on-call person; we leave that out on purpose, to make planning ahead the core skill.
+- It targets a known weakness: in SimuHome (ICLR 2026), scheduling actions ahead was the hardest category, because agents cannot verify a scheduled action when they set it, while over 40% of their successes on direct device control relied on correcting themselves from immediate feedback.
+- **Before any of these go into the README, check each source** (Westland shift times, alarm deferral, SimuHome figures, Wilo rates). Nobody on the team has verified them yet.
+
+### 0.5 Guardrails the build must respect (rubric: "meaningful difficulty")
+
+The rubric scores zero if the gap comes from withheld information or impossible timing. A good day plan must **reduce** night losses, even if it cannot prevent them.
+
+1. **Planning must pay off.** A well-planned night (buffer filled before 18:00, screens closed on cold nights, conservative setpoints, CHP and boiler both available on a frost night, repairs done by day) loses clearly less than a naive night when the same event happens. Tested explicitly.
+2. **Redundancy is the only insurance**, and it costs money, so it is a real trade-off.
+3. **Night events come from documented base rates**, seeded and reproducible. Same seed, same night.
+4. **The reference policy plays under exactly the same shift rules.**
+5. **Every night event leaves a visible trace** in the morning report.
+
+### 0.6 Episode loop
+
+```
+for each simulated day:
+    06:00            agent wakes; tools available; the morning report covers the night
+    06:00 to 18:00   agent acts (advance moves time and stops at 18:00 at the latest); staff do physical work
+    before 18:00     agent commits the night schedule (hourly fixed values only)
+    18:00            the only possible action is end_shift; every other tool answers "off duty"
+    18:00 to 06:00   end_shift runs the night on the schedule inside that one call; events may fire
+```
+
+Because simulated time moves only through tool calls, the night exists only inside `end_shift`: no script can reach the simulator "at night".
+
+### 0.7 Damage, repairs, contractors and spare parts
+
+Replaces the single generic "request a repair" action.
+
+**Damage persists until repaired.** Broken glass, a torn screen, a stuck vent motor, a failed boiler or CHP: the effect stays until a repair is completed. Broken panes raise leakage and heat loss in that compartment every hour until replaced. The amount of damage is drawn per event and seed from documented ranges (a storm can do nothing, a little or a lot).
+
+**A repair needs three things at once:** the right contractor booked and on site, the right parts on site, and day-shift time. If any is missing, the repair waits.
+
+**Contractors.** Each repair type needs a trade, with per-seed values within documented ranges: call-out fee, hourly rate, job duration per repair type, response time (normal booking, e.g. next day, vs urgent same-day at a surcharge), and availability (after a regional storm the glazier is overloaded and response times rise sharply). Full set: glazier / repair crew (panes, gutters, screen frames), screen installer, heating installer (boiler, pipes, valves, buffer), CHP service engineer (service contract, next-day response), electrician (lamps, power, vent motors, controls), fertigation technician, sensor / climate computer technician. Calibration reference, as ranges only: a service engineer around EUR 94 per hour with a similar call-out fee and 150–200% for out-of-hours work (Wilo price list); installers around EUR 55–85 per hour (Dutch price guides).
+
+**Spare parts** (inventory with lead times): glass panes, screen cloth, vent motor, pump, sensors, boiler parts, CHP parts. Each has a unit price, a normal lead time, an express option, and a surge after regional events.
+
+**Order queue rule.** Parts arrive after their lead time, like any delivery. Orders placed **before** a regional event keep the normal lead time. Orders placed **after** it get the surge lead time (glass: about three weeks, after the 2025-26 Dutch windstorm; the normal lead time of a few days is a design assumption). Express shortens the lead time at a higher price, but during a surge it shortens the surge time, not back to normal. Ordering spare glass before a forecast storm is therefore a gamble: repaired in days if the storm does damage, money spent for nothing if not. **Spare parts left at the end have no value**, like standing crop, so hoarding is not free.
+
+**Forecast link.** Storm, cold and supply signals only raise the probability of damage; they never say how much or which part.
+
+**Reward terms:** contractor call-out fees and labour, urgent-booking surcharges, spare parts bought (including unused), express surcharges.
+
+**Tests:** (1) same seed and storm with damage: pre-ordering glass and booking the glazier the next morning loses clearly less than waiting; (2) same storm without damage: pre-ordering only costs money; (3) a repair cannot complete without the part, the contractor and a day slot; (4) after a regional storm, glass lead time and glazier response time rise.
+
+### 0.8 Crops, replanting, seasons and pests
+
+**Lettuce lifecycle.** Propagation (seed to plug) about 11 to 14 days, in a propagator nursery or in-house; production (transplant to harvest) about 24 days at DLI 17, scaling roughly with light (half the light, about twice as long). The episode tracks the production phase per batch; propagation only matters when replanting.
+
+**Replanting, two ways.** Buy plugs from a propagator: dearer per plant, grown to order, so ordered about 2 to 3 weeks ahead (design assumption), longer in winter. Or sow in-house: cheap seed, but propagation space, lamps and worker-hours, 11 to 14 days then transplant. (Real grounding: Dutch propagators such as Beekenkamp grow to order from growers' schedules; one Dutch lettuce grower started propagating in-house under LED because extra winter orders took longer.) Kept: a batch may only be planted if it can reach sellable weight before the episode ends.
+
+**Pluggable crops.** Each crop file has propagation days, production days at reference DLI and temperature, growth response to light, CO2 and temperature, harvest type, climate targets and stress limits, quality effects (tipburn, bolting, disease, pest damage), plant density, minimum sellable weight, price per unit by grade, and seasonal pest susceptibility. Lettuce (butterhead, about 24 days at DLI 17, 24/19 °C day/night targets) is the main crop. Arugula and spinach are optional later; tomato and cucumber are out of scope. *Agreed refinement:* basil stays in v1 (it is already built and tests the repeated-cut path).
+
+**Seasons** change inputs, not code. Winter (v1): very low light, lamps decide cycle length, heating is the main cost, CO2 plentiful from the CHP, low bolting risk, lower but non-zero pest pressure, EU nitrate limit 5,000 mg/kg. Summer (later): shade screens, cooling by venting, CO2 scarce with the CHP off, high bolting risk, thrips pressure, nitrate limit 4,000 mg/kg.
+
+**Pests** (later, not v1): hidden pressure per compartment, seasonal base rate (not zero in winter: some aphids thrive at 10–16 °C), visible only by scouting (worker-hours) or late symptoms. Biological control is preventive, ordered with a lead time and slow in winter; pesticide is curative and fast, with a pre-harvest interval (design assumption). Late control on near-ready lettuce saves little. Reward terms: scouting labour, biocontrol and pesticide, value lost.
+
+### 0.9 Corrections from the research (adopted)
+
+- Lettuce: about 24 days transplant to harvest at DLI 17 (Cornell); 35 days is from seed. A winter episode assumes grow lamps.
+- 24 °C day / 19 °C night are targets, not maxima.
+- Do-nothing: crops mainly stall below sellable weight; frost damage only on near-ready batches.
+- Gas comes from the grid: price risk only, no stock or delivery lead time.
+- Winter CO2 scarcity is only realistic combined with a CHP outage or a gas price spike.
+- No root-zone sensors (EC, pH, solution temperature) and no nutrient or water costs until there is a fertigation model behind them.
+
+### 0.10 v1 scope (agreed refinement)
+
+| v1 (build now) | Later (after the first model comparison) |
+|---|---|
+| Netherlands, normal winter, 42 days, 2 compartments (A lettuce, B basil) | Summer scenario, other seasons |
+| Day shift, hourly night schedule, thermostat with available sources, morning report | Urgent same-day bookings |
+| Weather and price forecasts; news signals for storm, cold snap and gas price, with false alarms | CO2/fertiliser supply news, grid congestion |
+| Persistent damage; 2 contractors (glazier, heating installer); 2 parts (glass, boiler parts); storm surge; express delivery | The other 5 contractors and parts |
+| Plugs from a propagator with a 2–3 week lead time | Sowing in-house (propagation area) |
+| Lettuce at 24 days scaling with light; basil; frost damage on near-ready batches | Spinach, arugula; pests and scouting; sensor drift; fertigation |
+
+---
+
 ## 1. The challenge we are answering
 
 AfterQuery's "Break the Agent" challenge asks for a reinforcement learning environment that challenges today's best AI agents, shows real failure modes, and has a reward that reflects real progress.
