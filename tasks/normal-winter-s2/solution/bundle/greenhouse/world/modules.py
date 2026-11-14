@@ -47,6 +47,6 @@ def build(env: dict[str, Any], rng: Rng) -> Modules:
 
     facility = build_facility(cfg.facility, cfg.climate, cfg.energy_prices, rng.stream("facility"))
     growth = {cid: model_for(spec) for cid, spec in cfg.crops.items()}
-    business = build_business(cfg.market, list(cfg.events.values()), tuple(growth), facility.equipment_ids(),
-                              cfg.horizon_h, rng.stream("business"))
+    business = build_business(cfg.market, list(cfg.events.values()), list(cfg.news.values()), tuple(growth),
+                              facility.equipment_ids(), cfg.horizon_h, rng.stream("business"), facility.recorded())
     return Modules(facility, business, growth, cfg.horizon_h, cfg.substeps_per_hour, cfg.published_ranges)

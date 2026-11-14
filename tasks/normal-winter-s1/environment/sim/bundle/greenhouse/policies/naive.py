@@ -2,6 +2,8 @@
 ordered only once the store is empty, harvest when ready, replant when seedlings
 happen to be in stock. It ignores lead times, which is the point: it shows that
 ordering ahead and timing energy matter.
+Under the shift rules it copies its day settings into the night schedule once, on the
+first morning, and never revisits the night; it never repairs damage.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ class Naive(ToolPolicy):
     default_co2_ppm = 800.0
     cold_outside_c = 0.0          # "cold": run the CHP below this outside temperature
     fallback_min_order = 1.0      # if get_rules shows no minimum, order the smallest amount
+    night_policy = "once"         # copies its day settings into the night on the first morning only
 
     def setup(self, status: dict[str, Any]) -> None:
         for compartment, crop in self.crop_of(status).items():

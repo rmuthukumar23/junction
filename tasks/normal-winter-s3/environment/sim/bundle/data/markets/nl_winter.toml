@@ -20,11 +20,21 @@ price_eur_per_unit = 0.45
 # Per kg. [DES] within the range in docs/CROPS.md: EU HoReCa blend EUR 36/kg (Urban Farm
 # Estonia), Canadian bulk C$30/kg (On The Grow); set low because a glasshouse sells wholesale.
 price_eur_per_unit = 30.0
+# [DES] The regional wholesale and HoReCa buyers take about 4 t a week at list price; more
+# floods them and the price falls (see rules.business.demand). Set so one facility at full
+# output (6-8 t/week) produces well over what the market absorbs.
+demand_per_week = 4000.0
+# [DES] The buyers' order book by episode week (firm, published): the January post-holiday
+# slump, a HoReCa restocking surge, a quiet week, then a pre-Valentine surge.
+demand_week_factors = [0.6, 1.5, 0.5, 1.4, 0.7, 1.3]
 
 [crops.radish_micro]
 # Per kg. [DES] radish is the cheapest common microgreen in every price list found
 # (Microgreen Manager pricing guide; Urban Farm Estonia), so below broccoli.
 price_eur_per_unit = 22.0
+# [DES] A smaller market than broccoli; full output is about 4.5 t/week.
+demand_per_week = 2500.0
+demand_week_factors = [1.4, 0.6, 1.3, 0.5, 1.5, 0.7]
 
 [co2]
 # The external CO2 contract the energy centre can dose from, per kg, metered hourly.
@@ -52,11 +62,12 @@ cancel_fee_eur = 150.0
 # the crop file's planting density turns area into plants.
 category = "seedlings"
 price_eur_per_unit = 0.08
-# Dutch propagators raise leaf-vegetable plants to order (Beekenkamp Plants), and lettuce
-# propagation takes 2-3 weeks (Teagasc Iceberg Lettuce technical note, 2020). We assume
-# plants on a pre-booked propagation schedule, released a week after the call-off; a full
-# sow-to-order lead time would leave no replanting window in a 42-day episode (spec D1).
-lead_time_h = 168
+# Plugs from a propagator (round 3, spec 14.4). Dutch propagators raise leaf-vegetable
+# plants to order (Beekenkamp Plants) and lettuce propagation takes 2-3 weeks (Teagasc
+# Iceberg Lettuce technical note, 2020; context 0.8), so an order placed now arrives in
+# 14-21 days: the agent must plan the next planting a fortnight or more ahead. The drawn
+# lead time is hidden, the range is published.
+lead_time_h = {min = 336, max = 504}
 min_quantity = 5000.0
 dispatch_h = 24
 cancel_fee_eur = 200.0
@@ -64,10 +75,12 @@ cancel_fee_eur = 200.0
 [items."seedlings:broccoli_micro"]
 # Per seed: microgreens are sown from seed held in stock, so the "seedlings" item is seed.
 # [DES] EUR 40/kg of seed at an assumed 3.5 g per 1000 seeds; no EU wholesale price was
-# found (docs/CROPS.md). Minimum about 5 kg of seed; three days from the seed merchant.
+# found (docs/CROPS.md). Minimum about 5 kg of seed. [DES] Ten days from the specialist
+# seed house (organic, germination-tested lots shipped from Italy with phytosanitary
+# paperwork), so sowing has to be planned about two weeks before the harvest is sold.
 category = "seedlings"
 price_eur_per_unit = 0.00014
-lead_time_h = 72
+lead_time_h = 240
 min_quantity = 1500000.0
 dispatch_h = 24
 cancel_fee_eur = 50.0
@@ -76,9 +89,43 @@ cancel_fee_eur = 50.0
 # Per seed. [DES] EUR 15/kg of seed at an assumed 10 g per 1000 seeds; minimum 5 kg.
 category = "seedlings"
 price_eur_per_unit = 0.00015
-lead_time_h = 72
+lead_time_h = 240           # [DES] the same seed house and route as broccoli
 min_quantity = 500000.0
 dispatch_h = 24
+cancel_fee_eur = 50.0
+
+[items."part:glass_pane"]
+# Spare glass pane for a storm repair (context 0.7). Per pane, charged on delivery.
+# [DES] EUR 45/pane: horticultural glass is a few EUR per m2 per mm, and a 1.5 x 1 m
+# toughened pane with handling is of that order; no public per-pane price was found.
+category = "parts"
+price_eur_per_unit = 45.0
+# [DES] The normal lead time of a few days (context 0.7: "the normal lead time of a few
+# days is a design assumption"), 3-5 days.
+lead_time_h = {min = 72, max = 120}
+# After a regional storm the lead time is about three weeks, as after the 2025-26 Dutch
+# windstorm (context 0.7); 18-23 days.
+surge_lead_time_h = {min = 432, max = 552}
+# [DES] Express halves whichever lead time applies, at about twice the price. During a
+# surge it shortens the surge time, not back to normal.
+express_price_eur_per_unit = 90.0
+express_lead_fraction = 0.5
+min_quantity = 1.0
+dispatch_h = 12                    # cancellable until the supplier dispatches
+cancel_fee_eur = 20.0
+
+[items."part:boiler_kit"]
+# Repair kit for a tripped boiler (burner/ignition unit and pump). [DES] EUR 350: a
+# condensing boiler burner assembly and circulation pump cost a few hundred euro in
+# Dutch installer price lists; no exact figure for a glasshouse boiler was found.
+category = "parts"
+price_eur_per_unit = 350.0
+lead_time_h = {min = 24, max = 48}              # [DES] a stocked wholesaler item: 1-2 days
+surge_lead_time_h = {min = 48, max = 96}        # [DES] a storm slows suppliers less than glass
+express_price_eur_per_unit = 560.0              # [DES] about 1.6 x
+express_lead_fraction = 0.5
+min_quantity = 1.0
+dispatch_h = 12
 cancel_fee_eur = 50.0
 
 [staff]
@@ -87,14 +134,50 @@ cancel_fee_eur = 50.0
 # greenhouse", 2026); employer charges and agency margin bring the cost to about 22.
 wage_eur_per_worker_hour = 22.0
 shift_start_h = 7
-shift_hours = 8                    # each worker gives 8 worker-hours a day
+shift_hours = 8                    # each worker gives 8 worker-hours a day, inside the 06:00-18:00 duty window
 start_crew = 3
 max_crew = 10
 hiring_fee_eur = 400.0             # agency placement fee per worker
 hire_notice_days = 3               # an agency worker starts three days after the request
 release_notice_days = 7            # paid for a week after release
 
+[site_hours]
+# Contractors work on site only in the day shift (spec 14.1/14.2: the agent is off duty
+# from 18:00 to 06:00 and a repair needs day-shift time).
+start_h = 6
+end_h = 18
+
+[contractors.glazier]
+# Replaces glass panes after a storm. [DES] ranges anchored on Dutch trade price guides
+# (installers about EUR 55-85 per hour, context 0.7); the call-out is the same order as
+# the service engineer's below.
+fixes = ["glass"]
+part = "part:glass_pane"
+callout_eur = 90.0
+rate_eur_per_h = {min = 55, max = 85}
+job_hours_base = 1.0               # [DES] set-up, plus half an hour per pane
+job_hours_per_part = 0.5
+response_h = {min = 18, max = 30}              # [DES] next-day booking
+# After a regional storm the glazier is overloaded and response times rise sharply
+# (context 0.7): [DES] four to seven days.
+surge_response_h = {min = 96, max = 168}
+
+[contractors.heating_installer]
+# Boiler, pipes, valves (context 0.7). Calibration: a service engineer is about EUR 94 per
+# hour with a similar call-out fee (Wilo price list), installers EUR 55-85 (Dutch price
+# guides); the range here sits at the top of that because the work is specialist. [DES]
+fixes = ["boiler"]
+part = "part:boiler_kit"
+callout_eur = 94.0
+rate_eur_per_h = {min = 80, max = 100}
+job_hours_base = 3.0               # [DES] a boiler kit swap takes about half a day
+job_hours_per_part = 0.0
+response_h = {min = 12, max = 24}              # [DES] next day or sooner
+surge_response_h = {min = 24, max = 48}        # [DES] busy after a storm, less than the glazier
+
 [start_stock]                      # the CO2 store's start level is in the facility file
 "seedlings:lettuce_butterhead" = 0.0
 "seedlings:broccoli_micro" = 0.0
 "seedlings:radish_micro" = 0.0
+"part:glass_pane" = 0.0
+"part:boiler_kit" = 0.0

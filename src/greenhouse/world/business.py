@@ -37,6 +37,9 @@ from .operations import Operations, OpsError
 
 
 
+DEMAND_WINDOW_H = 168        # the buyers' rolling week (a rule of the market, published)
+
+
 def _value(param: float | Range, rng: Rng, key: str) -> float:
     return param.draw(rng.stream(key)) if isinstance(param, Range) else float(param)
 
@@ -55,6 +58,12 @@ class Business:
         self.ops = Operations(market, self.ledger, rng.stream("operations"), surge=self.events.surge_until)
         self.contractors = Contractors(market, self.events, self.ops, self.ledger, rng.stream("contractors"))
         self.feed = Feed(news, self.events.storm_starts(), recorded, horizon_h, rng.stream("news"))
+        self.demand = {c: _value(market.crops[c].demand_per_week, rng, f"market/demand/{c}")
+                       for c in market.crops if market.crops[c].demand_per_week is not None}
+        self.demand_factors = {c: market.crops[c].demand_week_factors for c in market.crops}
+        self.sales: dict[str, list[tuple[int, float]]] = {}     # crop -> (hour, units sold)
+        self.market_loss_eur = 0.0       # evidence only: list-price value lost to selling above demand
+        self.over_demand_units = 0.0
         self.crop_price = {c: _value(market.crops[c].price_eur_per_unit, rng, f"market/crop_price/{c}")
                            for c in crop_ids}
         self.external_co2_eur_per_kg = _value(market.external_co2_eur_per_kg, rng, "market/external_co2")
@@ -133,10 +142,46 @@ class Business:
             return task
         return self._ask(queue)
 
+    def demand_at(self, crop_id: str, hour: int) -> float | None:
+        """Weekly demand in force at this hour: the base demand x this episode week's factor."""
+        base = self.demand.get(crop_id)
+        factors = self.demand_factors.get(crop_id, ())
+        if not base:
+            return None
+        return base * (factors[min(hour // DEMAND_WINDOW_H, len(factors) - 1)] if factors else 1.0)
+
+    def market_factor(self, crop_id: str, hour: int, units: float) -> float:
+        """Average share of the list price these units fetch. Buyers take `demand_per_week`
+        units at full price in any 7 days (DEMAND_WINDOW_H); beyond that the price falls
+        linearly to nothing at twice that volume: surplus fresh produce finds no buyer."""
+        demand = self.demand_at(crop_id, hour)
+        if not demand or units <= 0:
+            return 1.0
+        before = sum(q for h, q in self.sales.get(crop_id, []) if h > hour - DEMAND_WINDOW_H)
+        def area(x: float) -> float:          # integral of the price share from 0 to x
+            x = max(0.0, x)
+            if x <= demand:
+                return x
+            y = min(x, 2 * demand) - demand
+            return demand + y - y * y / (2 * demand)
+        return (area(before + units) - area(before)) / units
+
     def sell(self, hour: int, harvest: HarvestResult) -> LedgerEntry:
         grade = Grade(harvest.grade or "graded", 0.0, harvest.price_factor)
-        entry, _ = self.ledger.price_harvest(hour, harvest, self.crop_price[harvest.crop_id], [grade])
+        factor = self.market_factor(harvest.crop_id, hour, harvest.units) if harvest.sellable else 1.0
+        entry, _ = self.ledger.price_harvest(hour, harvest, self.crop_price[harvest.crop_id] * factor, [grade])
+        if harvest.sellable and entry is not None:
+            self.sales.setdefault(harvest.crop_id, []).append((hour, harvest.units))
+            full = harvest.units * self.crop_price[harvest.crop_id] * harvest.price_factor
+            self.market_loss_eur += full * (1.0 - factor)
+            demand = self.demand_at(harvest.crop_id, hour)
+            if demand:
+                before = sum(q for h, q in self.sales[harvest.crop_id][:-1] if h > hour - DEMAND_WINDOW_H)
+                self.over_demand_units += max(0.0, before + harvest.units - max(demand, before))
         return entry or LedgerEntry(hour, "harvest_revenue", 0.0, f"{harvest.batch_id}: nothing sold")
+
+    def sold_last_week(self, hour: int) -> dict[str, float]:
+        return {c: round(sum(q for h, q in rows if h > hour - DEMAND_WINDOW_H), 3) for c, rows in self.sales.items()}
 
     # -- reading -----------------------------------------------------------------------
 
@@ -154,6 +199,7 @@ class Business:
         for o in outages:
             o["repair"] = self.contractors.booking_view(o["equipment"])
         return {**self.ops.view(), "money": self.ledger.view(), "outages": outages,
+                "sold_last_7_days": self.sold_last_week(hour),
                 "contractor_bookings": self.contractors.view(hour),
                 "surge_until_hour": self.events.surge_until(hour)}
 
@@ -161,6 +207,16 @@ class Business:
         m, s = self.market, self.market.staff
         return {
             "crop_prices_eur_per_unit": {c: _published(m.crops[c].price_eur_per_unit) for c in self.crop_price},
+            "demand": {"rule": (f"Buyers take demand_per_week units of a crop at the full price in any {DEMAND_WINDOW_H} h "
+                                "(a rolling window, counted from each sale). Units beyond that sell at a price falling "
+                                "linearly from full to 0 at twice demand_per_week; nothing is paid above that. A harvest "
+                                "is priced unit by unit along this line, after the grade factor."),
+                       "window_h": DEMAND_WINDOW_H,
+                       "demand_per_week": {c: _published(m.crops[c].demand_per_week) for c in self.demand},
+                       "week_factors": {c: list(self.demand_factors[c]) for c in self.demand if self.demand_factors.get(c)},
+                       "weeks": "Week w covers episode hours 168w to 168w+167; demand in force at a sale = "
+                                "demand_per_week x week_factors[w] (the last factor holds after the list ends). "
+                                "The buyers' order book is fixed: these are firm, not forecasts."},
             "external_co2_eur_per_kg": _published(m.external_co2_eur_per_kg),
             "items": {i.id: self._item_rules(i) for i in m.items.values()},
             "staff": {"wage_eur_per_worker_hour": s.wage_eur_per_worker_hour,

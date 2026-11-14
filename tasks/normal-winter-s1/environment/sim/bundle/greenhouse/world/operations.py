@@ -9,6 +9,13 @@ Rules, all values from the market file:
   * Orders: at least the item's minimum quantity; arrive `lead_time_h` after they
     are placed; charged on arrival; cancellable (for a fee) until `dispatch_h`
     has passed. A late-delivery event pushes back the open order due soonest.
+  * Spare parts (`part:<id>`, category "parts") are ordered like any item and held in
+    stock until a contractor visit uses them (world/contractors.py); unused parts are
+    worth nothing at the end. The lead time is fixed when the order is placed: the
+    item's surge lead time while a regional storm surge lasts (`surge(hour)` returns
+    the hour the surge ends, or None), else the normal one. `express=True` shortens it
+    to `express_lead_fraction` of whichever applies, for the express price: the
+    category is charged the normal price and "express" the difference.
   * CO2 (items of category "co2") is delivered into the facility's store, which
     the facility owns (contracts.py): it never enters this stock. The caller
     hands each delivered CO2 order to the facility.
@@ -23,7 +30,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from envkit.rng import Rng
 
@@ -50,11 +57,12 @@ class Order:
     status: str = "open"                # open | delivered | cancelled
     delayed_h: int = 0
     delivered_hour: int | None = None
+    express: bool = False
 
     def view(self) -> dict[str, Any]:
         return {"order_id": self.id, "item": self.item, "quantity": self.quantity, "placed_hour": self.placed_hour,
                 "expected_arrival_hour": self.eta_hour, "cancellable_until_hour": self.dispatch_hour,
-                "status": self.status, "delayed_h": self.delayed_h}
+                "status": self.status, "delayed_h": self.delayed_h, "express": self.express}
 
 
 @dataclass
@@ -88,12 +96,21 @@ def _value(param: float | Range, rng: Rng, key: str) -> float:
 
 
 class Operations:
-    def __init__(self, market: MarketSpec, ledger: Ledger, rng: Rng):
+    def __init__(self, market: MarketSpec, ledger: Ledger, rng: Rng,
+                 surge: Callable[[int], int | None] | None = None):
         self.market, self.ledger = market, ledger
+        self.surge = surge                          # hour -> hour the regional surge ends (None = no storm yet)
         self.items: dict[str, ItemSpec] = market.items
         # Per-seed lead times and prices (published ranges, hidden draws), fixed at the start.
         self.lead_time_h = {i: max(1, round(_value(s.lead_time_h, rng, f"market/lead_time/{i}"))) for i, s in self.items.items()}
         self.unit_price = {i: _value(s.price_eur_per_unit, rng, f"market/price/{i}") for i, s in self.items.items()}
+        # Surge lead time: the same draw as the normal one when the file gives no separate figure.
+        self.surge_lead_time_h = {
+            i: self.lead_time_h[i] if s.surge_lead_time_h == s.lead_time_h
+            else max(1, round(_value(s.surge_lead_time_h, rng, f"market/surge_lead_time/{i}")))
+            for i, s in self.items.items()}
+        self.express_price = {i: _value(s.express_price_eur_per_unit, rng, f"market/express_price/{i}")
+                              for i, s in self.items.items() if s.express_price_eur_per_unit is not None}
         self.stock: dict[str, float] = {i: float(market.start_stock.get(i, 0.0)) for i, spec in self.items.items()
                                         if spec.category != "co2"}
         self.orders: list[Order] = []
@@ -110,16 +127,45 @@ class Operations:
 
     # -- orders ------------------------------------------------------------------------
 
-    def place_order(self, hour: int, item: str, quantity: float) -> Order:
+    def in_surge(self, hour: int) -> bool:
+        until = self.surge(hour) if self.surge is not None else None
+        return until is not None and hour < until
+
+    def lead_for(self, hour: int, item: str, express: bool = False) -> int:
+        """The lead time an order placed at `hour` gets, fixed at that moment."""
+        spec = self.items[item]
+        lead = self.surge_lead_time_h[item] if self.in_surge(hour) else self.lead_time_h[item]
+        if express:
+            lead = max(1, round(spec.express_lead_fraction * lead))
+        return lead
+
+    def item_id(self, item: str) -> str:
+        """The item id an order means. Some tool-call serializers escape or replace the
+        ':' in 'seedlings:<crop>' (Gemini via OpenCode sent 'seedlings\\u003a<crop>'), so
+        '\\u003a', '/' and '.' are read as ':'. An id that names no item is left as is."""
+        if item in self.items:
+            return item
+        for sep in ("\\u003a", "\\u003A", "/", "."):
+            fixed = item.replace(sep, ":")
+            if fixed in self.items:
+                return fixed
+        return item
+
+    def place_order(self, hour: int, item: str, quantity: float, express: bool = False) -> Order:
+        item = self.item_id(item)
         spec = self.items.get(item)
         if spec is None:
-            raise OpsError(f"unknown item {item!r}; items are {list(self.items)}. Nothing was ordered.")
+            hint = (" If ':' was cut from your object keys, send order_list=[{item, quantity}] instead."
+                    if item in {i.split(":")[0] for i in self.items} else "")
+            raise OpsError(f"unknown item {item!r}; items are {list(self.items)}.{hint} Nothing was ordered.")
         if isinstance(quantity, bool) or not isinstance(quantity, (int, float)) or not math.isfinite(quantity):
             raise OpsError("quantity must be a finite number. Nothing was ordered.")
         if quantity < spec.min_quantity or quantity <= 0:
             raise OpsError(f"{item}: the minimum order is {spec.min_quantity:g}; got {quantity:g}. Nothing was ordered.")
+        if express and spec.express_price_eur_per_unit is None:
+            raise OpsError(f"{item} has no express option. Nothing was ordered.")
         order = Order(f"O{len(self.orders) + 1:03d}", item, float(quantity), hour,
-                      hour + self.lead_time_h[item], hour + spec.dispatch_h)
+                      hour + self.lead_for(hour, item, express), hour + spec.dispatch_h, express=bool(express))
         self.orders.append(order)
         return order
 
@@ -156,6 +202,15 @@ class Operations:
         if plants > have + 1e-9:
             raise OpsError(f"planting needs {plants:g} {crop_id} seedlings but {have:g} are in stock. Nothing was planted.")
         self.stock[item] = have - plants
+
+    def take_parts(self, item: str, count: float) -> None:
+        """A contractor visit uses parts from stock."""
+        have = self.stock.get(item, 0.0)
+        if item not in self.items or self.items[item].category != "parts":
+            raise OpsError(f"{item!r} is not a spare part.")
+        if count > have + 1e-9:
+            raise OpsError(f"the job needs {count:g} {item} but {have:g} are in stock.")
+        self.stock[item] = have - count
 
     # -- staff -------------------------------------------------------------------------
 
@@ -229,6 +284,10 @@ class Operations:
                     self.stock[order.item] = self.stock.get(order.item, 0.0) + order.quantity
                 self.ledger.charge(hour, spec.category, order.quantity * self.unit_price[order.item],
                                    f"delivery {order.id}: {order.quantity:g} {order.item}")
+                if order.express:                   # the express surcharge is its own category
+                    extra = self.express_price[order.item] - self.unit_price[order.item]
+                    self.ledger.charge(hour, "express", order.quantity * max(0.0, extra),
+                                       f"express surcharge {order.id}: {order.quantity:g} {order.item}")
                 delivered.append(order)
                 alarms.append(Alarm(hour, "delivery", order.id, f"Order {order.id} arrived: {order.quantity:g} {order.item}."))
         # Tasks, in queue order, during shift hours.

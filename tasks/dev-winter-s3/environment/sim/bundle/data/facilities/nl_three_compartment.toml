@@ -1,0 +1,150 @@
+# Scenario values are engineering assumptions for a Dutch winter glasshouse,
+# informed by WUR greenhouse control and CHP studies (not measured at one site):
+# https://edepot.wur.nl/520084 ; https://edepot.wur.nl/526773
+# Three compartments on one energy centre. Their floor areas add up to about the same
+# total as nl_two_compartment.toml, so the energy centre is sized as there.
+schema = "facility/1"
+id = "nl_three_compartment"
+
+[energy_centre.chp]
+# CHP exhaust is assumed to pass a clean CO2 capture line at this site.
+electric_kw = {min = 300, max = 500}
+heat_per_electric = 1.2
+co2_kg_per_m3_gas = 1.8
+gas_m3_per_kwh_e = 0.25
+min_load = 0.5
+
+[energy_centre.boiler]
+heat_kw = {min = 600, max = 900}
+gas_m3_per_kwh_heat = 0.105
+# This site has no boiler flue-gas purification; liquid CO2 is the baseline supply.
+# Cornell CEA warns that heater flue gas may carry growth-inhibiting contaminants:
+# https://cea.cals.cornell.edu/files/2019/06/Cornell-CEA-Lettuce-Handbook-.pdf
+co2_usable = false
+
+[energy_centre.buffer]
+capacity_kwh = {min = 2000, max = 4000}
+loss_per_h = 0.005
+start_fraction = 0.5
+
+[energy_centre.co2_store]
+capacity_kg = 8000
+start_kg = 3000
+
+[energy_centre.external_co2]
+max_kg_per_h = {min = 20, max = 40}
+
+[energy_centre.grid]
+import_kw = {min = 400, max = 700}
+export_kw = {min = 300, max = 500}
+
+# WUR reports 25-250 kg CO2/ha/h dosing and 600-1000 ppm targets; the gain below
+# yields about 38 kg/ha/h at a 380 ppm deficit, before ventilation pauses dosing.
+# It is an actuator calibration, not a measured crop-uptake constant.
+# https://edepot.wur.nl/708510 ; https://edepot.wur.nl/366433
+# Other controller gains and sensor uncertainty are v1 calibration assumptions.
+[controller]
+heat_kw_per_c_m2 = 0.025
+vent_pct_per_c = 15.0
+vent_pct_per_rh = 2.0
+vent_target_rh_pct = 75.0
+co2_kg_h_per_ppm_m2 = 0.000010
+vent_co2_pause_pct = 30.0
+heat_deadband_c = 0.2
+
+[sensor]
+temp_sigma_c = 0.2
+rh_sigma_pct = 2.0
+co2_sigma_ppm = 15.0
+par_sigma_umol_m2_s = 5.0
+
+[fallback]
+# D5 (revised in round 3): the anti-freeze baseline the facility is handed over with,
+# as day settings and as the night schedule. 5 C keeps the crop alive but it stalls
+# below sellable weight; no CO2 dosing, lamps off. An operator who never changes
+# anything keeps it for the whole episode and pays wages and gas for nothing.
+heat_day_c = 5.0
+heat_night_c = 5.0
+vent_min_pct = 0.0
+vent_max_pct = 60.0
+co2_ppm = 0.0
+lamp_hours = []
+lamp_intensity_pct = 0.0
+screen = "auto"
+chp_load = 0.0
+boiler = "auto"
+buffer = "auto"
+external_co2_kg_h = 0.0
+
+[limits]
+min_heat_c = -5.0
+max_heat_c = 35.0
+max_co2_ppm = 1500.0
+
+[alarms]
+frost_risk_temp_c = 2.0
+co2_low_kg = 200.0
+
+# Cover U ranges and screens are simplified from WUR greenhouse heat-balance
+# modelling; thermal mass includes the structure, water pipes and crop benches.
+
+# Benches of microgreen trays; start batches at staggered ages so harvests spread out.
+[[compartments]]
+id = "A"
+crop = "broccoli_micro"
+floor_m2 = {min = 1450, max = 1950}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 9, area_fraction = 0.25}, {age_days = 6, area_fraction = 0.25}, {age_days = 3, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
+
+[[compartments]]
+id = "B"
+crop = "broccoli_micro"
+floor_m2 = {min = 1450, max = 1950}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 10, area_fraction = 0.25}, {age_days = 7, area_fraction = 0.25}, {age_days = 4, area_fraction = 0.25}, {age_days = 1, area_fraction = 0.25}]
+
+[[compartments]]
+id = "C"
+crop = "radish_micro"
+floor_m2 = {min = 1450, max = 1950}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 6, area_fraction = 0.25}, {age_days = 4, area_fraction = 0.25}, {age_days = 2, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]

@@ -19,32 +19,42 @@ You run a commercial greenhouse facility in the Netherlands for ${horizon_days} 
 One energy centre (a gas CHP, a gas boiler, a heat buffer, a CO2 store and a grid
 connection) serves three compartments. Compartments A and B grow broccoli microgreens
 and compartment C grows radish microgreens, each in several batches of different ages.
-You also run the business: you order CO2 and seed, which arrive days later; you hire
-and release staff; and sowing, harvesting and repairs use your crew's worker-hours.
+You also run the business: you order CO2, seed and spare parts, which arrive days
+later; you hire and release staff; sowing and harvesting use your crew's worker-hours;
+damage is repaired by contractors you book.
 
 Your goal is the highest net profit in EUR at the end of the last hour: harvest revenue
-plus electricity sold, minus gas, electricity bought, CO2, wages, hiring, repairs and
-orders. Crop still standing at the end is worth nothing.
+plus electricity sold, minus gas, electricity bought, CO2, wages, hiring, contractors,
+parts and orders. Crop still standing and parts left in stock at the end are worth nothing.
 
 How it works:
-- Call `get_rules` first. It holds every mechanism, formula, price, lead time, crop rule
-  and event rate, and the published ranges of the facility parameters you are not told.
-- Simulated time moves only when you call `advance(hours)`. Every other tool is free in
-  simulated time and never moves the clock.
-- Climate and energy settings stand until you change them. The facility starts on
-  baseline settings that nobody has tuned.
-- You have ${max_calls} tool calls in total, reads included. When they are used up, or when
-  you call `finish_episode`, the remaining hours run with your last settings and nobody
-  acting: nothing more is ordered, planted or harvested.
-- The episode lasts ${windows} hours. Plan the whole horizon: several decisions only pay off
-  days later, and some cannot be made late.
+- You take one turn a day, at 06:00. Below is everything you are shown before your
+  first call: every rule (mechanisms, formulas, prices, lead times, crop rules, event
+  rates, news signals, the published ranges of hidden facility parameters) and this
+  morning's briefing. There are no tools to read anything.
+- Each day you make exactly one call, `submit_day`, with up to ${actions_per_day} actions
+  (`rules.turn.actions` lists them); a list of harvests, plantings or orders is one
+  action. A refused action changes nothing and the others still apply.
+- The call then runs the day (06:00-18:00, the crew at work) on your day settings and the
+  night (18:00-06:00) on your night schedule (`set_night_schedule`), with nobody acting.
+  Its result is the next morning's briefing: what happened overnight, the status now,
+  news and the forecast.
+- Settings stand until you change them. The facility starts on an anti-freeze baseline
+  (5 C, no CO2, lamps off) by day and by night.
+- Damage (a failed boiler, glass broken by a storm) stays until a contractor repairs it
+  with the parts on site. Forecasts and news give warnings; some are false alarms.
+- You have ${max_calls} tool calls in total. If you stop calling tools or they are used
+  up, the remaining days run with your last settings and nobody acting: nothing more is
+  ordered, planted, harvested or repaired.
+- The episode lasts ${windows} hours and starts on day 1 at 06:00. Plan the whole
+  horizon: several decisions only pay off days later, and some cannot be made late.
 """
 
 [shift]
 windows = 1008            # 42 days x 24 hours
 window_hours = 1
-ops_per_window = 1        # only `advance` costs an operation
-max_calls = 400           # spec D4: the same generous budget for every model
+ops_per_window = 1        # `submit_day` is the only tool: one call is one day
+max_calls = 400           # spec D4: the same budget for every model; a day takes at most 6 calls
 
 [env]
 facility = "data/facilities/nl_three_compartment.toml"
@@ -52,8 +62,10 @@ climate = "data/climates/nl_january.toml"
 energy_prices = "data/energy_prices/nl_winter.toml"
 market = "data/markets/nl_winter.toml"
 crops = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml", "data/crops/radish_micro.toml"]
-events = ["data/events/late_delivery.toml", "data/events/boiler_trip.toml"]
+events = ["data/events/late_delivery.toml", "data/events/boiler_trip.toml", "data/events/storm.toml"]
+news = ["data/news/storm.toml", "data/news/frost.toml", "data/news/gas_price.toml"]
 horizon_days = 42
+actions_per_day = 5       # the daily turn (round 3): at most this many actions a day
 
 # One number: net profit. 0 is what happens when nobody acts; the reference planner sits
 # at 0.8, which leaves headroom above it.
@@ -77,7 +89,7 @@ anchors = [
 [audit]
 # Reads and the clock decide nothing: a reference run cut off before only these calls
 # may tie the full run.
-clock_tools = ["advance", "get_status", "get_batches", "get_forecast", "get_history", "get_rules"]
+clock_tools = []
 
 [harbor]
 agent_timeout_sec = 10800   # a safety net, not a rule (spec 4.1)

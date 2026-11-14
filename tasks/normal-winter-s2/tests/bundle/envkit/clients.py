@@ -23,6 +23,9 @@ class InProcessClient(Client):
     def tools(self) -> list[dict[str, Any]]:
         return self._episode.describe_tools()
 
+    def opening(self) -> Any:
+        return self._episode.opening
+
 
 def run_inprocess(scenario: Scenario, seed: int, policy: Policy,
                   trace_path: str | Path | None = None, bundle_hash: str = "") -> Episode:
@@ -40,9 +43,13 @@ def run_inprocess(scenario: Scenario, seed: int, policy: Policy,
 class McpClient(Client):
     """A synchronous facade over an MCP session, used from a worker thread."""
 
-    def __init__(self, session: Any):
+    def __init__(self, session: Any, opening: Any = None):
         self._session = session
         self._tools: list[dict[str, Any]] | None = None
+        self._opening = opening
+
+    def opening(self) -> Any:
+        return self._opening
 
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
         from anyio import from_thread
@@ -67,8 +74,9 @@ class McpClient(Client):
         return self._tools
 
 
-def run_over_mcp(url: str, policy: Policy) -> dict[str, Any] | None:
-    """Play a policy against a live MCP server. Returns the last header seen."""
+def run_over_mcp(url: str, policy: Policy, opening: Any = None) -> dict[str, Any] | None:
+    """Play a policy against a live MCP server. Returns the last header seen. `opening`
+    is what the task instruction showed (Environment.opening), for the policy to read."""
     import anyio
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
@@ -86,7 +94,7 @@ def run_over_mcp(url: str, policy: Policy) -> dict[str, Any] | None:
         async with streamable_http_client(url) as streams:
             async with ClientSession(streams[0], streams[1]) as session:
                 await session.initialize()
-                await anyio.to_thread.run_sync(play, McpClient(session))
+                await anyio.to_thread.run_sync(play, McpClient(session, opening))
 
     anyio.run(main)
     return last.get("header")

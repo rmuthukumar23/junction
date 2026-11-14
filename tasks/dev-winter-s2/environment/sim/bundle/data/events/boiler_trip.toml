@@ -1,0 +1,14 @@
+# The boiler trips (flame failure, pump fault) and delivers no heat until a contractor
+# repairs it. Owner: Rowan. Illustrative values.
+schema = "event/1"
+id = "boiler_trip"
+kind = "equipment"
+rate_per_day = 0.04                 # published: about one trip in 25 days
+persistent = true                   # stays out until repaired (spec 14.2); no duration
+signal = "alarm"                    # the agent sees an alarm in get_status and the advance result
+effect = { target = "boiler", capacity_factor = 0.0 }
+# Repaired by a heating installer (market file, [contractors.heating_installer]) who uses
+# one boiler kit (item part:boiler_kit) on the visit: book the visit, have the part in
+# stock, and the work happens in day-shift hours (context 0.7).
+repair = { trade = "heating_installer", parts = { "part:boiler_kit" = 1 } }
+pinned_hours = []

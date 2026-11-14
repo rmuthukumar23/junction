@@ -1,0 +1,10 @@
+{
+ "model": "claude-haiku-5-5",
+ "seed": 2,
+ "bundle": "91cb8ed570f9c670",
+ "reward": 0.6966,
+ "profit_eur": 763948.8459,
+ "started_at": "2026-11-14T20:35:58.314447Z",
+ "finished_at": "2026-11-14T20:42:39.657145Z",
+ "harbor_trial": "artifacts/m-haiku-s2/trials/s2-agent/normal-winter-s2__cHhEtaG"
+}

@@ -139,10 +139,25 @@ class Operations:
             lead = max(1, round(spec.express_lead_fraction * lead))
         return lead
 
+    def item_id(self, item: str) -> str:
+        """The item id an order means. Some tool-call serializers escape or replace the
+        ':' in 'seedlings:<crop>' (Gemini via OpenCode sent 'seedlings\\u003a<crop>'), so
+        '\\u003a', '/' and '.' are read as ':'. An id that names no item is left as is."""
+        if item in self.items:
+            return item
+        for sep in ("\\u003a", "\\u003A", "/", "."):
+            fixed = item.replace(sep, ":")
+            if fixed in self.items:
+                return fixed
+        return item
+
     def place_order(self, hour: int, item: str, quantity: float, express: bool = False) -> Order:
+        item = self.item_id(item)
         spec = self.items.get(item)
         if spec is None:
-            raise OpsError(f"unknown item {item!r}; items are {list(self.items)}. Nothing was ordered.")
+            hint = (" If ':' was cut from your object keys, send order_list=[{item, quantity}] instead."
+                    if item in {i.split(":")[0] for i in self.items} else "")
+            raise OpsError(f"unknown item {item!r}; items are {list(self.items)}.{hint} Nothing was ordered.")
         if isinstance(quantity, bool) or not isinstance(quantity, (int, float)) or not math.isfinite(quantity):
             raise OpsError("quantity must be a finite number. Nothing was ordered.")
         if quantity < spec.min_quantity or quantity <= 0:

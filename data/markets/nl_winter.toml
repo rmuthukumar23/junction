@@ -20,11 +20,21 @@ price_eur_per_unit = 0.45
 # Per kg. [DES] within the range in docs/CROPS.md: EU HoReCa blend EUR 36/kg (Urban Farm
 # Estonia), Canadian bulk C$30/kg (On The Grow); set low because a glasshouse sells wholesale.
 price_eur_per_unit = 30.0
+# [DES] The regional wholesale and HoReCa buyers take about 4 t a week at list price; more
+# floods them and the price falls (see rules.business.demand). Set so one facility at full
+# output (6-8 t/week) produces well over what the market absorbs.
+demand_per_week = 4000.0
+# [DES] The buyers' order book by episode week (firm, published): the January post-holiday
+# slump, a HoReCa restocking surge, a quiet week, then a pre-Valentine surge.
+demand_week_factors = [0.6, 1.5, 0.5, 1.4, 0.7, 1.3]
 
 [crops.radish_micro]
 # Per kg. [DES] radish is the cheapest common microgreen in every price list found
 # (Microgreen Manager pricing guide; Urban Farm Estonia), so below broccoli.
 price_eur_per_unit = 22.0
+# [DES] A smaller market than broccoli; full output is about 4.5 t/week.
+demand_per_week = 2500.0
+demand_week_factors = [1.4, 0.6, 1.3, 0.5, 1.5, 0.7]
 
 [co2]
 # The external CO2 contract the energy centre can dose from, per kg, metered hourly.
@@ -65,10 +75,12 @@ cancel_fee_eur = 200.0
 [items."seedlings:broccoli_micro"]
 # Per seed: microgreens are sown from seed held in stock, so the "seedlings" item is seed.
 # [DES] EUR 40/kg of seed at an assumed 3.5 g per 1000 seeds; no EU wholesale price was
-# found (docs/CROPS.md). Minimum about 5 kg of seed; three days from the seed merchant.
+# found (docs/CROPS.md). Minimum about 5 kg of seed. [DES] Ten days from the specialist
+# seed house (organic, germination-tested lots shipped from Italy with phytosanitary
+# paperwork), so sowing has to be planned about two weeks before the harvest is sold.
 category = "seedlings"
 price_eur_per_unit = 0.00014
-lead_time_h = 72
+lead_time_h = 240
 min_quantity = 1500000.0
 dispatch_h = 24
 cancel_fee_eur = 50.0
@@ -77,7 +89,7 @@ cancel_fee_eur = 50.0
 # Per seed. [DES] EUR 15/kg of seed at an assumed 10 g per 1000 seeds; minimum 5 kg.
 category = "seedlings"
 price_eur_per_unit = 0.00015
-lead_time_h = 72
+lead_time_h = 240           # [DES] the same seed house and route as broccoli
 min_quantity = 500000.0
 dispatch_h = 24
 cancel_fee_eur = 50.0

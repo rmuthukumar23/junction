@@ -8,7 +8,8 @@ engine. The engine validates every call itself, so a call made through MCP, a
 scripted policy, the console or a replay is checked by exactly the same code.
 
 Supported annotations: int, float, str, bool, list[T], dict[str, T],
-Literal[...], Optional[T], and Annotated[T, "description"].
+Literal[...], Optional[T], Annotated[T, "description"], and a TypedDict (an object
+with named, typed fields; `Required`/`total=False` mark which are required).
 """
 from __future__ import annotations
 
@@ -141,7 +142,43 @@ def _json_schema(ann: Any) -> dict[str, Any]:
         if key is not str:
             raise TypeError("dict keys must be str")
         return {"type": "object", "additionalProperties": _json_schema(val)}
+    if typing.is_typeddict(ann):
+        props = {}
+        for name, field in _fields(ann).items():
+            inner, desc = _annotated(field)
+            props[name] = {**_json_schema(inner), **({"description": desc} if desc else {})}
+        out: dict[str, Any] = {"type": "object", "properties": props, "additionalProperties": False}
+        required = _required(ann)
+        if required:
+            out["required"] = required
+        return out
     raise TypeError(f"unsupported tool parameter type {ann!r}")
+
+
+def _required(ann: Any) -> list[str]:
+    """Required fields of a TypedDict, also when its annotations are strings."""
+    fields = _fields(ann)
+    marked = {n for n, f in fields.items() if get_origin(f) is typing.Required}
+    unmarked = {n for n, f in fields.items() if get_origin(f) is typing.NotRequired}
+    return sorted((set(ann.__required_keys__) | marked) - unmarked)
+
+
+def _fields(ann: Any) -> dict[str, Any]:
+    return typing.get_type_hints(ann, include_extras=True)
+
+
+def _annotated(ann: Any) -> tuple[Any, str]:
+    """Strip Annotated (and Required/NotRequired) from a field; return its description."""
+    desc = ""
+    while True:
+        origin = get_origin(ann)
+        if origin is typing.Annotated:
+            ann, *meta = get_args(ann)
+            desc = " ".join(m for m in meta if isinstance(m, str)) or desc
+        elif origin in (typing.Required, typing.NotRequired):
+            (ann,) = get_args(ann)
+        else:
+            return ann, desc
 
 
 def _coerce(ann: Any, value: Any, path: str, strict: bool = False) -> Any:
@@ -180,6 +217,17 @@ def _coerce(ann: Any, value: Any, path: str, strict: bool = False) -> Any:
         if not isinstance(value, dict):
             raise ArgumentError(f"'{path}' must be an object")
         return {str(k): _coerce(val, v, f"{path}.{k}", strict) for k, v in value.items()}
+    if typing.is_typeddict(ann):
+        if not isinstance(value, dict):
+            raise ArgumentError(f"'{path}' must be an object")
+        fields = _fields(ann)
+        extra = sorted(set(value) - set(fields))
+        if extra:
+            raise ArgumentError(f"'{path}': unknown field(s) {extra}")
+        missing = sorted(set(_required(ann)) - set(value))
+        if missing:
+            raise ArgumentError(f"'{path}': missing field(s) {missing}")
+        return {k: _coerce(_annotated(fields[k])[0], v, f"{path}.{k}", strict) for k, v in value.items()}
     raise ArgumentError(f"'{path}': unsupported type")
 
 

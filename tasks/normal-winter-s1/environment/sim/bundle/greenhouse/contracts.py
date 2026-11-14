@@ -130,6 +130,9 @@ LedgerCategory = Literal[
     "harvest_revenue", "electricity_sold",
     "gas", "electricity_bought", "co2", "wages", "hiring", "repairs",
     "seedlings", "orders", "fines",
+    # round 3 (spec 14.2): contractor call-out and labour, spare parts, express surcharges.
+    # "repairs" is kept only for old traces.
+    "contractors", "parts", "express",
 ]
 
 
@@ -171,15 +174,16 @@ class EquipmentEffect:
     """A change to one piece of equipment, applied by world/events.py (Rowan) and
     honoured by world/energy.py and world/climate.py (Emre). Equipment ids are
     "chp", "boiler", "buffer", "external_co2", "grid", or "<compartment>.<part>"
-    for compartment equipment ("A.vents", "A.lamps", "A.screen", "A.cover")."""
+    for compartment equipment ("A.vents", "A.lamps", "A.screen", "A.cover", "A.glass").
+    Broken glass is an effect on "<compartment>.glass" with leakage_factor > 1 (round 3)."""
     target: str
     capacity_factor: float = 1.0          # 0 = failed, 1 = normal
     leakage_factor: float = 1.0           # for cover damage
-    until_hour: int | None = None         # None = until repaired
+    until_hour: int | None = None         # None = until repaired (persistent damage, spec 14.2)
 
 
 AlarmKind = Literal["equipment", "delivery", "frost_risk", "batch_ready", "batch_lost", "stock_low", "staff",
-                    "price"]
+                    "price", "storm", "contractor", "bankrupt"]
 
 
 @dataclass(frozen=True)
@@ -238,6 +242,42 @@ class EnergySettings:
     priority: dict[str, int] = field(default_factory=dict)       # compartment -> level; higher is served first
     heat_cap_kw: dict[str, float] = field(default_factory=dict)  # compartment -> cap when supply is short
     co2_cap_kg_h: dict[str, float] = field(default_factory=dict)
+    # Round 3 (D10): how far the thermostat may use each source. It draws heat in a
+    # fixed order: CHP at its set load, then buffer draw up to buffer_draw_max_kw
+    # (None = no cap), then the boiler up to boiler_max_fraction of its capacity
+    # (0 = off; boiler = "off" also means 0).
+    boiler_max_fraction: float = 1.0
+    buffer_draw_max_kw: float | None = None
+
+
+@dataclass(frozen=True)
+class NightHour:
+    """One entry of the night schedule (spec 14.1): the settings from clock `hour`
+    (18..23 or 0..5) until the next entry. The schedule repeats every night until
+    replaced. Values only: there is no condition or trigger field."""
+    hour: int
+    climate: dict[str, ClimateSetpoints]       # every compartment, resolved when the entry is set
+    energy: EnergySettings
+
+
+@dataclass(frozen=True)
+class WeatherNow:
+    """One hour of recorded (true) outside weather. Handed to the business so storms
+    follow the recorded wind (D3); never shown to the agent as such."""
+    hour: int
+    temp_c: float
+    wind_m_s: float
+    solar_w_m2: float
+    rh_pct: float
+
+
+@dataclass(frozen=True)
+class Recorded:
+    """The episode's recorded series (truth), for drawing the storm schedule and the
+    news feed at the start: storms from wind, frost from temperature, gas signals
+    from gas prices. One entry per episode hour."""
+    weather: tuple[WeatherNow, ...]
+    gas_eur_per_m3: tuple[float, ...]
 
 
 @dataclass(frozen=True)
@@ -314,11 +354,15 @@ class FacilityModel(Protocol):
     def forecast(self, hour: int, hours: int) -> dict[str, Any]:
         """Weather and energy-price forecast issued at `hour`; a pure function of (seed, hour)."""
 
+    def recorded(self) -> Recorded:
+        """The recorded weather and gas prices for the whole episode (truth: for the
+        business's storm schedule and the news feed only, never for the agent)."""
+
     def rules(self) -> dict[str, Any]:
         """Published mechanisms, equipment limits and hidden-parameter ranges."""
 
 
-TaskKind = Literal["plant", "harvest", "repair"]
+TaskKind = Literal["plant", "harvest", "repair"]   # crew "repair" tasks are kept only for old traces
 
 
 @dataclass(frozen=True)
@@ -350,24 +394,32 @@ class HourEnd:
     # outage a few hours later instead of at once. sim.py applies them after the
     # completed tasks; a completed repair whose target is not listed here is cleared.
     effects: tuple[EquipmentEffect, ...] = ()
+    # Equipment a contractor finished repairing this hour (round 3): sim.py clears the
+    # effect on each, so it works normally from the next hour.
+    repaired: tuple[str, ...] = ()
 
 
 class BusinessModel(Protocol):
     """Market, orders, stock, staff, tasks, events and the ledger (Rowan).
 
-    Built by `greenhouse.world.business.build_business(market, events,
-    crop_ids, equipment_ids, horizon_h, rng)` from the resolved specs. sim.py calls, every
-    hour: `start_hour` (events due), the facility's sub-steps, then `end_hour`.
-    sim.py routes CO2 deliveries to the facility and runs completed tasks."""
+    Built by `greenhouse.world.business.build_business(market, events, news,
+    crop_ids, equipment_ids, horizon_h, rng, recorded)` from the resolved specs. sim.py
+    calls, every hour: `start_hour` (events due), the facility's sub-steps, then
+    `end_hour`. sim.py routes CO2 deliveries to the facility, runs completed tasks and
+    clears the effect of every finished repair (`HourEnd.repaired`)."""
 
-    def start_hour(self, hour: int) -> tuple[list[EquipmentEffect], list[Alarm]]:
-        """Events that start now, as equipment effects for the facility and alarms."""
+    def start_hour(self, hour: int, weather: WeatherNow) -> tuple[list[EquipmentEffect], list[Alarm]]:
+        """Events that start now, as equipment effects for the facility and alarms.
+        `weather` is the hour's recorded weather: a storm fires on the recorded wind."""
 
     def end_hour(self, hour: int, metered: Metered) -> HourEnd:
         """Price the metered energy, charge wages, progress the task queue with this
         hour's worker-hours, deliver arriving orders."""
 
-    def place_order(self, hour: int, item: str, quantity: float) -> dict[str, Any]: ...
+    def place_order(self, hour: int, item: str, quantity: float, express: bool = False) -> dict[str, Any]:
+        """Items: "co2_kg", "seedlings:<crop>", "part:<part>". The lead time is fixed when
+        the order is placed (the surge lead time while a storm surge lasts). `express`
+        shortens it at a higher price where the item offers it; RuleError otherwise."""
 
     def cancel_order(self, hour: int, order_id: str) -> dict[str, Any]: ...
 
@@ -382,6 +434,17 @@ class BusinessModel(Protocol):
                    detail: dict[str, Any]) -> Task:
         """Queue work. worker_hours None means the business sets it (repairs, from the
         market file); a repair's fee is charged here."""
+
+    def book_contractor(self, hour: int, trade: str, target: str) -> dict[str, Any]:
+        """Book a visit (spec 14.2). It happens in the first day-shift hour (06-18) at or
+        after the response time in which the parts the job needs are on site; it charges
+        the call-out and hours, uses the parts, and reports the target in
+        `HourEnd.repaired` once the job hours are done. RuleError for an unknown trade, a
+        trade that does not fix the target, nothing broken there, or a visit already booked."""
+
+    def news(self, hour: int, days: float) -> list[dict[str, Any]]:
+        """Headlines published in the last `days` days up to `hour`, never later ones.
+        Drawn once at the start, so nothing the agent does changes the feed."""
 
     def sell(self, hour: int, harvest: HarvestResult) -> LedgerEntry:
         """Record a harvest's revenue (0 if not sellable) and return the entry."""

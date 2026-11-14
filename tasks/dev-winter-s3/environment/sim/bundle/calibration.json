@@ -1,0 +1,140 @@
+{
+ "anchors": {
+  "absentee": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -7837.8234
+   },
+   "reward": 0.0
+  },
+  "do-nothing": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -7837.8234
+   },
+   "reward": 0.0
+  },
+  "exploit:chp-flat-out": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -13143.3122
+   },
+   "reward": 0.0
+  },
+  "exploit:cut-heat-late": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -10207.3841
+   },
+   "reward": 0.0
+  },
+  "exploit:extreme-climate": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -7837.8234
+   },
+   "reward": 0.0
+  },
+  "exploit:harvest-early": {
+   "components": {
+    "profit": 0.3539
+   },
+   "metrics": {
+    "profit_eur": 117600.4251
+   },
+   "reward": 0.3539
+  },
+  "exploit:never-harvest": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -10981.2786
+   },
+   "reward": 0.0
+  },
+  "exploit:plant-late": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -10981.2786
+   },
+   "reward": 0.0
+  },
+  "exploit:spam-orders": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -16481.2786
+   },
+   "reward": 0.0
+  },
+  "exploit:spam-repairs": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -7837.8234
+   },
+   "reward": 0.0
+  },
+  "naive": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -10981.2786
+   },
+   "reward": 0.0
+  },
+  "reference": {
+   "components": {
+    "profit": 0.8
+   },
+   "metrics": {
+    "profit_eur": 275745.4216
+   },
+   "reward": 0.8
+  },
+  "rule-based": {
+   "components": {
+    "profit": 0.0
+   },
+   "metrics": {
+    "profit_eur": -10981.2786
+   },
+   "reward": 0.0
+  },
+  "stop-early": {
+   "components": {
+    "profit": 0.2994
+   },
+   "metrics": {
+    "profit_eur": 98288.6282
+   },
+   "reward": 0.2994
+  }
+ },
+ "bundle": "1f514b775add0b0a",
+ "components": {
+  "profit": {
+   "scale": 354479.06,
+   "zero": -7837.8234
+  }
+ },
+ "oracle": "reference",
+ "seed": 3,
+ "threshold": 0.79
+}

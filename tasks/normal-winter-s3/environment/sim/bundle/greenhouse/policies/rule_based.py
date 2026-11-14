@@ -6,8 +6,10 @@
   * CO2: reorder at a level that covers the lead time at the recent use rate, so the
     store never runs dry; no dosing target while it is empty.
   * Seedlings: ordered a lead time before a batch is due, so freed space is replanted.
-  * Harvest when ready; repair any fault once, and run the CHP while the boiler is
-    out; hire when the task queue is longer than a day's worker-hours.
+  * Harvest when ready; book the contractor for any damage and order the parts it
+    needs, and run the CHP while the boiler is out; hire when the task queue is longer
+    than a day's worker-hours.
+  * Nights run on the day settings (committed every morning).
   * Plant only what can still finish: seedlings are ordered only while the crop's
     published cycle fits in the time left.
 It does not plan energy against prices beyond the lamp hours; the reference adds that.
@@ -17,7 +19,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .common import ToolPolicy, import_prices, midpoint, result
+from .common import ToolPolicy, import_prices, midpoint, repair_damage, result
 
 
 class RuleBased(ToolPolicy):
@@ -47,10 +49,7 @@ class RuleBased(ToolPolicy):
 
     def decide(self, status: dict[str, Any]) -> None:
         faults = status.get("equipment_faults", [])
-        requested = {o.get("equipment") for o in self.business(status).get("outages", []) if o.get("repair_requested")}
-        for fault in faults:
-            if fault not in requested and not self._repair_queued(status, fault):
-                self.call("repair", equipment_id=fault)
+        repair_damage(self, status)
         if "boiler" in faults:                       # the CHP is the other heat source
             self.call("set_energy", chp_load=1.0)
             self.chp_for_boiler = True
@@ -128,7 +127,3 @@ class RuleBased(ToolPolicy):
                 self.lamps_set[compartment] = hours
                 self.call("set_climate", compartment=compartment, lamp_hours=hours)
 
-    @staticmethod
-    def _repair_queued(status: dict[str, Any], equipment_id: str) -> bool:
-        return any(t.get("kind") == "repair" and t.get("target") == equipment_id
-                   for t in status.get("business", {}).get("task_queue", []))

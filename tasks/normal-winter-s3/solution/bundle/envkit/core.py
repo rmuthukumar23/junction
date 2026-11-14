@@ -122,6 +122,19 @@ class Environment:
     def setup(self) -> None:
         """Build the initial state. Called once, before window 0 opens."""
 
+    def prelude_windows(self) -> int:
+        """Windows the world runs before the player's first call, with nobody acting
+        (e.g. a handover night before the first morning). They are closed right after
+        `setup`, never count as acted, and are part of every run alike."""
+        return 0
+
+    def opening(self) -> Any:
+        """What the player is shown before its first call, as JSON-ready data, or None.
+        Harbor writes it into the task instruction; scripted policies read it through
+        `Client.opening()`. It must be a pure function of the seed (it is computed after
+        `setup` and the prelude windows), like everything else the player sees."""
+        return None
+
     def apply_event(self, event: Event) -> str | None:
         """Apply a scripted event. Return the announcement text for it; the
         engine shows it only if the event's channel is 'announced'."""
@@ -245,6 +258,11 @@ class Episode:
                                "bundle": bundle_hash, "engine": __version__})
         self.env.setup()
         self._open_window()
+        for _ in range(self.env.prelude_windows()):
+            if self.done:
+                break
+            self._close_window()
+        self.opening = self.env.opening()
 
     # -- the one entry point for agents, policies, humans and replay -----------
 

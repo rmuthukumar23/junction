@@ -65,7 +65,7 @@ def grade(bundle_dir: Path, trace_path: Path) -> dict[str, Any]:
         "bundle": manifest["bundle"],
         "ledger": ledger,
         "replay": {
-            "calls": sum(1 for r in records if r.get("k") == "call"),
+            "calls": episode.calls,   # counted as the episode counts them: calls after the end are not
             "consistent": not mismatches,
             "mismatches": mismatches[:20],
         },

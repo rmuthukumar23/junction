@@ -1,0 +1,94 @@
+# Radish microgreens, sown in trays, single cut, sold per kg.
+#
+# Same production system and model as broccoli microgreens (see that file): faster,
+# cheaper seed, a lower price. Values and sources: docs/CROPS.md section 3.
+#
+# No germination phase (decided 14 Nov 2026): a batch starts as an emerged seedling that
+# grows on light from hour 0, and the blackout days are inside nominal_days. The seed
+# itself (about 9.5 mg dry) is heavier than the harvested plant's dry weight (about 8 mg),
+# so the start weight is the seedling's growing tissue, not the seed.
+#
+# Sources (cited per value below by their tag):
+#   [VH94]  Van Henten (1994), lettuce parameter set as in the lettuce file.
+#   [JSS]   Johnny's Selected Seeds, Micro Greens Yield Trial (2017): 8 days to the first true
+#           leaf (Red Arrow, Daikon), 283 g per tray (2.2 kg/m2), 190 g seed per m2.
+#   [TLM]   True Leaf Market, Rambo radish microgreens: 6 to 10 days.
+#   [GC16]  Gerovac et al. (2016), HortScience 51(5): 497-503: grown at 21/17 C.
+#   [SHB22] Shibaeva et al. (2022), Plants: radish among four Brassicaceae microgreens, 16 h baseline.
+#   [FPS23] Frontiers in Plant Science (2023), 10.3389/fpls.2023.1236055: dry matter 4.75-7.65 % at day 10.
+#   [MCR]   Thimijan and Heins (1983), HortScience 18: 818-822 (4.57 umol per J).
+#   [CAL]   Calibrated so a batch under the target climate below is ready in nominal_days.
+#   [DES]   Design value for the benchmark: plausible, not a single published number.
+
+schema = "crop/1"
+id = "radish_micro"
+name = "Radish microgreens"
+growth_model = "leafy_vanhenten"
+
+[cycle]
+harvest_mode = "single"
+nominal_days = 8                   # [JSS] 8 days to the first true leaf; [TLM] 6-10
+min_days_before_end = 8            # [DES] same as the cycle
+ready_fresh_weight_g = 0.116       # 2.2 kg/m2 [JSS] / 19,000 plants per m2
+
+[planting]
+density_per_m2 = 19000             # [DES] 190 g seed per m2 [JSS] at an assumed 10 g per 1000 seeds
+transplant_dry_weight_g = 0.0025   # [DES] an emerged seedling (about 36 mg fresh), not the seed: no germination phase
+plant_worker_hours_per_1000 = 0.000105   # [DES] 2 worker-hours per 1000 m2 (machine sowing), per 1000 plants
+harvest_worker_hours_per_1000 = 0.00053  # [DES] 10 worker-hours per 1000 m2 (hand cutting), per 1000 plants
+
+[growth]                           # leafy_vanhenten parameters; symbols from [VH94]
+dry_matter_fraction = 0.07         # [FPS23]
+yield_factor = 0.544               # c_alpha_beta [VH94]
+light_use_efficiency_kg_j = 17.0e-9 # c_epsilon [VH94]
+radiation_j_per_umol = 0.2188      # [MCR] 1/4.57
+canopy_closure_m2_kg = 15.8        # [CAL] ready in 7.7 days under the target midpoints
+boundary_conductance_m_s = 0.007   # g_bnd [VH94]
+stomatal_conductance_m_s = 0.005   # g_stm [VH94]
+carboxylation_conductance_max_m_s = 1.959e-3   # peak of [VH94]'s g_car, as lettuce
+temperature = { curve = "cardinal", t_min = 2.925, t_opt = 22.505, t_max = 42.085 }   # [VH94] as lettuce: a cool-season crop
+co2_kg_m3_per_ppm = 1.8295e-6      # ideal gas, CO2 0.04401 kg mol-1 at 20 C and 101.325 kPa
+co2_saturation_ppm = 1200.0        # [DES] as lettuce
+co2_compensation_kg_m3 = 5.2e-5    # c_Gamma [VH94]
+co2_compensation_q10 = 2.0         # [VH94]
+co2_compensation_ref_c = 20.0      # [VH94]
+respiration_dry_per_s = 2.65e-7    # c_resp,d [VH94]
+respiration_co2_per_s = 4.87e-7    # c_resp,c [VH94]
+respiration_q10 = 2.0              # [VH94]
+respiration_ref_c = 25.0           # [VH94]
+
+[growth.transpiration]             # [VH94]
+canopy_conductance_m_s = 3.6e-3
+vapour_c1_j_m3 = 9348.0
+gas_constant_j_kmol_k = 8314.0
+celsius_to_kelvin = 273.15
+vapour_c2 = 17.4
+vapour_c3_c = 239.0
+
+[climate_targets]                  # advice published to the agent; nominal_days holds at the midpoints
+day_temp_c = [18, 22]              # [GC16] as broccoli
+night_temp_c = [16, 18]            # [GC16]
+co2_ppm = [800, 1000]              # [DES]
+dli_mol_m2_d = [12, 17]            # [SHB22]
+rh_pct = [60, 75]                  # [DES]
+photoperiod_h = 16                 # [SHB22]
+
+[stress]                           # each counter adds curve(signal) per day; quality = 1 - sum of counters
+# dli_excess carries the day's light integral itself; a linear_below curve on it is low light.
+stretch = { signal = "dli_excess", curve = "linear_below", threshold = 6.0, rate = 0.03 }    # [DES] as broccoli
+heat    = { signal = "temp_day_mean", curve = "linear_above", threshold = 24.0, rate = 0.02 } # [DES]
+cold    = { signal = "temp_min", curve = "linear_below", threshold = 6.0, rate = 0.05 }      # [DES]
+frost_kill_c = -1.0                # [DES]
+# Radish is the fastest and goes over fastest: grade A for under 2 days, waste after about 5. [DES]
+ready_loss_per_day = 0.08
+
+[market]
+unit = "kg"
+min_sellable = { fresh_weight_g = 0.058 }   # [DES] half the target yield (1.1 kg/m2)
+grades = [ { name = "A", min_quality = 0.85, price_factor = 1.0 },   # [DES]
+           { name = "B", min_quality = 0.60, price_factor = 0.6 },
+           { name = "waste", min_quality = 0.0, price_factor = 0.0 } ]
+
+[estimate]                         # what get_batches shows
+weight_rel_sigma = 0.10            # [DES]
+quality_sigma = 0.03               # [DES]

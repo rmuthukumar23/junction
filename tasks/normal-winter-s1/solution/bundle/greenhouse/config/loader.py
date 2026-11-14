@@ -6,7 +6,8 @@
     energy_prices = "data/energy_prices/nl_winter.toml"
     market        = "data/markets/nl_winter.toml"
     crops         = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml"]
-    events        = ["data/events/boiler_trip.toml"]
+    events        = ["data/events/boiler_trip.toml", "data/events/storm.toml"]
+    news          = ["data/news/storm.toml", "data/news/frost.toml", "data/news/gas_price.toml"]   # optional
     horizon_days  = 42
     substeps_per_hour = 12
     overrides = { "market.crops.broccoli_micro.price_eur" = 28.0, "crops.lettuce_butterhead.planting.density_per_m2" = 18 }
@@ -14,7 +15,7 @@
 Each file is parsed by its owner's `parse_*` function (PARSERS) after
 `overrides` are applied to the raw TOML. An override key is
 `<kind>.<dotted key>` for a single-file kind, or `<kind>.<id>.<dotted key>` for
-crops and events. Hidden `{min, max}` parameters are then drawn for this seed,
+crops, events and news. Hidden `{min, max}` parameters are then drawn for this seed,
 each from a stream named after its kind, file id and key, so changing one file
 never shifts the draws of another. `published_ranges` lists every range for
 get_rules.
@@ -44,10 +45,12 @@ PARSERS: dict[str, tuple[str, str, str]] = {
     "market": ("greenhouse.config.market", "parse_market", "Rowan"),
     "crops": ("greenhouse.config.crop", "parse_crop", "Lucas"),
     "events": ("greenhouse.config.market", "parse_event", "Rowan"),
+    "news": ("greenhouse.config.market", "parse_news", "Rowan"),
 }
 SINGLE = ("facility", "climate", "energy_prices", "market")
-LISTS = ("crops", "events")
-_ENV_KEYS = {*SINGLE, *LISTS, "horizon_days", "substeps_per_hour", "overrides", "modules"}
+LISTS = ("crops", "events", "news")
+_ENV_KEYS = {*SINGLE, *LISTS, "horizon_days", "substeps_per_hour", "overrides", "modules",
+             "actions_per_day"}   # read by env.py: the daily turn
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,7 @@ class Config:
     market: Any
     crops: dict[str, Any]                 # crop id -> CropSpec
     events: dict[str, Any]                # event id -> EventSpec
+    news: dict[str, Any]                  # news id -> NewsSpec (empty when the scenario lists none)
     horizon_h: int
     substeps_per_hour: int
     published_ranges: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
@@ -119,7 +123,8 @@ def load(env: dict[str, Any], rng: Rng, root: Path = ROOT,
     if not isinstance(substeps, int) or isinstance(substeps, bool) or substeps < 1:
         raise ConfigError("scenario [env]: 'substeps_per_hour' must be a positive integer")
     return Config(resolved["facility"], resolved["climate"], resolved["energy_prices"], resolved["market"],
-                  resolved_lists["crops"], resolved_lists["events"], round(horizon_days * 24), substeps,
+                  resolved_lists["crops"], resolved_lists["events"], resolved_lists["news"],
+                  round(horizon_days * 24), substeps,
                   {k: v for k, v in published.items() if v})
 
 

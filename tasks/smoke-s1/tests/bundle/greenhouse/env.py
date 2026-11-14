@@ -45,6 +45,12 @@ _ScreenMode = Literal["auto", "open", "closed"]
 _BufferMode = Literal["auto", "charge", "hold", "discharge"]
 
 
+class OrderLine(TypedDict, total=False):
+    """One line of place_orders.order_list: the item id is a value, so no tool layer can cut it."""
+    item: Required[Annotated[str, "'co2_kg', 'seedlings:<crop id>' or 'part:<part id>'."]]
+    quantity: Required[Annotated[float, "Amount: kg of CO2, seeds or plants, or parts."]]
+
+
 class Action(TypedDict, total=False):
     """One action of submit_day: `tool` names it, the other fields are its arguments
     (see rules.turn.actions for what each takes). Fields another tool uses are refused."""
@@ -75,6 +81,7 @@ class Action(TypedDict, total=False):
     heat_cap_kw: Annotated[dict[str, float], "Compartment -> heat cap, kW, when supply is short."]
     co2_cap_kg_h: Annotated[dict[str, float], "Compartment -> CO2 cap, kg/h, when supply is short."]
     orders: Annotated[dict[str, float], "place_orders: item -> quantity."]
+    order_list: Annotated[list[OrderLine], "place_orders: the same as orders, as a list of {item, quantity}."]
     express: Annotated[list[str], "place_orders: items to send express."]
     order_id: Annotated[str, "cancel_order: order id."]
     workers: Annotated[int, "hire, release: number of workers."]
@@ -185,12 +192,18 @@ class GreenhouseBench(Environment):
         self._ask(self.sim.set_night_entry, from_hour, compartments, climate, energy, bool(copy_day), bool(remove))
         return self._acted({"night_schedule": views.night_schedule(self.sim)})
 
-    def place_orders(self, orders: Annotated[dict[str, float], "Item -> quantity: 'co2_kg' (kg), 'seedlings:<crop id>' (seeds or plants), 'part:<part id>' (parts)."],
+    def place_orders(self, orders: Annotated[Optional[dict[str, float]], "Item -> quantity: 'co2_kg' (kg), 'seedlings:<crop id>' (seeds or plants), 'part:<part id>' (parts). 'seedlings/<crop id>' is the same item."] = None,
+                     order_list: Annotated[Optional[list[OrderLine]], "The same as `orders`, as a list of {item, quantity}. Use it if your tool layer cuts or changes ':' in object keys."] = None,
                      express: Annotated[Optional[list[str]], "Items from `orders` to send express, at a higher price, where offered."] = None) -> dict[str, Any]:
         """Order stock. Minimum quantities and lead times apply (the rules); the lead time is fixed when you order, and is longer while a storm surge lasts. Each item is ordered on its own: the result lists what was ordered and what was refused. Charged on delivery. Unused parts are worth nothing at the end."""
+        orders = dict(orders or {})
+        for line in order_list or ():
+            orders[line["item"]] = orders.get(line["item"], 0.0) + float(line["quantity"])
         if not orders:
-            raise ToolError("give at least one item", spend=False)
-        rush = set(express or ())
+            raise ToolError("give at least one item in orders or order_list", spend=False)
+        fix = getattr(getattr(self.sim.business, "ops", None), "item_id", lambda k: k)   # the test fakes have no ops
+        orders = {fix(k): v for k, v in orders.items()}
+        rush = {fix(k) for k in (express or ())}
         unknown = sorted(rush - set(orders))
         if unknown:
             raise ToolError(f"express names items that are not in orders: {unknown}", spend=False)

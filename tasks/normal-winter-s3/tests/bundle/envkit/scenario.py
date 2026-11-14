@@ -101,9 +101,12 @@ class Scenario:
         return getattr(importlib.import_module(module), cls)
 
     def render_prompt(self) -> str:
-        """Substitute ${windows}, ${ops_per_window}, ${window_hours}, ${horizon_days}, ${max_calls}."""
+        """Substitute ${windows}, ${ops_per_window}, ${window_hours}, ${horizon_days}, ${max_calls},
+        and any plain number or string in [env] (e.g. ${actions_per_day})."""
         s = self.shift
-        values = {
+        values = {k: v for k, v in self.env_config.items()
+                  if isinstance(v, (int, float, str)) and not isinstance(v, bool)}
+        values |= {
             "windows": s.windows,
             "ops_per_window": s.ops_per_window,
             "max_calls": "no limit on" if s.max_calls is None else s.max_calls,

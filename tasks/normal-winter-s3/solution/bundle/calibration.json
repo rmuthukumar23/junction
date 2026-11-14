@@ -5,7 +5,7 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -45218.587
+    "profit_eur": -22940.6654
    },
    "reward": 0.0
   },
@@ -14,124 +14,124 @@
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -45218.587
+    "profit_eur": -22940.6654
    },
    "reward": 0.0
   },
   "exploit:chp-flat-out": {
    "components": {
-    "profit": 0.3565
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 689806.3992
+    "profit_eur": -50966.2681
    },
-   "reward": 0.3565
+   "reward": 0.0
   },
   "exploit:cut-heat-late": {
    "components": {
-    "profit": 0.3423
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 660514.6707
+    "profit_eur": -50016.4812
    },
-   "reward": 0.3423
+   "reward": 0.0
   },
   "exploit:extreme-climate": {
    "components": {
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -50034.2344
+    "profit_eur": -22938.675
    },
    "reward": 0.0
   },
   "exploit:harvest-early": {
    "components": {
-    "profit": 0.0714
+    "profit": 0.129
    },
    "metrics": {
-    "profit_eur": 101918.0932
+    "profit_eur": 102603.8157
    },
-   "reward": 0.0714
+   "reward": 0.129
   },
   "exploit:never-harvest": {
    "components": {
     "profit": 0.0
    },
    "metrics": {
-    "profit_eur": -50014.1562
+    "profit_eur": -49306.8891
    },
    "reward": 0.0
   },
   "exploit:plant-late": {
    "components": {
-    "profit": 0.1779
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 321504.4024
+    "profit_eur": -32659.9254
    },
-   "reward": 0.1779
+   "reward": 0.0
   },
   "exploit:spam-orders": {
    "components": {
-    "profit": 0.1366
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 236356.8546
+    "profit_eur": -50014.816
    },
-   "reward": 0.1366
+   "reward": 0.0
   },
   "exploit:spam-repairs": {
    "components": {
-    "profit": 0.1335
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 229978.8909
+    "profit_eur": -22940.6654
    },
-   "reward": 0.1335
+   "reward": 0.0
   },
   "naive": {
    "components": {
-    "profit": 0.1778
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 321363.7863
+    "profit_eur": -30946.9004
    },
-   "reward": 0.1778
+   "reward": 0.0
   },
   "reference": {
    "components": {
     "profit": 0.8
    },
    "metrics": {
-    "profit_eur": 1604168.4296
+    "profit_eur": 755476.1394
    },
    "reward": 0.8
   },
   "rule-based": {
    "components": {
-    "profit": 0.3423
+    "profit": 0.0
    },
    "metrics": {
-    "profit_eur": 660514.6707
+    "profit_eur": -50016.4812
    },
-   "reward": 0.3423
+   "reward": 0.0
   },
   "stop-early": {
    "components": {
-    "profit": 0.2534
+    "profit": 0.2065
    },
    "metrics": {
-    "profit_eur": 477263.1809
+    "profit_eur": 178031.6868
    },
-   "reward": 0.2534
+   "reward": 0.2065
   }
  },
- "bundle": "553bec8b76aefc03",
+ "bundle": "045c922f46a0d28d",
  "components": {
   "profit": {
-   "scale": 2061733.77,
-   "zero": -45218.587
+   "scale": 973021.01,
+   "zero": -22940.6654
   }
  },
  "oracle": "reference",

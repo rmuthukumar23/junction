@@ -33,6 +33,8 @@ NEWS_TYPES = ("storm", "frost", "gas_price")
 class CropPrice:
     crop_id: str
     price_eur_per_unit: Param          # per head or per kg, as the crop file's market.unit says
+    demand_per_week: Param | None = None   # what the buyers take at full price in any 7 days (market units)
+    demand_week_factors: tuple[float, ...] = ()   # demand in episode week w = demand_per_week x factors[w]
 
 
 @dataclass(frozen=True)
@@ -104,7 +106,11 @@ def parse_market(raw: dict[str, Any], source: str) -> MarketSpec:
     crops = {}
     for crop_id in list(crops_raw.raw):
         c = crops_raw.sub(crop_id)
-        crops[crop_id] = CropPrice(crop_id, c.param("price_eur_per_unit", lo=0.0))
+        factors = tuple(float(x) for x in c.raw.get("demand_week_factors", ())) if c.has("demand_week_factors") else ()
+        if c.has("demand_week_factors"):
+            c.raw.pop("demand_week_factors")
+        crops[crop_id] = CropPrice(crop_id, c.param("price_eur_per_unit", lo=0.0),
+                                   c.param("demand_per_week", lo=0.0) if c.has("demand_per_week") else None, factors)
         c.done()
     if not crops:
         raise ConfigError(f"{source}: 'crops' must list at least one crop")

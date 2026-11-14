@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from .bundle import ROOT, write_bundle
-from .core import Environment
+from .core import Environment, Episode
 from .scenario import Scenario
 
 SIM_SERVICE = "sim"
@@ -120,7 +120,12 @@ transport = "streamable-http"
 url = "{url}"
 ''')
 
-    _write(task / "instruction.md", scenario.render_prompt() + f'''
+    opening = Episode(scenario, seed).opening
+    shown = "" if opening is None else (
+        "\n## Before your first call\n\nThis is everything you are shown before your first tool call "
+        "(the rules, and the state of the world now), as JSON:\n\n```json\n"
+        + json.dumps(opening, sort_keys=True, separators=(",", ":")) + "\n```\n")
+    _write(task / "instruction.md", scenario.render_prompt() + shown + f'''
 ## Interface
 
 Every action goes through the tools of the MCP server `{mcp_name}` (`{url}`), which is already connected. Nothing in this container's filesystem affects your result.

@@ -1,0 +1,15 @@
+# Frost warnings. Owner: Rowan. All values [DES]. A real event is the first hour of a night
+# whose recorded temperature falls below frost_below_c (at most one per window_h).
+schema = "news/1"
+id = "frost"
+relates_to = "frost"
+frost_below_c = -3.0
+window_h = 18                       # one event per night
+lead_h = { min = 24, max = 48 }
+hit_rate = 0.8
+false_alarms_per_day = 0.05
+headlines = [
+  "Cold spell expected, frost likely overnight",
+  "KNMI warns of slippery roads and night frost",
+  "Arctic air moves in, temperatures to drop well below freezing",
+]

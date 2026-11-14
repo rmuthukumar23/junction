@@ -58,7 +58,8 @@ class _Facility(FakeFacility):
 def sim(seed: int = 1, pin_boiler_at: int | None = None) -> Greenhouse:
     rng = Rng(seed)
     growth = {CROPS[0]: FakeCrop(CROPS[0]), CROPS[1]: FakeCrop(CROPS[1], repeated=True)}
-    modules = Modules(_Facility(rng.stream("facility")), business(seed, pin_boiler_at=pin_boiler_at), growth, 240, 4)
+    # 480 h: long enough for a seed order (240 h lead time) to arrive inside the run.
+    modules = Modules(_Facility(rng.stream("facility")), business(seed, horizon_h=480, pin_boiler_at=pin_boiler_at), growth, 480, 4)
     return Greenhouse(modules, rng.stream("sim"))
 
 

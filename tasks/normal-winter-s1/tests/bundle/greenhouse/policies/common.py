@@ -6,6 +6,7 @@ so the same policy runs on the fakes and on the real modules.
 """
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from envkit.policies import Client, Policy
@@ -41,55 +42,189 @@ def import_prices(forecast: dict[str, Any], now_hour: int = 0) -> list[tuple[int
 
 
 class Absentee(Policy):
-    """Shows up every day, looks, and changes nothing (spec 9). It must score about 0:
-    the facility runs on its baseline exactly as if nobody were there."""
+    """Shows up every morning, reads the briefing, and changes nothing (spec 9). It must
+    score about 0: the facility runs on its baseline exactly as if nobody were there."""
 
     name = "absentee"
-    advance_h = 24
 
     def run(self, client: Client) -> None:
         guard = 0
         while not client.done and guard < 5000:
             guard += 1
-            client.call("get_status")
-            if client.done or not client.call("advance", hours=self.advance_h).get("ok"):
+            if not client.call("submit_day", actions=[]).get("ok"):
                 return
+
+
+# The tools that count as actions under the daily turn, and the order a day plan sends
+# them in when it cannot send them all (the most urgent first).
+ACTIONS = ("book_contractor", "harvest", "plant", "place_order", "place_orders", "hire", "release",
+           "cancel_order", "set_energy", "set_climate", "set_night_schedule")
+SETTINGS = ("set_energy", "set_climate")
+
+
+class DayPlan:
+    """A day's actions, queued during the planning round and sent merged: all harvests in
+    one call, all plantings in one, all orders in one, climate changes grouped by
+    compartments that get the same change. Policies keep their one-call-per-thing code."""
+
+    def __init__(self) -> None:
+        self.harvest: list[str] = []
+        self.plant: dict[str, float] = {}
+        self.orders: dict[str, float] = {}
+        self.climate: dict[str, dict[str, Any]] = {}
+        self.energy: dict[str, Any] = {}
+        self.other: list[tuple[str, dict[str, Any]]] = []
+        self.night: dict[str, Any] | None = None
+
+    def add(self, tool: str, args: dict[str, Any]) -> None:
+        if tool == "harvest":
+            ids = args.get("batch_ids") or [args.get("batch_id")]
+            self.harvest += [b for b in ids if b and b not in self.harvest]
+        elif tool == "plant":
+            if "areas_m2" in args:
+                for c, a in args["areas_m2"].items():
+                    self.plant[c] = self.plant.get(c, 0.0) + float(a)
+            else:
+                c = args["compartment"]
+                self.plant[c] = self.plant.get(c, 0.0) + float(args["area_m2"])
+        elif tool in ("place_order", "place_orders"):
+            pairs = args["orders"].items() if "orders" in args else [(args["item"], args["quantity"])]
+            for item, q in pairs:
+                self.orders[item] = self.orders.get(item, 0.0) + float(q)
+        elif tool == "set_climate":
+            changes = {k: v for k, v in args.items() if k not in ("compartment", "compartments")}
+            targets = args.get("compartments") or ([args["compartment"]] if args.get("compartment") else ["*"])
+            for c in targets:
+                self.climate.setdefault(c, {}).update(changes)
+        elif tool == "set_energy":
+            for k, v in args.items():
+                self.energy[k] = {**self.energy.get(k, {}), **v} if isinstance(v, dict) else v
+        elif tool == "set_night_schedule":
+            self.night = dict(args)
+        else:
+            self.other.append((tool, dict(args)))
+
+    def calls(self) -> list[tuple[str, dict[str, Any]]]:
+        """Merged calls, most urgent first; settings last, the night entry after them."""
+        out: list[tuple[str, dict[str, Any]]] = [c for c in self.other if c[0] == "book_contractor"]
+        if self.harvest:
+            out.append(("harvest", {"batch_ids": list(self.harvest)}))
+        if self.plant:
+            out.append(("plant", {"areas_m2": {c: round(a, 1) for c, a in self.plant.items()}}))
+        if self.orders:
+            out.append(("place_orders", {"orders": dict(self.orders)}))
+        out += [c for c in self.other if c[0] != "book_contractor"]
+        if self.energy:
+            out.append(("set_energy", dict(self.energy)))
+        groups: dict[str, list[str]] = {}
+        changes: dict[str, dict[str, Any]] = {}
+        for c, ch in self.climate.items():
+            key = repr(sorted(ch.items()))
+            groups.setdefault(key, []).append(c)
+            changes[key] = ch
+        for key, comps in groups.items():
+            args = dict(changes[key])
+            if "*" not in comps:
+                args["compartments"] = comps
+            out.append(("set_climate", args))
+        return out
 
 
 class ToolPolicy(Policy):
-    """Base: a daily loop of read -> decide -> advance, through tools only."""
+    """Base: one planning round each morning under the daily turn (round 3): read the
+    briefing, decide, send the day's actions merged within the day's limit (a night
+    entry copying the day settings last, when they changed), end the day. Tools only."""
 
-    advance_h = 24          # policy choice: decide once a simulated day (advance stops earlier on alarms)
+    night_policy = "daily"      # "daily": copy changed day settings to the night; "once": first day only; "never"
 
     def run(self, client: Client) -> None:
+        # No read tools (round 3): the rules and the first briefing are what the player is
+        # shown before its first call; every later briefing comes back when a day ends.
         self.client = client
-        self.rules = result(client.call("get_rules"))
-        self.setup(result(client.call("get_status")))
+        self.calls = 0
+        opening = client.opening() or {}
+        self.rules = opening.get("rules", {})
+        self.briefing = opening.get("briefing", {})
+        self.limit = int(self.rules.get("turn", {}).get("actions_per_day", 5))
+        status = self.briefing.get("status")
+        if not self.rules or not status:
+            return
+        self.plan = DayPlan()
+        self.days = 0
+        self.setup(status)
         guard = 0
         while not client.done and guard < 5000:
             guard += 1
-            status = result(client.call("get_status"))
-            if not status:
-                return
             self.decide(status)
             if client.done:
                 return
-            r = client.call("advance", hours=self.advance_h)
-            if not r.get("ok"):
+            briefing = self.send_day()
+            if client.done or not briefing:
                 return
+            self.briefing = briefing
+            status = briefing.get("status")
+            if not status:
+                return
+
+    def send_day(self) -> dict[str, Any] | None:
+        """Send the day's merged actions (at most the limit), then end the day if they
+        did not. Returns the next morning's briefing."""
+        plan, self.plan = self.plan, DayPlan()
+        self.days += 1
+        carry = DayPlan()
+        wanted = plan.calls()
+        night = plan.night
+        copy = (self.night_policy == "daily" or (self.night_policy == "once" and self.days == 1))
+        chosen: list[tuple[str, dict[str, Any]]] = []
+        for tool, args in wanted:
+            settings = tool in SETTINGS
+            need = 1 + (1 if settings and copy and night is None
+                        and not any(t in SETTINGS for t, _ in chosen) else 0)
+            if len(chosen) + need + (1 if night is not None else 0) <= self.limit:
+                chosen.append((tool, args))
+            elif settings:                    # a setting that did not fit is tried again tomorrow
+                carry.add(tool, args)
+        if night is None and copy and any(t in SETTINGS for t, _ in chosen):
+            night = {"from_hour": 18, "copy_day": True}
+        if night is not None and len(chosen) < self.limit:
+            chosen.append(("set_night_schedule", night))
+        self.plan = carry
+        r = self.real_call("submit_day", actions=[{"tool": tool, **args} for tool, args in chosen])
+        return result(r).get("briefing") if r.get("ok") else None
 
     # -- hooks -------------------------------------------------------------------------
 
     def setup(self, status: dict[str, Any]) -> None:
-        """Once, at hour 0."""
+        """Once, on the first morning."""
 
     def decide(self, status: dict[str, Any]) -> None:
         """Every decision point."""
 
-    # -- reading -----------------------------------------------------------------------
+    # -- calls -------------------------------------------------------------------------
 
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
+        """An action is queued for the day plan (and reported as accepted); a read is
+        answered from the briefing."""
+        if tool in ACTIONS:
+            self.plan.add(tool, args)
+            return {"ok": True, "result": {"queued": True}}
+        return self.read(tool, **args)
+
+    def read(self, tool: str, **args: Any) -> dict[str, Any]:
+        """The old read tools, answered from what the player was shown."""
+        b = getattr(self, "briefing", {}) or {}
+        from ..views import rows                      # the briefing sends the forecast as columns
+        hours = int(args.get("hours", 72))
+        forecast = {k: v[:hours] if isinstance(v, list) else v for k, v in rows(b.get("forecast") or {}).items()}
+        found = {"get_rules": self.rules, "get_status": b.get("status"),
+                 "get_forecast": {"forecast": forecast}}.get(tool)
+        return {"ok": found is not None, "result": found or {}}
+
+    def real_call(self, tool: str, **args: Any) -> dict[str, Any]:
+        self.calls += 1
         return self.client.call(tool, **args)
+
+    # -- reading -----------------------------------------------------------------------
 
     def crop_of(self, status: dict[str, Any]) -> dict[str, str]:
         """Compartment -> crop id, from the batches it holds."""
@@ -138,3 +273,46 @@ class ToolPolicy(Policy):
         for b in status.get("batches", []):
             if b.get("status") == "ready" and not b.get("harvest_queued"):
                 self.call("harvest", batch_id=b["id"])
+
+
+def contractor_for(rules: dict[str, Any], target: str) -> tuple[str, str | None] | None:
+    """(trade, part item) of a contractor whose published `fixes` covers `target`, or None.
+    An equipment id matches a kind when it equals it or ends with ".<kind>"."""
+    table = rules.get("business", {}).get("contractors", {})
+    rows = table.items() if isinstance(table, dict) else ((r.get("trade", ""), r) for r in table)
+    for trade, row in rows:
+        if not isinstance(row, dict):
+            continue
+        kinds = row.get("fixes", [])
+        if any(target == k or target.endswith(f".{k}") for k in kinds):
+            return str(trade), row.get("part")
+    return None
+
+
+def repair_damage(policy: Any, status: dict[str, Any]) -> None:
+    """Book the trade for every outage without a booking and order the parts it needs
+    that are neither in stock nor on order. Used by the rule-based and reference growers."""
+    business = status.get("business", {})
+    stock = business.get("stock", {})
+    on_order: dict[str, float] = {}
+    for o in business.get("open_orders", []):
+        on_order[o.get("item")] = on_order.get(o.get("item"), 0.0) + float(o.get("quantity", 0.0))
+    booked = {b.get("target") for b in business.get("contractor_bookings", []) if b.get("status") != "done"}
+    need: dict[str, float] = {}
+    for outage in business.get("outages", []):
+        target = outage.get("equipment")
+        found = contractor_for(policy.rules, target) if target else None
+        if found is None:
+            continue
+        trade, _ = found
+        if target not in booked and not outage.get("repair"):
+            if policy.call("book_contractor", trade=trade, target=target).get("ok"):
+                booked.add(target)
+        for item, n in (outage.get("parts_needed") or {}).items():
+            need[item] = need.get(item, 0.0) + float(n)
+    for item, n in need.items():
+        short = math.ceil(n - float(stock.get(item, 0.0)) - on_order.get(item, 0.0))
+        if short > 0:
+            rule = policy.rules.get("business", {}).get("items", {}).get(item, {})
+            minimum = rule.get("min_quantity", 1) if isinstance(rule, dict) else 1
+            policy.call("place_order", item=item, quantity=max(short, math.ceil(float(minimum or 1))))

@@ -8,8 +8,8 @@ from typing import Mapping
 from envkit.rng import Rng
 from greenhouse.config.facility import ClimateProfile, EnergyCentreSpec, EnergyPriceSpec, FacilitySpec
 from greenhouse.contracts import (Alarm, ClimateSample, ClimateSetpoints, CropLoad,
-                                  EnergySettings, EquipmentEffect, Metered, RuleError,
-                                  StartBatch as WorldStartBatch)
+                                  EnergySettings, EquipmentEffect, Metered, Recorded, RuleError,
+                                  StartBatch as WorldStartBatch, WeatherNow)
 from greenhouse.world.climate import CompartmentClimate
 from greenhouse.world.controller import Actuators, ClimateController
 from greenhouse.world.weather import PriceSeries, WeatherSeries
@@ -76,6 +76,11 @@ class EnergyCentre:
             raise ValueError('duration must be in (0, 1] hours')
         if settings.boiler not in ('auto', 'off') or settings.buffer not in ('auto', 'charge', 'hold', 'discharge'):
             raise ValueError('invalid boiler or buffer mode')
+        if not (math.isfinite(settings.boiler_max_fraction) and 0 <= settings.boiler_max_fraction <= 1):
+            raise ValueError('boiler_max_fraction must be 0 to 1')
+        if settings.buffer_draw_max_kw is not None and not (math.isfinite(settings.buffer_draw_max_kw)
+                                                            and settings.buffer_draw_max_kw >= 0):
+            raise ValueError('buffer_draw_max_kw must be finite and non-negative')
         if not math.isfinite(settings.chp_load) or settings.chp_load < 0 or settings.chp_load > 1 or (
                 0 < settings.chp_load < self.spec.chp.min_load):
             raise ValueError('CHP load outside allowed range')
@@ -102,13 +107,18 @@ class EnergyCentre:
         chp_heat = chp_electric * self.spec.chp.heat_per_electric
         chp_gas = chp_electric * self.spec.chp.gas_m3_per_kwh_e
         heat_demand = sum(min(v, settings.heat_cap_kw.get(k, v)) for k, v in heat_kw.items()) * dt_h
+        # The thermostat draws from the sources the settings make available, in a fixed
+        # order (D10): CHP at its set load, then the buffer up to its draw cap, then the
+        # boiler up to its level. A failed source delivers nothing; nothing else starts.
         discharge = 0.0
         if settings.buffer in ('auto', 'discharge'):
-            discharge = min(self.buffer_kwh, max(0.0, heat_demand - chp_heat))
+            draw_cap = math.inf if settings.buffer_draw_max_kw is None else settings.buffer_draw_max_kw * dt_h
+            discharge = min(self.buffer_kwh, draw_cap, max(0.0, heat_demand - chp_heat))
             self.buffer_kwh -= discharge
         boiler_heat = 0.0
         if settings.boiler == 'auto':
-            boiler_heat = min(float(self.spec.boiler.heat_kw) * self._factor(effects, 'boiler') * dt_h,
+            boiler_heat = min(float(self.spec.boiler.heat_kw) * self._factor(effects, 'boiler')
+                              * settings.boiler_max_fraction * dt_h,
                               max(0.0, heat_demand - chp_heat - discharge))
         boiler_gas = boiler_heat * self.spec.boiler.gas_m3_per_kwh_heat
         heat_supply = chp_heat + discharge + boiler_heat
@@ -225,7 +235,7 @@ class Facility:
     def equipment_ids(self) -> tuple[str, ...]:
         return (('chp', 'boiler', 'buffer', 'co2_store', 'external_co2', 'grid') +
                 tuple(f'{c.id}.{part}' for c in self.spec.compartments
-                      for part in ('vents', 'lamps', 'screen', 'cover')))
+                      for part in ('vents', 'lamps', 'screen', 'cover', 'glass')))
 
     def fallback_climate(self) -> dict[str, ClimateSetpoints]:
         fallback = self.spec.fallback
@@ -239,6 +249,12 @@ class Facility:
         fallback = self.spec.fallback
         return EnergySettings(fallback.chp_load, fallback.boiler, fallback.buffer,
                               fallback.external_co2_kg_h)
+
+    def recorded(self) -> Recorded:
+        """The recorded series (truth) for the business's storm schedule and the news feed."""
+        return Recorded(tuple(WeatherNow(w.hour, w.temp_c, w.wind_m_s, w.solar_w_m2, w.rh_pct)
+                              for w in self.weather.hours),
+                        tuple(p.gas_eur_m3 for p in self.prices.hours))
 
     def check_climate(self, compartment_id: str, setpoints: ClimateSetpoints) -> None:
         self._compartment(compartment_id)
@@ -274,6 +290,11 @@ class Facility:
             raise RuleError(f'chp_load must be 0 or {self.spec.energy_centre.chp.min_load:g} to 1')
         if settings.boiler not in ('auto', 'off') or settings.buffer not in ('auto', 'charge', 'hold', 'discharge'):
             raise RuleError('invalid boiler or buffer mode')
+        if not (math.isfinite(settings.boiler_max_fraction) and 0 <= settings.boiler_max_fraction <= 1):
+            raise RuleError('boiler_max_fraction must be 0 (off) to 1 (full)')
+        if settings.buffer_draw_max_kw is not None and not (math.isfinite(settings.buffer_draw_max_kw)
+                                                            and settings.buffer_draw_max_kw >= 0):
+            raise RuleError('buffer_draw_max_kw must be 0 or more (omit it for no cap)')
         if not 0 <= settings.external_co2_kg_h <= float(self.spec.energy_centre.external_co2.max_kg_per_h):
             raise RuleError('external_co2_kg_h exceeds the contract limit')
         for name, mapping in (('priority', settings.priority), ('heat_cap_kw', settings.heat_cap_kw),
@@ -345,7 +366,9 @@ class Facility:
             load, act = loads[key], acts[key]
             realised = Actuators(act.vent_pct, act.screen_closed, dispatch.lamp_kw[key],
                                  dispatch.heat_kw[key], dispatch.co2_kg_h[key])
-            leak = effects.get(f'{key}.cover', EquipmentEffect('')).leakage_factor
+            # Cover damage and broken glass both raise air leakage, and so heat loss.
+            leak = (effects.get(f'{key}.cover', EquipmentEffect('')).leakage_factor
+                    * effects.get(f'{key}.glass', EquipmentEffect('')).leakage_factor)
             result[key] = self.climates[key].step(
                 hour, dt_h, weather, realised, dispatch.heat_kw[key],
                 dispatch.co2_kg_h[key], load.transpiration_kg_h,
@@ -427,6 +450,13 @@ class Facility:
                 'time': 'One hour comprises substeps; controls apply through the built-in proportional controller',
             },
             'allocation': 'Higher integer priority first; proportional within each priority level',
+            'heat_sources': ('The thermostat serves each compartment setpoint from the available sources in a '
+                             'fixed order: the CHP at its set load, then buffer draw up to buffer_draw_max_kw '
+                             '(no cap if unset), then the boiler up to boiler_max_fraction of its capacity '
+                             '(boiler "off" = 0). A source that is not available, or has failed, delivers '
+                             'nothing; nothing unscheduled starts. Shortfall is shared by priority and caps.'),
+            'damage': ('Broken glass ("<compartment>.glass") multiplies that compartment\'s air leakage, and so '
+                       'its heat loss, until a repair is completed.'),
             'compartments': {c.id: {
                 'crop': c.crop,
                 'start_batches': [asdict(batch) for batch in c.start_batches],

@@ -1,0 +1,15 @@
+# Gas price rises. Owner: Rowan. All values [DES]. A real event is an hour at which the recorded
+# gas price is at least rise_fraction above its level window_h earlier (at most one per window).
+schema = "news/1"
+id = "gas_price"
+relates_to = "gas_price"
+rise_fraction = 0.05
+window_h = 72
+lead_h = { min = 24, max = 72 }
+hit_rate = 0.7
+false_alarms_per_day = 0.03
+headlines = [
+  "Gas prices rising on supply fears",
+  "TTF gas futures climb as cold weather lifts demand",
+  "Energy market jittery, wholesale gas up",
+]

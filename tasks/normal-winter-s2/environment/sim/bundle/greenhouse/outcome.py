@@ -3,7 +3,8 @@
 `ledger(sim)` is what `env.py` (Max) adds to `Environment.ledger()`. It reads the
 business (`sim.business`, world/business.Business), which holds `ledger`
 (world/ledger.Ledger), `ops` (world/operations.Operations) and `events`
-(world/events.Events). It also accepts an object holding those three directly.
+(world/events.Events); the contractors are `business.contractors`. It also accepts
+an object holding those directly.
 Crop and energy modules add their own evidence through `sim.failure_evidence()`
 if the simulator provides it (a dict of name -> number), e.g. the facility's
 hours with an empty CO2 store (the store is the facility's, not the business's).
@@ -37,8 +38,17 @@ def profit_eur(sim: Any) -> float:
 def failure_modes(sim: Any) -> dict[str, float | None]:
     b = _business(sim)
     ledger, ops, events = b.ledger, b.ops, b.events
+    contractors = getattr(b, "contractors", None)
     outages = events.outages
-    responded = [o.repair_requested_hour - o.start_hour for o in outages if o.repair_requested_hour is not None]
+    end = events.horizon_h
+    responded = [o.booked_hour - o.start_hour for o in outages if o.booked_hour is not None]
+    # Hours each persistent outage was in force: from its start to its repair, or to the end of the run.
+    last_hour = getattr(sim, "hour", None)
+    damage_h = 0.0
+    for o in outages:
+        if o.persistent:
+            stop = o.repaired_hour + 1 if o.repaired_hour is not None else (end if last_hour is None else last_hour)
+            damage_h += max(0.0, stop - o.start_hour)
     out: dict[str, float | None] = {
         "fm_late_deliveries": float(ops.late_deliveries),
         "fm_harvest_wait_h": ops.task_wait_h["harvest"],
@@ -51,9 +61,15 @@ def failure_modes(sim: Any) -> dict[str, float | None]:
         "fm_import_price_paid_eur_per_kwh": (ledger.import_cost_eur / ledger.import_kwh) if ledger.import_kwh else None,
         "fm_import_price_mean_eur_per_kwh": (ledger.sum_import_price / ledger.hours_priced) if ledger.hours_priced else None,
         "fm_outages": float(len(outages)),
-        "fm_outages_never_repaired": float(sum(1 for o in outages if o.repair_requested_hour is None)),
-        "fm_mean_repair_response_h": (sum(responded) / len(responded)) if responded else None,
-        "fm_repairs_wasted": float(events.repairs_wasted),
+        # A persistent outage nobody ever booked a contractor for.
+        "fm_outages_never_repaired": float(sum(1 for o in outages if o.persistent and o.booked_hour is None)),
+        "fm_mean_booking_response_h": (sum(responded) / len(responded)) if responded else None,
+        "fm_damage_hours": damage_h,
+        # Spare parts left in stock at the end are worth nothing.
+        "fm_parts_unused": float(sum(q for i, q in ops.stock.items() if ops.items[i].category == "parts")),
+        "fm_express_orders": float(sum(1 for o in ops.orders if o.express)),
+        "fm_storms": float(len(events.storm_starts())),
+        "fm_contractor_visits": float(contractors.visits if contractors is not None else 0),
         "fm_orders_placed": float(len(ops.orders)),
         "fm_orders_cancelled": float(sum(1 for o in ops.orders if o.status == "cancelled")),
     }

@@ -1,0 +1,16 @@
+# Storm warnings. Owner: Rowan. All values [DES]. Context 0.3: a news signal is something a
+# real grower could read; it raises the probability of an event and never names the exact
+# event, a piece of equipment, a compartment or an hour. Real storms are the storm event's
+# (hours of the recorded wind passing its threshold), so the warnings are honest forecasts.
+schema = "news/1"
+id = "storm"
+relates_to = "storm"
+lead_h = { min = 24, max = 72 }     # how far ahead of the storm a warning appears
+hit_rate = 0.8                      # chance a real storm is announced
+false_alarms_per_day = 0.03         # about one false warning a month
+headlines = [
+  "Storm warning for the coast in the coming days",
+  "KNMI code yellow for wind expected",
+  "Strong winds forecast as a deep low approaches the North Sea",
+  "Gale-force gusts expected inland, damage possible",
+]
