@@ -4,12 +4,13 @@ Entire is a context layer for the GitHub workflow in `WORKFLOW.md`. Each develop
 
 ## Setup in a real clone
 
-On macOS, install the stable CLI with `brew install --cask entireio/tap/entire`. Use [Entire's installation guide](https://docs.entire.com/quickstart) for other systems. Git 2.36+ is required for Graph. From the repository root:
+On macOS, install the stable CLI with `brew install --cask entireio/tap/entire`. Use [Entire's installation guide](https://docs.entire.com/quickstart) for other systems. Git 2.36+ is required for Graph. Check that your coding agent loads `AGENTS.md` before starting. From the repository root:
 
 ```bash
 entire version
 entire enable -y --agent codex
-# Use --agent claude-code or --agent opencode on those developers' machines instead.
+# Replace codex with the supported agent identifier used on that machine.
+entire status
 entire plugin install graph
 entire graph setup --repo .
 entire plugin install brain
@@ -17,7 +18,9 @@ entire brain setup --no-backfill --no-daemon
 entire brain status
 ```
 
-Graph and Brain setup generate `.entire/agent-guide.md` and managed blocks in `AGENTS.md`/`CLAUDE.md`. Review and commit these generated files from one branch; everyone else pulls them. Do not hand-edit the generated guide or managed blocks. Restart coding-agent sessions after pulling them. The `--no-backfill --no-daemon` choice avoids background model calls during the initial setup; enable deeper extraction later if useful.
+In each new worktree, run `entire status` to check that recording is on. [Entire's default checkpoint storage](https://docs.entire.com/guides/checkpoints/checkpoint-storage) pushes session context, including prompts and transcripts, to the same Git repository when code is pushed. In this public repository, review what a session captured before sharing it; never put secrets in prompts or logs. To keep a clone's checkpoints local, run `entire configure --local --skip-push-sessions` before recording sessions. [Local-only checkpoints](https://docs.entire.com/guides/checkpoints/keep-checkpoints-local) cannot be retrieved by teammates, so use reviewed issue/PR handoffs when that setting is active.
+
+Graph and Brain setup generate `.entire/agent-guide.md` and managed blocks in agent instruction files. Review and commit generated project files from one branch; everyone else pulls them. Do not hand-edit the generated guide or managed blocks. Restart coding-agent sessions after pulling them. The `--no-backfill --no-daemon` choice avoids background model calls during the initial setup; enable deeper extraction later if useful.
 
 ## Prove shared context
 

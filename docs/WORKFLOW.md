@@ -1,5 +1,16 @@
 # Four-person workflow
 
+## 48-hour timeline
+
+- Hours 0 to 2: decide and set up
+- Hours 2 to 36: parallel build
+- Hours 36 to 40: integration
+- Hour 40: feature freeze
+- Hours 40 to 46: hardening and demo prep
+- Hours 46 to 48: buffer
+
+Adjust the milestone times if the official submission deadline differs. The coordinator tracks dependency and demo readiness, and remains free to claim development work.
+
 ## Dynamic work queue and first parallel wave
 
 All four programmers can design, implement, evaluate, integrate, and review. The coordinator tracks dependencies and demo readiness, and also takes development issues. This machine is another development workstation. At a given moment, each active issue has one human point of contact and a defined file surface; that claim expires when the issue is merged or handed off. Choose tasks from the work queue by availability and dependency, not by a permanent role:
@@ -19,7 +30,7 @@ Freeze the one-page scenario contract with team review before incompatible imple
 4. One designated integrator for that PR reviews and merges in dependency order, reruns CI and the end-to-end path, and records any interface decision in `docs/DECISIONS.md`. This duty can rotate; an implementer can integrate another person's PR.
 5. After each merge, every owner updates from `main` before another substantial task. Put a short handoff in the PR: current state, exact command, seed, result, remaining risk.
 
-Use draft PRs early to expose work without merging incomplete code. Avoid direct pushes to `main` after this initialization. Use squash merges for a clear history. Keep one integration window at least every 2–3 hours; do not let four branches drift until the final hour.
+Use draft PRs early to expose work without merging incomplete code. Avoid direct pushes to `main` after this initialization. Use squash merges for a clear history. Merge small ready PRs every 30–60 minutes when practical, and keep an integration window at least every 2–3 hours; do not let four branches drift until the final hour.
 
 For a second agent on the same computer, create an isolated worktree from an up-to-date `main`:
 
@@ -35,6 +46,8 @@ Run that agent only inside `../junction-2-environment`. Use a different director
 ## Conflict and context rules
 
 - One active point of contact per issue and reserved file surface. Agree on shared interface changes in the issue/PR before concurrent branches depend on them.
+- Only the agent in the claimed branch edits its reserved files. Need a change in another active issue's files? Coordinate with that issue's point of contact rather than editing the other checkout.
+- Keep dependency changes coordinated and announced in the PR. Avoid drive-by refactors and keep `main` runnable.
 - GitHub issues/PRs and `docs/DECISIONS.md` are durable team state. Chat is for quick coordination, not the only record of decisions.
 - Entire Sessions should checkpoint important agent context; Graph should be used to locate related code; Brain should retain reviewed architectural decisions. Connect/sync Brain explicitly and test teammate retrieval before relying on it. Trails can assist review if they work with this GitHub workflow, but PRs remain the integration gate.
 - Codex (and any other coding agents) work as peers on isolated branches. Any team machine, including the coordinator's, can run development agents. GitHub coordinates integration; no machine owns all agent compute or a shared writable checkout.
@@ -44,4 +57,4 @@ Run that agent only inside `../junction-2-environment`. Use a different director
 
 An admin should configure a `main` ruleset in GitHub Settings: require a PR, require the `check` status, block force pushes and branch deletion, and require one reviewer if the team can sustain it. Do not enable a required check until its exact name appears on a real PR. Keep admin bypass for emergency use only. Grant each teammate repository access using their own account; do not share credentials.
 
-Issue format: **Goal / owner / owned files / contract / acceptance command / dependency / deadline**.
+Issue format: **Goal / current point of contact / reserved files / contract / acceptance command / dependency / deadline**.
