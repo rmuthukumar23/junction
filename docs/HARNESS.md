@@ -18,62 +18,75 @@ provider/model availability are external runtime dependencies.
 
 ```mermaid
 flowchart LR
-    A[OpenCode in agent container] --> B[MCP stdio bridge]
-    B -->|legal actions only| S[Trusted environment sidecar]
-    S --> R[Atomic private episode record]
-    H[Harbor host] -->|stop agent; collect sidecar record| R
+    A[OpenCode in agent container] -->|MCP over streamable HTTP| S[Trusted sim sidecar: MCP server and environment]
+    S --> R[Append-only action trace]
+    H[Harbor host] -->|stop agent; collect sidecar trace| R
     H --> V[Separate verifier container]
     R -->|trusted artifact transfer| V
     V -->|replay and independent interval checks| Q[Reward]
 ```
 
-- Main container receives the bridge, public instance and planning libraries. It
-  receives no generator witness, live state files, verifier code, Docker socket
-  or shared writable state volume. Solver libraries are available to the agent.
-- One service/container state per Harbor trial. The service is HTTP with four
-  legal operations; it has no reset, filesystem, arbitrary code or reward API.
-  Raw HTTP calls obey the same checks as MCP calls.
-- The sidecar atomically persists each mutating action before replying. Its
-  collection hook checks health, freezes the last record after the agent phase,
-  and writes `/state/episode.json` in the sidecar.
-- Harbor declares that artifact's service as `environment`, collects it through
-  the host, then places it in a fresh verifier container. Agent convention
-  artifacts go to a different path and are never used for scoring.
-- Verifier code and expected instance come from the task's `tests` image, never
-  the agent workspace. It replays all transitions and separately checks
+The backend that implements this boundary is `src/envkit`; see [BACKEND](BACKEND.md).
+
+- Main container receives planning libraries only. It receives no scenario,
+  seed, engine code, generator witness, live state files, verifier code, Docker
+  socket or shared writable state volume. The public instance comes from
+  `observe`. Solver libraries are available to the agent.
+- One sidecar and one episode per Harbor trial. The sidecar serves MCP with the
+  four legal tools; it has no reset, filesystem, arbitrary code or reward route.
+  Raw HTTP calls to the MCP endpoint obey the same checks as an MCP client's.
+- The sidecar appends each call to `/var/lib/envkit/trace.jsonl` and syncs it
+  before replying. If the sidecar restarts it rebuilds its state from that file.
+- Harbor declares that artifact's service as `sim`, collects it through the
+  host after stopping the agent, then places it in a fresh verifier container.
+  Agent convention artifacts go to a different path and are never used for scoring.
+- Verifier code, scenario and seed come from the task's `tests` image, never
+  the agent workspace. It replays all calls, finalizes the episode (an agent
+  that stopped is recorded as `harness_interruption`), and separately checks
   prerequisites, resource intervals, completion times and objective value.
-- Missing records, failed collection, invalid records and mismatched rewards
-  are infrastructure failures. They produce no authoritative zero-score result.
+- A missing trace, failed collection or a replay that cannot be graded writes
+  no reward and exits non-zero. These are infrastructure failures. They produce
+  no authoritative zero-score result. Reports also treat a trace that does not
+  reproduce on replay, or a Harbor reward that differs from the verifier's, as
+  infrastructure failures.
 - Agent timeouts keep completed-work credit; reports label them interrupted.
   Provider rate limits and other infrastructure failures are retained separately.
 
 This is the intended container boundary; schema and local transport tests alone
-are not an adversarial proof. GitHub's [Docker smoke passed](https://github.com/rmuthukumar23/junction/actions/runs/43537261501) with reward 1.0, trusted sidecar collection and separate verification. Finish
-with the event's 15-minute shell/file/protocol exploit session before submission.
+are not an adversarial proof. The [Docker smoke that passed in CI](https://github.com/rmuthukumar23/junction/actions/runs/43537261501)
+ran the previous adapter, before the backend merge; see EXPERIMENTS for what has
+been run on the current path. Finish with the event's 15-minute
+shell/file/protocol exploit session before submission.
 
 ## Commands
 
-See README for `scripts/judge.sh`. `--smoke` runs the legal reference without model
-keys. Full mode runs reference, three OpenCode attempts, do-nothing and stop-early.
+See README for `scripts/judge.sh`, which runs `envkit eval --scenario shift-planner`.
+`--smoke` runs the legal reference without model keys. Without `--model` it runs
+reference, do-nothing and stop-early. Full mode adds three OpenCode attempts.
+Each scripted run must reproduce its calibrated score exactly.
 `--seeds 0 1 2 3 4` is development; `--seeds 100 101 102` is reserved for after freeze.
 Do not enter API keys in arguments: Harbor resolves provider credentials from the
 calling environment. `--credential-env` names a required variable; it does not
 change Harbor's provider mapping. Confirm that mapping for the event provider.
 
 Each invocation needs a new output directory. Results preserve commands, code SHA
-and dirty flag, instance/hash, seed, model, harness and agent version, action/time
-limits, scores, status, full record and raw Harbor trace paths. Reports show each
+and dirty flag, scenario, bundle hash, seed, model, harness and agent version,
+scores, status, the tasks that were run and raw Harbor trial paths, which hold
+the full trace and the verifier's score.json (instance hash and per-job outcomes). Reports show each
 attempt, variance, missed deadlines and timings. Check `cleanup_unconfirmed` after
 an interrupted wrapper; inspect the provider and remove leftover resources if set.
 Native Harbor deletes trial environments by default; no automatic model retries.
 
 Core/reference checks need no model credentials. Frontier judging requires the
 event-approved model access. A private team Modal account is never required for
-the local Docker judge path.
+the local judge path. `--backend podman` works where Docker is absent; it needs
+a compose frontend (`podman compose` or `podman-compose`).
 
 ## Modal compatibility gate
 
 Use native `harbor run --env modal`, CPU only. No custom scheduler or GPU.
+Harbor's multi-container example states that Compose sidecars are not supported
+on cloud providers, so expect this gate to fail until Harbor says otherwise.
 Run one reference smoke before a full suite (three concurrent frontier attempts).
 Timebox event-kit compatibility to 45 minutes. Both service collection and separate
 verification must work; fail closed if either is unsupported. If blocked, retain

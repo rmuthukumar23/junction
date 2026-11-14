@@ -8,10 +8,12 @@ run it after every change to an environment or its scoring.
 Checks (limits can be overridden in the scenario's [audit] table):
   1. do-nothing scores at most `do_nothing_max` (0.05).
   2. absentee (shows up, does nothing) scores at most `absentee_max` (0.15).
-  3. stopping early never pays: stop-early scores do not fall as the played
-     fraction grows, and every one of them is below the reference.
+  3. stopping early never pays: cutting the reference run off after a
+     fraction of its tool calls never scores more than cutting it off later,
+     and every such prefix is below the full reference.
   4. no degenerate strategy (random calls, spamming one tool) reaches the
-     pass threshold set by the best scripted anchor.
+     pass threshold set by the best scripted anchor, or the reference itself
+     when the scenario has no anchored component.
   5. the reference clears that threshold.
   6. the episode is deterministic: the reference run twice gives identical
      traces, and replaying its trace reproduces every response.
@@ -53,7 +55,8 @@ def audit(scenario: Scenario, seed: int, calibration: dict[str, Any] | None = No
         add("anchor", name)
     nothing = add("idle", "do-nothing")
     absentee = add("idle", "absentee")
-    stops = [add("stop-early", f"stop-early:reference@{f:g}") for f in STOP_FRACTIONS]
+    cuts = sorted({max(1, round(f * len(ref_ep.trace.calls))) for f in STOP_FRACTIONS})
+    stops = [add("stop-early", f"stop-after:reference@{n}") for n in cuts]
     degenerate = [add("random", f"random:{s}") for s in range(5)]
     tools = [t["name"] for t in ref_ep.describe_tools()]
     degenerate += [add("spam", f"spam:{t}") for t in tools]
@@ -72,10 +75,10 @@ def audit(scenario: Scenario, seed: int, calibration: dict[str, Any] | None = No
          " <= ".join(f"{s:.3f}" for s in stops)),
         ("every stop-early run is below the reference", max(stops) < reference,
          f"max {max(stops):.4f} < {reference:.4f}"),
-        ("no degenerate strategy reaches the pass threshold", threshold is None or max(degenerate) < threshold,
-         f"max {max(degenerate):.4f} < {threshold}"),
+        ("no degenerate strategy reaches the pass threshold", max(degenerate) < (threshold or reference),
+         f"max {max(degenerate):.4f} < {threshold or reference}"),
         ("the reference clears the pass threshold", threshold is None or reference >= threshold,
-         f"{reference:.4f} >= {threshold}"),
+         f"{reference:.4f} >= {threshold}" if threshold is not None else "no anchored component, so no threshold"),
         ("no tool raised an internal error", all(r["faults"] == 0 for r in rows),
          f"{sum(r['faults'] for r in rows)} faults"),
         ("the reference run is deterministic", same and not mismatches,

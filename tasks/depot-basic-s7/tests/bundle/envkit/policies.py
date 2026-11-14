@@ -13,6 +13,7 @@ Policy names accepted by `make_policy`:
   stop-early[:P[@F]]         plays policy P (default: the scenario's reference)
                              for the first fraction F (default 0.3) of the
                              windows, then stops
+  stop-after:P@N             plays policy P for its first N tool calls, then stops
   random[:SEED]              random valid-looking calls
   spam:TOOL                  calls one tool over and over
   replay:PATH                re-issues the calls of a recorded trace
@@ -92,6 +93,33 @@ class _Limited(Client):
         return self.inner.call(tool, **args)
 
 
+class _Counted(Client):
+    def __init__(self, inner: Client, limit: int):
+        self.inner, self.limit, self.count = inner, limit, 0
+
+    @property
+    def last_header(self) -> dict[str, Any] | None:  # type: ignore[override]
+        return self.inner.last_header
+
+    def tools(self) -> list[dict[str, Any]]:
+        return self.inner.tools()
+
+    def call(self, tool: str, **args: Any) -> dict[str, Any]:
+        if self.count >= self.limit:
+            raise StopPolicy
+        self.count += 1
+        return self.inner.call(tool, **args)
+
+
+class StopAfter(Policy):
+    def __init__(self, inner: Policy, calls: int):
+        self.inner, self.calls = inner, calls
+        self.name = f"stop-after:{inner.name}@{calls}"
+
+    def run(self, client: Client) -> None:
+        self.inner.run(_Counted(client, self.calls))
+
+
 class StopEarly(Policy):
     def __init__(self, inner: Policy, fraction: float = 0.3):
         self.inner, self.fraction = inner, fraction
@@ -126,15 +154,20 @@ class Spam(Policy):
     def run(self, client: Client) -> None:
         rng = Rng(0, f"policy/spam/{self.tool}")
         spec = next(t for t in client.tools() if t["name"] == self.tool)
+        free = 0
         for _ in range(self.max_calls):
             args = self.env_class.fuzz_args(self.tool, rng)
             if args is None:
                 args = sample_args(spec["input_schema"], rng)
+            before = client.last_header
             r = client.call(self.tool, **args)
             if r["header"]["done"]:
                 return
-            if not r["ok"] and r["error"]["code"] not in ("tool_error",):
-                return  # rejected calls spend nothing, so this would never end
+            same_budget = before is not None and (before["window"], before["ops_left"]) == (
+                r["header"]["window"], r["header"]["ops_left"])
+            free = free + 1 if same_budget else 0
+            if free >= 50:
+                return  # calls that spend nothing would never end the episode
 
 
 class Replay(Policy):
@@ -144,7 +177,8 @@ class Replay(Policy):
     def run(self, client: Client) -> None:
         for rec in self.records:
             if rec.get("k") == "call":
-                client.call(rec["tool"], **(rec.get("args") or {}))
+                args = rec.get("args")
+                client.call(rec["tool"], **(args if isinstance(args, dict) else {}))
                 if client.done:
                     return
 
@@ -196,6 +230,9 @@ def make_policy(spec: str, scenario: Scenario) -> Policy:
     if head == "stop-early":
         inner, _, frac = (rest or scenario.reference).partition("@")
         return StopEarly(make_policy(inner or scenario.reference, scenario), float(frac) if frac else 0.3)
+    if head == "stop-after" and "@" in rest:
+        inner, _, count = rest.rpartition("@")
+        return StopAfter(make_policy(inner, scenario), int(count))
     if head == "random":
         return Random(env_class, int(rest) if rest else 0)
     if head == "spam" and rest:

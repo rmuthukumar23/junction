@@ -24,6 +24,11 @@ Local action objects use `{"tool": "start_job", "job_id": "J01"}` or analogous
 keys below. MCP presents four separate named tools; arguments have the same shape
 without the `tool` field. The harness alone calls `reset(seed)`.
 
+Over MCP each tool result is JSON `{"ok": true, "result": <observation>, "header": {...}}`
+or `{"ok": false, "error": {"code", "message"}, "header": {...}}`. The header
+repeats `time`, `shift_end`, `actions_used`, the actions left (`ops_left`) and
+`done`. After an error, call `observe` (free) for the unchanged state.
+
 | Tool | Arguments | Result |
 |---|---|---|
 | observe | none | Full detached observation; no action charged |
@@ -40,8 +45,10 @@ Invalid action objects (including extra/missing fields, booleans used as integer
 unknown IDs, duplicate starts, unavailable resources and time reversal) return an
 error and consume one action. Jobs/resources/time stay unchanged; reaching the
 64-action budget terminates even if the final attempt was invalid. Invalid MCP
-tool arguments reach the same validation path. Malformed protocol envelopes and
-oversized HTTP requests are rejected by transport; they never grant credit.
+tool arguments and unknown tool names are rejected by the backend with exact
+JSON types (no coercion) and then passed to the same core validation, so they
+consume one action. Malformed protocol envelopes and oversized HTTP requests
+are rejected by transport; they never grant credit.
 
 Terminate on finish, all jobs completing, shift end, action exhaustion or harness
 interruption. No action after termination changes state or reward. There is no

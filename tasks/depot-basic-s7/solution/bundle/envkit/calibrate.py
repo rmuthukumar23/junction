@@ -12,7 +12,7 @@ Layout (StoreBench's, generalized to several anchored components):
     {"tasks": {"<scenario>": {"<seed>": {
         "seed": 7, "bundle": "<hash>", "oracle": "reference", "threshold": 0.69,
         "components": {"business": {"zero": ..., "scale": ...}},
-        "anchors": {"do-nothing": {"reward": 0.0, "components": {...}, "ledger": {...}}, ...}
+        "anchors": {"do-nothing": {"reward": 0.0, "components": {...}, "metrics": {...}}, ...}
     }}}}
 """
 from __future__ import annotations
@@ -73,7 +73,7 @@ def calibrate(scenario: Scenario, seed: int) -> dict[str, Any]:
     anchors = {}
     for name, ledger in ledgers.items():
         s = score(scenario, ledger, entry)
-        anchors[name] = {"reward": s["reward"], "components": s["components"], "ledger": _tidy(ledger)}
+        anchors[name] = {"reward": s["reward"], "components": s["components"], "metrics": _scored(scenario, ledger)}
     top = [n for c in scenario.components for n in c.top_anchors]
     best_top = max((anchors[n]["reward"] for n in top), default=None)
     entry["threshold"] = None if best_top is None else round(best_top - scenario.pass_margin, 4)
@@ -96,5 +96,9 @@ def entry_for(data: dict[str, Any], scenario_id: str, seed: int) -> dict[str, An
     return data.get("tasks", {}).get(scenario_id, {}).get(str(int(seed)))
 
 
-def _tidy(ledger: dict[str, Any]) -> dict[str, Any]:
-    return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in ledger.items()}
+def _scored(scenario: Scenario, ledger: dict[str, Any]) -> dict[str, Any]:
+    """Only the ledger values the score reads. Anything else (call counts, which
+    of several equally good schedules a solver picked) may differ between
+    machines without changing a score, and must not make calibration look stale."""
+    names = dict.fromkeys(m for c in scenario.components for m in c.metrics)
+    return {k: (round(ledger[k], 4) if isinstance(ledger.get(k), float) else ledger.get(k)) for k in names}

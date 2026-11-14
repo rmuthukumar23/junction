@@ -14,7 +14,7 @@ keywords = ["envkit", "mcp", "simulation"]
 [metadata]
 scenario = "depot-basic"
 seed = 7
-bundle = "71783b9f1e051c73"
+bundle = "cc4a35c7e937f1b3"
 
 [agent]
 timeout_sec = 3600.0
@@ -28,6 +28,7 @@ build_timeout_sec = 900.0
 cpus = 1
 memory_mb = 2048
 storage_mb = 10240
+gpus = 0
 
 [[environment.mcp_servers]]
 name = "depot"

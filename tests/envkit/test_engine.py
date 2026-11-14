@@ -129,3 +129,45 @@ def test_policies_see_only_the_client(scenario):
     client = InProcessClient(Episode(scenario, 7))
     public = [n for n in dir(client) if not n.startswith("_")]
     assert sorted(public) == ["call", "done", "last_header", "tools"]
+
+
+# -- switches an environment's contract can set ----------------------------------
+
+def _strict_scenario():
+    """Shift Planner fixes its tool list, uses exact JSON types and charges invalid requests."""
+    from envkit.scenario import load_scenario
+    from conftest import ROOT
+    return load_scenario(ROOT / "scenarios" / "shift-planner.toml")
+
+
+def test_builtin_tools_can_be_switched_off():
+    ep = Episode(_strict_scenario(), 0)
+    assert set(ep.tools) == {"observe", "start_job", "advance", "finish"}
+
+
+def test_strict_arguments_reject_loose_number_encodings():
+    ep = Episode(_strict_scenario(), 0)
+    for value in ("3", 3.0, True):
+        assert ep.call("advance", {"to_time": value})["error"]["code"] == "invalid_arguments"
+
+
+def test_an_environment_can_charge_invalid_calls():
+    ep = Episode(_strict_scenario(), 0)
+    budget = ep.shift.ops_per_window
+    r = ep.call("no_such_tool", {})
+    assert r["error"]["code"] == "unknown_tool" and r["header"]["ops_left"] == budget - 1
+    assert ep.rejected == 1 and ep.ops_used == 1
+
+
+def test_termination_is_checked_after_every_operation():
+    ep = Episode(_strict_scenario(), 0)
+    r = ep.call("finish", {})
+    assert r["header"]["done"] and r["header"]["end_reason"] == "terminated:finish"
+    assert not ep.result()["stopped_early"]
+
+
+def test_stop_after_plays_a_prefix(scenario):
+    full = run_inprocess(scenario, 7, make_policy("reference", scenario))
+    part = run_inprocess(scenario, 7, make_policy("stop-after:reference@10", scenario))
+    assert [r["digest"] for r in part.trace.calls] == [r["digest"] for r in full.trace.calls[:10]]
+    assert part.result()["stopped_early"]

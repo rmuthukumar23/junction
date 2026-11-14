@@ -26,6 +26,7 @@ the remaining windows still happen with nobody at the desk.
 Every action goes through the tools of the MCP server `depot` (`http://sim:8000/mcp`), which is already connected. Nothing in this container's filesystem affects your result.
 
 - Each tool call spends one operation, unless the tool's description says otherwise. A call rejected for malformed arguments spends nothing.
-- `end_window` closes the current window. `read_alerts` returns announcements and rumors that have arrived.
-- Every result is JSON with `ok`, then `result` or `error`, then a `header` with the current window, the operations left and status. When `header.done` is true the episode is over.
-- There is no reset and no second attempt. Your result is computed from the state of the world after the final window.
+- `end_window` closes the current window.
+- `read_alerts` returns announcements and rumors that have arrived.
+- Every result is JSON with `ok`, then `result` or `error`, then a `header` with the operations left (`ops_left`) and status. When `header.done` is true the episode is over.
+- There is no reset and no second attempt. Your result is computed from the state of the world when the episode ends.

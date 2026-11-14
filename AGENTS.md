@@ -4,7 +4,7 @@ Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing.
 
 ## Goal and status
 
-Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. Shift Planner has a working core and candidate Harbor adapter. Official event-kit compatibility, frontier-agent results, a measured performance gap, and Modal execution remain unverified. See `docs/SCENARIO.md`, `docs/HARNESS.md`, and `docs/EXPERIMENTS.md` for the contract and evidence.
+Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. Shift Planner has a working core and is served and graded as a candidate Harbor task by the `envkit` backend (`docs/BACKEND.md`). Official event-kit compatibility, frontier-agent results, a measured performance gap, and Modal execution remain unverified. See `docs/SCENARIO.md`, `docs/HARNESS.md`, and `docs/EXPERIMENTS.md` for the contract and evidence.
 
 ## Working together
 
@@ -24,5 +24,6 @@ Build a reproducible interactive environment for Junction 2026's AfterQuery chal
 ## Checks and handoff
 
 - Run `bash scripts/check.sh` before a PR. For the pinned full test environment, follow the setup in `README.md`.
+- `tasks/` and `calibration.json` are generated. After changing anything under `src/` or `scenarios/`, run `uv run --no-sync envkit build` and commit the result; the full check fails if they are stale.
 - The candidate judge command is `bash scripts/judge.sh --model "$AFTERQUERY_MODEL" --output artifacts/judge`; it still needs event-kit and frontier validation.
 - Update the relevant project docs when an interface, command, decision, or benchmark result changes. End a PR handoff with the current state, verification command and result, and remaining risk.

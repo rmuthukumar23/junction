@@ -76,8 +76,9 @@ def input_schema(params: list[Param]) -> dict[str, Any]:
     return schema
 
 
-def validate(params: list[Param], args: Any) -> dict[str, Any]:
-    """Return coerced keyword arguments, or raise ArgumentError."""
+def validate(params: list[Param], args: Any, strict: bool = False) -> dict[str, Any]:
+    """Return keyword arguments, or raise ArgumentError. Loose number encodings
+    ("5", 5.0 for an integer) are accepted unless `strict` is set."""
     if args is None:
         args = {}
     if not isinstance(args, dict):
@@ -91,7 +92,7 @@ def validate(params: list[Param], args: Any) -> dict[str, Any]:
     out = {}
     for p in params:
         if p.name in args:
-            out[p.name] = _coerce(p.annotation, args[p.name], p.name)
+            out[p.name] = _coerce(p.annotation, args[p.name], p.name, strict)
         elif p.required:
             raise ArgumentError(f"missing required argument '{p.name}'")
         else:
@@ -139,20 +140,20 @@ def _json_schema(ann: Any) -> dict[str, Any]:
     raise TypeError(f"unsupported tool parameter type {ann!r}")
 
 
-def _coerce(ann: Any, value: Any, path: str) -> Any:
+def _coerce(ann: Any, value: Any, path: str, strict: bool = False) -> Any:
     optional, inner = _is_optional(ann)
     if optional:
-        return None if value is None else _coerce(inner, value, path)
+        return None if value is None else _coerce(inner, value, path, strict)
     if value is None:
         raise ArgumentError(f"'{path}' must not be null")
     if ann is bool:
         if isinstance(value, bool):
             return value
-        if isinstance(value, str) and value.lower() in ("true", "false"):
+        if not strict and isinstance(value, str) and value.lower() in ("true", "false"):
             return value.lower() == "true"
         raise ArgumentError(f"'{path}' must be a boolean")
     if ann is int or ann is float:
-        return _number(ann, value, path)
+        return _number(ann, value, path, strict)
     if ann is str:
         if not isinstance(value, str):
             raise ArgumentError(f"'{path}' must be a string")
@@ -169,22 +170,24 @@ def _coerce(ann: Any, value: Any, path: str) -> Any:
         (item,) = get_args(ann) or (str,)
         if not isinstance(value, list):
             raise ArgumentError(f"'{path}' must be an array")
-        return [_coerce(item, v, f"{path}[{i}]") for i, v in enumerate(value)]
+        return [_coerce(item, v, f"{path}[{i}]", strict) for i, v in enumerate(value)]
     if origin is dict:
         _, val = get_args(ann) or (str, str)
         if not isinstance(value, dict):
             raise ArgumentError(f"'{path}' must be an object")
-        return {str(k): _coerce(val, v, f"{path}.{k}") for k, v in value.items()}
+        return {str(k): _coerce(val, v, f"{path}.{k}", strict) for k, v in value.items()}
     raise ArgumentError(f"'{path}': unsupported type")
 
 
-def _number(ann: Any, value: Any, path: str) -> Any:
+def _number(ann: Any, value: Any, path: str, strict: bool = False) -> Any:
     # Agents and harnesses are loose with number encodings ("5", 5.0), so accept
     # anything that is unambiguously the right number rather than failing the
     # call on formatting.
     if isinstance(value, bool):
         raise ArgumentError(f"'{path}' must be a number, not a boolean")
-    if isinstance(value, str):
+    if strict and ann is int and type(value) is not int:
+        raise ArgumentError(f"'{path}' must be an integer")
+    if isinstance(value, str) and not strict:
         try:
             value = float(value.strip())
         except ValueError:

@@ -15,7 +15,6 @@ dev = ["pytest==9.0.3"]
 
 [project.scripts]
 shift-planner = "junction_env.evaluation:main"
-shift-planner-mcp = "junction_env.adapters.mcp_server:main"
 envkit = "envkit.cli:main"
 
 [build-system]

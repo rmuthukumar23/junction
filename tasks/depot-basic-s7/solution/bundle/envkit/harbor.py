@@ -30,15 +30,22 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .bundle import write_bundle
+from .bundle import ROOT, write_bundle
+from .core import Environment
 from .scenario import Scenario
 
 SIM_SERVICE = "sim"
 SIM_PORT = 8000
 STATE_DIR = "/var/lib/envkit"
-MCP_VERSION = "2.3.0"
-UVICORN_VERSION = "0.54.0"
-BASE_IMAGE = "python:3.12-slim-bookworm"
+HARBOR_VERSION = "0.26.0"
+# Multi-platform image digests, so a rebuild next week gets the same base.
+PYTHON_IMAGE = ("docker.io/library/python@sha256:"
+                "935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df")  # 3.12-slim-bookworm
+NODE_IMAGE = ("docker.io/library/node@sha256:"
+              "e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee")    # 22-bookworm-slim
+# Hash-pinned packages for the agent and simulation images, exported from uv.lock
+# (see docs/STACK.md). The verifier image installs nothing.
+REQUIREMENTS = "harness/requirements.txt"
 
 
 def task_name(scenario: Scenario, seed: int) -> str:
@@ -53,6 +60,20 @@ def build_task(scenario: Scenario, seed: int, calibration: dict[str, Any], out_r
         shutil.rmtree(task)
     mcp_name = str(h.get("mcp_name", "env"))
     url = f"http://{SIM_SERVICE}:{SIM_PORT}/mcp"
+    requirements = (ROOT / REQUIREMENTS).read_text()
+    env_class = scenario.env_class()
+    notes = []
+    if env_class.on_invalid_call is Environment.on_invalid_call:
+        notes.append("- Each tool call spends one operation, unless the tool's description says otherwise. "
+                     "A call rejected for malformed arguments spends nothing.")
+    if "end_window" in env_class.builtin_tools:
+        notes.append("- `end_window` closes the current window.")
+    if "read_alerts" in env_class.builtin_tools:
+        notes.append("- `read_alerts` returns announcements and rumors that have arrived.")
+    notes.append("- Every result is JSON with `ok`, then `result` or `error`, then a `header` with the "
+                 "operations left (`ops_left`) and status. When `header.done` is true the episode is over.")
+    notes.append("- There is no reset and no second attempt. Your result is computed from the state of "
+                 "the world when the episode ends.")
 
     bundle_hash = ""
     for sub in ("environment/sim/bundle", "tests/bundle", "solution/bundle"):
@@ -88,6 +109,7 @@ build_timeout_sec = {float(h.get("build_timeout_sec", 900))}
 cpus = {int(h.get("cpus", 1))}
 memory_mb = {int(h.get("memory_mb", 2048))}
 storage_mb = {int(h.get("storage_mb", 10240))}
+gpus = 0
 
 [[environment.mcp_servers]]
 name = "{mcp_name}"
@@ -100,16 +122,13 @@ url = "{url}"
 
 Every action goes through the tools of the MCP server `{mcp_name}` (`{url}`), which is already connected. Nothing in this container's filesystem affects your result.
 
-- Each tool call spends one operation, unless the tool's description says otherwise. A call rejected for malformed arguments spends nothing.
-- `end_window` closes the current window. `read_alerts` returns announcements and rumors that have arrived.
-- Every result is JSON with `ok`, then `result` or `error`, then a `header` with the current window, the operations left and status. When `header.done` is true the episode is over.
-- There is no reset and no second attempt. Your result is computed from the state of the world after the final window.
+{chr(10).join(notes)}
 ''')
 
     _write(task / "environment/Dockerfile", f'''# The agent's container. It holds tooling only: no scenario, no seed, no engine code.
-FROM node:22-bookworm-slim AS node
+FROM {NODE_IMAGE} AS node
 
-FROM {BASE_IMAGE}
+FROM {PYTHON_IMAGE}
 RUN apt-get update \\
     && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl git \\
     && rm -rf /var/lib/apt/lists/*
@@ -118,10 +137,13 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \\
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-# MCP client library, used by the oracle and available to the agent.
-RUN pip install --no-cache-dir mcp=={MCP_VERSION}
+# Planning and MCP client libraries, available to the agent and used by the oracle.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt
 WORKDIR /app
 ''')
+    _write(task / "environment/requirements.txt", requirements)
+    _write(task / "environment/sim/requirements.txt", requirements)
 
     _write(task / "environment/docker-compose.yaml", f'''# Merged on top of Harbor's base compose file, which defines `main`.
 services:
@@ -145,8 +167,9 @@ services:
       start_period: 3s
 ''')
 
-    _write(task / "environment/sim/Dockerfile", f'''FROM {BASE_IMAGE}
-RUN pip install --no-cache-dir mcp=={MCP_VERSION} uvicorn=={UVICORN_VERSION}
+    _write(task / "environment/sim/Dockerfile", f'''FROM {PYTHON_IMAGE}
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt
 RUN useradd --system --uid 10001 envkit \\
     && mkdir -p {STATE_DIR} && chown envkit {STATE_DIR}
 COPY bundle /opt/envkit
@@ -158,7 +181,7 @@ CMD ["python", "-m", "envkit.server"]
 ''')
 
     _write(task / "tests/Dockerfile", f'''# The verifier image. Standard library only: it needs no network to grade.
-FROM {BASE_IMAGE}
+FROM {PYTHON_IMAGE}
 ENV PYTHONDONTWRITEBYTECODE=1
 COPY . /tests/
 ''')
@@ -167,10 +190,9 @@ COPY . /tests/
 # Replays the collected trace in a fresh process and writes the reward.
 mkdir -p /logs/verifier
 cd /tests/bundle
-python3 -m envkit.verify --bundle /tests/bundle --trace {STATE_DIR}/trace.jsonl --out /logs/verifier
-if [ ! -s /logs/verifier/reward.txt ]; then
-  echo 0 > /logs/verifier/reward.txt
-fi
+# No reward file is written if the trace is missing or cannot be graded: that is
+# an infrastructure failure, not a score of zero.
+exec python3 -m envkit.verify --bundle /tests/bundle --trace {STATE_DIR}/trace.jsonl --out /logs/verifier
 ''', executable=True)
 
     _write(task / "solution/solve.sh", f'''#!/bin/bash

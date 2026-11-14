@@ -8,8 +8,9 @@
     envkit play SCENARIO [--record F]  play by hand in the terminal
     envkit replay SCENARIO TRACE       regrade a recorded trace
     envkit serve SCENARIO              run the MCP server locally
-    envkit eval TASK [--model M]       the judging protocol, through Harbor
-    envkit report JOBS_DIR             summarize Harbor results
+    envkit eval --scenario S --output DIR [--model M] [--smoke] [--seeds N...]
+                                       the judging protocol, through Harbor
+    envkit report DIR                  summarize Harbor trials under DIR
 
 SCENARIO is a scenario id (scenarios/<id>.toml) or a path to a scenario file.
 With no SCENARIO, commands that accept several act on all of them.
@@ -198,13 +199,14 @@ def cmd_serve(a: argparse.Namespace) -> int:
 def cmd_eval(a: argparse.Namespace) -> int:
     from .evalrun import run_eval
 
-    return run_eval(a)
+    (scenario,) = find_scenarios([a.scenario])
+    return run_eval(a, scenario)
 
 
 def cmd_report(a: argparse.Namespace) -> int:
     from .report import collect, format_report
 
-    rows = collect(Path(a.jobs_dir))
+    rows = collect(Path(a.dir))
     print(format_report(rows))
     if a.json:
         Path(a.json).write_text(json.dumps(rows, indent=1) + "\n")
@@ -258,17 +260,22 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_serve)
 
     p = sub.add_parser("eval", help="run the judging protocol through Harbor")
-    p.add_argument("task", help="task directory, e.g. tasks/depot-basic-s7")
-    p.add_argument("--model", help="provider/model for the agent runs; omit to run baselines only")
+    p.add_argument("--scenario", required=True, help="scenario id or path")
+    p.add_argument("--output", required=True, help="new directory for tasks, logs, trials and reports")
+    p.add_argument("--seeds", type=int, nargs="+", help="default: the scenario's committed seeds")
+    p.add_argument("--model", help="provider/model for the agent runs; omit to run the scripted runs only")
     p.add_argument("--agent", default="opencode")
-    p.add_argument("--runs", type=int, default=3, help="number of agent runs")
-    p.add_argument("--env", dest="runtime", choices=["docker", "podman"], help="default: docker if present, else podman")
-    p.add_argument("--jobs-dir", default="jobs")
-    p.add_argument("--name", help="name for this evaluation (default: a timestamp)")
+    p.add_argument("--opencode-version", default="1.19.5")
+    p.add_argument("--credential-env", default="OPENAI_API_KEY",
+                   help="name of the environment variable that must hold the model credential")
+    p.add_argument("--runs", type=int, default=3, help="number of agent runs per seed")
+    p.add_argument("--smoke", action="store_true", help="one reference run per seed; no model credentials")
+    p.add_argument("--backend", choices=["auto", "docker", "podman", "modal"], default="auto",
+                   help="auto: docker if present, else podman")
     p.set_defaults(fn=cmd_eval)
 
-    p = sub.add_parser("report", help="summarize Harbor results")
-    p.add_argument("jobs_dir")
+    p = sub.add_parser("report", help="summarize Harbor trials")
+    p.add_argument("dir")
     p.add_argument("--json", help="also write the rows to this file")
     p.set_defaults(fn=cmd_report)
 

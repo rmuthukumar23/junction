@@ -80,6 +80,12 @@ class Environment:
         it must be 0 when the agent does nothing.
     """
 
+    # Engine-provided tools this environment exposes. An environment whose
+    # public contract fixes the exact tool list sets this to ().
+    builtin_tools: tuple[str, ...] = ("end_window", "read_alerts")
+    # True: arguments must have exact JSON types ("5" and 5.0 are not integers).
+    strict_arguments: bool = False
+
     def __init__(self, config: dict[str, Any], shift: Shift, rng: Rng):
         self.config = config
         self.shift = shift
@@ -102,8 +108,16 @@ class Environment:
         """Settle anything still in flight once the last window has closed."""
 
     def terminated(self) -> str | None:
-        """Return a reason to end the episode early (e.g. 'bankrupt')."""
+        """Return a reason to end the episode now (e.g. 'bankrupt', 'finish').
+        Checked after every operation and at every window close."""
         return None
+
+    def on_invalid_call(self, name: str, args: Any) -> bool:
+        """Called for a call the engine rejected before it reached a tool
+        (unknown tool, malformed arguments). Return True to charge it one
+        operation. The default is free: a formatting slip is not a decision.
+        A contract that counts invalid requests against a budget overrides this."""
+        return False
 
     # -- observation and outcome -----------------------------------------------
 
@@ -191,8 +205,8 @@ class Episode:
             ToolSpec("read_alerts", "Read alerts and news that have arrived (announcements and rumors about "
                      "changes in the world). Returns unread alerts, or all of them with all=true.",
                      tuple(params_of(self._read_alerts)), self._read_alerts, 1),
-            *self.env.tool_specs(),
         ]
+        specs = [s for s in specs if s.name in self.env.builtin_tools] + self.env.tool_specs()
         self.tools: dict[str, ToolSpec] = {}
         for spec in specs:
             if spec.name in self.tools:
@@ -220,7 +234,7 @@ class Episode:
                      "message": f"'{name}' costs {spec.cost} operations but only {self.ops_left} remain in this window."}
         else:
             try:
-                kwargs = validate(list(spec.params), args)
+                kwargs = validate(list(spec.params), args, strict=self.env.strict_arguments)
             except ArgumentError as e:
                 error = {"code": "invalid_arguments", "message": str(e)}
             else:
@@ -238,15 +252,20 @@ class Episode:
                              "message": "The environment hit an internal error. No operation was spent."}
                 args = kwargs
 
-        accepted = ok or (error is not None and error["code"] == "tool_error")
-        if accepted:
+        code = None if ok else error["code"]
+        if code in ("unknown_tool", "invalid_arguments"):
+            self.rejected += 1
+            if self.env.on_invalid_call(name, args):
+                spent = 1
+        if ok or code == "tool_error":
             self.calls += 1
+        if ok or code == "tool_error" or spent:
             self.ops_used += spent
             self.ops_left -= spent
             self.acted[self.window] = True
-            if name == "end_window" or self.ops_left <= 0:
+            if name == "end_window" or self.ops_left <= 0 or self.env.terminated():
                 self._close_window()
-        elif error["code"] != "episode_over":  # calls after the end never touch the ledger
+        elif code == "insufficient_ops":
             self.rejected += 1
 
         response: dict[str, Any] = {"ok": ok}
@@ -259,7 +278,7 @@ class Episode:
         if record:
             self.trace.append({
                 "k": "call", "i": self._n_recorded, "window": window_before, "tool": name,
-                "args": args if isinstance(args, dict) else {}, "ok": ok, "spent": spent,
+                "args": args, "ok": ok, "spent": spent,
                 "digest": digest(response), "response": response,
             })
             self._n_recorded += 1
@@ -313,10 +332,10 @@ class Episode:
         self.timeline.append({"window": w + 1, "acted": self.acted[w], **self.env.snapshot()})
         self.window += 1
         reason = self.env.terminated()
-        if self.window >= self.shift.windows:
-            self._finish("horizon")
-        elif reason:
+        if reason:
             self._finish(f"terminated:{reason}")
+        elif self.window >= self.shift.windows:
+            self._finish("horizon")
         else:
             self.ops_left = self.shift.ops_per_window
             self._open_window()

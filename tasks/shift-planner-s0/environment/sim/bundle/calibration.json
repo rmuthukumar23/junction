@@ -1,0 +1,54 @@
+{
+ "anchors": {
+  "absentee": {
+   "components": {
+    "on_time_value": 0.0
+   },
+   "metrics": {
+    "score": 0.0
+   },
+   "reward": 0.0
+  },
+  "do-nothing": {
+   "components": {
+    "on_time_value": 0.0
+   },
+   "metrics": {
+    "score": 0.0
+   },
+   "reward": 0.0
+  },
+  "earliest-deadline": {
+   "components": {
+    "on_time_value": 1.0
+   },
+   "metrics": {
+    "score": 1.0
+   },
+   "reward": 1.0
+  },
+  "reference": {
+   "components": {
+    "on_time_value": 1.0
+   },
+   "metrics": {
+    "score": 1.0
+   },
+   "reward": 1.0
+  },
+  "stop-early": {
+   "components": {
+    "on_time_value": 0.0
+   },
+   "metrics": {
+    "score": 0.0
+   },
+   "reward": 0.0
+  }
+ },
+ "bundle": "8075129f3f06adb2",
+ "components": {},
+ "oracle": "reference",
+ "seed": 0,
+ "threshold": null
+}

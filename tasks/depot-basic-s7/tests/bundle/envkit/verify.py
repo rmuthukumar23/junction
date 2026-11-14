@@ -9,8 +9,11 @@ the committed calibration, and writes:
     <out>/reward.txt   one number in [0, 1]
     <out>/score.json   components, ledger, replay check and per-window timeline
 
-Nothing here trusts a value computed next to the agent. A missing or empty
-trace is graded as what it is: an episode in which nobody acted.
+Nothing here trusts a value computed next to the agent. A trace with no
+calls is graded as what it is: an episode in which nobody acted. A trace that
+is missing altogether, or that cannot be graded, is an infrastructure failure:
+no reward file is written and the exit code is non-zero, so the harness
+records an error instead of a score of zero for the agent.
 
     python -m envkit.verify [--bundle DIR] [--trace FILE] [--out DIR]
 """
@@ -34,6 +37,8 @@ DEFAULT_OUT = "/logs/verifier"
 
 def grade(bundle_dir: Path, trace_path: Path) -> dict[str, Any]:
     scenario, manifest, calibration = load_bundle(bundle_dir)
+    if not trace_path.exists():
+        raise FileNotFoundError(f"no trace at {trace_path}: sidecar collection failed")
     records = read_trace(trace_path)
     header = next((r for r in records if r.get("k") == "header"), None)
 
@@ -42,8 +47,6 @@ def grade(bundle_dir: Path, trace_path: Path) -> dict[str, Any]:
     result = score(scenario, ledger, calibration)
 
     notes = []
-    if not trace_path.exists():
-        notes.append("no trace was collected; graded as an episode with no actions")
     if header and (header.get("bundle"), header.get("seed")) != (manifest["bundle"], manifest["seed"]):
         notes.append("trace header does not match this verifier's bundle; graded with the verifier's own scenario and seed")
     if calibration and calibration.get("bundle") != manifest["bundle"]:
@@ -62,7 +65,6 @@ def grade(bundle_dir: Path, trace_path: Path) -> dict[str, Any]:
         "bundle": manifest["bundle"],
         "ledger": ledger,
         "replay": {
-            "trace_found": trace_path.exists(),
             "calls": sum(1 for r in records if r.get("k") == "call"),
             "consistent": not mismatches,
             "mismatches": mismatches[:20],
@@ -85,9 +87,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         out = grade(a.bundle, a.trace)
     except Exception:
-        # A verifier that crashes must not look like a pass, or like a missing score.
-        out = {"reward": 0.0, "error": traceback.format_exc()}
-        print(out["error"], file=sys.stderr)
+        error = traceback.format_exc()
+        print(error, file=sys.stderr)
+        (a.out / "score.json").write_text(json.dumps({"reward": None, "error": error}, indent=1) + "\n")
+        return 1
     (a.out / "score.json").write_text(json.dumps(out, indent=1, default=str) + "\n")
     (a.out / "reward.txt").write_text(f"{out['reward']:.4f}\n")
     summary = {k: out.get(k) for k in ("reward", "passed", "components", "notes") if k in out}

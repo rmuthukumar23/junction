@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from envkit.audit import audit
 from envkit.bundle import bundle_hash, source_files
 from envkit.calibrate import entry_for, load_calibration
@@ -12,6 +14,7 @@ from envkit.harbor import check_task, task_name
 from envkit.policies import make_policy
 from envkit.trace import read_trace, write_trace
 from envkit.verify import grade
+from envkit.verify import main as verify_main
 
 from conftest import ROOT
 
@@ -35,7 +38,7 @@ def test_agent_image_contains_no_task_data(scenario):
     for seed in scenario.seeds:
         env = ROOT / "tasks" / task_name(scenario, seed) / "environment"
         outside_sim = [p for p in env.rglob("*") if p.is_file() and "sim" not in p.relative_to(env).parts]
-        assert sorted(p.name for p in outside_sim) == ["Dockerfile", "docker-compose.yaml"]
+        assert sorted(p.name for p in outside_sim) == ["Dockerfile", "docker-compose.yaml", "requirements.txt"]
         dockerfile = (env / "Dockerfile").read_text()
         assert "bundle" not in dockerfile and "COPY --from=node" in dockerfile
 
@@ -54,9 +57,21 @@ def test_verifier_regrades_a_trace(scenario, tmp_path):
     assert out["replay"]["consistent"] and out["replay"]["calls"] == ep.calls and out["notes"] == []
 
 
-def test_verifier_grades_a_missing_trace_as_doing_nothing(scenario, tmp_path):
-    out = grade(_verifier_bundle(scenario), tmp_path / "absent.jsonl")
-    assert out["reward"] == 0.0 and not out["replay"]["trace_found"]
+def test_verifier_grades_an_empty_trace_as_doing_nothing(scenario, tmp_path):
+    run_inprocess(scenario, scenario.seeds[0], make_policy("do-nothing", scenario), tmp_path / "trace.jsonl",
+                  bundle_hash(source_files(scenario)))
+    out = grade(_verifier_bundle(scenario), tmp_path / "trace.jsonl")
+    assert out["reward"] == 0.0 and out["replay"]["calls"] == 0 and out["notes"] == []
+
+
+def test_missing_trace_writes_no_reward(scenario, tmp_path):
+    """Failed collection is an infrastructure failure, never a score of zero."""
+    with pytest.raises(FileNotFoundError):
+        grade(_verifier_bundle(scenario), tmp_path / "absent.jsonl")
+    code = verify_main(["--bundle", str(_verifier_bundle(scenario)), "--trace", str(tmp_path / "absent.jsonl"),
+                        "--out", str(tmp_path / "out")])
+    assert code == 1 and not (tmp_path / "out" / "reward.txt").exists()
+    assert json.loads((tmp_path / "out" / "score.json").read_text())["reward"] is None
 
 
 def test_verifier_ignores_recorded_responses(scenario, tmp_path):

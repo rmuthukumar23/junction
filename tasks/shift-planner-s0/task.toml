@@ -1,0 +1,36 @@
+schema_version = "1.4"
+
+# The only evidence the verifier receives: the action log written by the
+# simulation sidecar. Nothing is taken from the agent's container.
+artifacts = [
+    { source = "/var/lib/envkit/trace.jsonl", service = "sim" },
+]
+
+[task]
+name = "junction/shift-planner-s0"
+description = "Shift Planner"
+keywords = ["envkit", "mcp", "simulation"]
+
+[metadata]
+scenario = "shift-planner"
+seed = 0
+bundle = "8075129f3f06adb2"
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 2048
+storage_mb = 4096
+gpus = 0
+
+[[environment.mcp_servers]]
+name = "shift-planner"
+transport = "streamable-http"
+url = "http://sim:8000/mcp"

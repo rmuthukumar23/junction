@@ -43,13 +43,13 @@ def resume(scenario: Scenario, seed: int, trace_path: Path, bundle_hash: str) ->
 
 def instructions(scenario: Scenario) -> str:
     s = scenario.shift
-    return (
-        f"{scenario.title}. Time is windowed: {s.windows} windows of {s.window_hours:g} hours, "
-        f"{s.ops_per_window} operations per window. Each tool call spends one operation unless its "
-        "description says otherwise. Spending the last operation, or calling end_window, advances the "
-        "clock. Every result carries a header with the current window, operations left and status. "
-        "When the last window closes the episode is over."
-    )
+    if s.windows == 1:
+        budget = f"You have {s.ops_per_window} operations in total."
+    else:
+        budget = (f"Time is windowed: {s.windows} windows of {s.window_hours:g} hours, {s.ops_per_window} "
+                  "operations per window. Spending a window's last operation advances the clock.")
+    return (f"{scenario.title}. {budget} Every result carries a header with the operations left and "
+            "status. When header.done is true the episode is over.")
 
 
 def build_app(episode: Episode) -> Any:
