@@ -1,0 +1,144 @@
+# Placeholder scenario for the placeholder Depot world. Copy this file as the
+# starting point for a real task; every table is documented in envkit/scenario.py.
+
+[task]
+id = "depot-basic"
+title = "Depot handover"
+env = "envs.depot:Depot"
+seeds = [7]
+reference = "reference"   # an environment policy name, or "replay:traces/<file>.jsonl"
+prompt = """
+You are taking over a small distribution depot for the next ${horizon_days} days.
+
+Customers place orders around the clock. You ship them from stock and restock
+from a supplier. Each item has its own selling price, supplier cost and
+supplier lead time. An order that is not shipped by its deadline is cancelled
+and you pay a penalty. Stock sitting on the shelf costs money every window,
+and every purchase order carries a fixed fee.
+
+You are judged on the depot's net assets at the end of your term, on the share
+of ordered units you shipped, and on showing up: after the last window any
+stock you still hold is sold off at a fraction of what it cost, so stock you
+cannot sell in time is money lost. How fast each item sells is not given to
+you; your own sales history shows it. Conditions change during the term. Some
+changes are announced in alerts, some reach you only as rumors, and some you
+will see only in your own numbers.
+
+Time is windowed. There are ${windows} windows of ${window_hours} hours, and
+each window has a budget of ${ops_per_window} tool operations. Every tool
+result ends with a header showing the window, the operations left, your cash
+and the units customers are waiting for. Spending the last operation, or
+calling end_window, advances the clock. If you stop before the last window,
+the remaining windows still happen with nobody at the desk.
+"""
+
+[shift]
+windows = 30
+window_hours = 12
+ops_per_window = 12
+start = "2026-08-01 00:00:00"
+
+[env]
+starting_cash = 4000.0
+order_fee = 15.0
+holding_rate = 0.01
+order_deadline_windows = 2
+cancel_penalty_rate = 0.25
+salvage_rate = 0.3
+
+[env.items.A]
+price = 30.0
+unit_cost = 18.0
+lead_windows = 2
+demand = 9.0
+stock = 30
+
+[env.items.B]
+price = 55.0
+unit_cost = 30.0
+lead_windows = 3
+demand = 5.0
+stock = 20
+
+[env.items.C]
+price = 18.0
+unit_cost = 9.0
+lead_windows = 1
+demand = 14.0
+stock = 40
+
+[env.items.D]
+price = 90.0
+unit_cost = 60.0
+lead_windows = 4
+demand = 2.5
+stock = 12
+
+[env.items.E]
+price = 24.0
+unit_cost = 15.0
+lead_windows = 2
+demand = 7.0
+stock = 25
+
+# Scripted events, one per information channel.
+[[events]]
+at_window = 8
+kind = "demand_multiplier"
+item = "C"
+factor = 2.2            # announced: the alert states the change
+
+[[events]]
+at_window = 13
+kind = "demand_multiplier"
+item = "A"
+factor = 0.35
+announce = false        # silent: only the depot's own sales reveal it
+
+[[events]]
+at_window = 17
+kind = "cost_change"
+item = "D"
+factor = 1.6
+rumor = "Trade press: the supplier of item D is said to be repricing after a materials shortage."
+
+[[events]]
+at_window = 20
+kind = "lead_time_change"
+item = "B"
+windows = 5
+
+[scoring]
+pass_margin = 0.01
+
+[[scoring.components]]
+name = "business"
+weight = 0.7
+kind = "anchored"
+metric = "business_raw"
+zero_anchors = ["do-nothing", "absentee"]
+top_anchors = ["rule-based"]
+target = 0.70
+
+[[scoring.components]]
+name = "reliability"
+weight = 0.2
+kind = "mean"
+metrics = ["on_time_rate"]
+
+[[scoring.components]]
+name = "continuity"
+weight = 0.1
+kind = "mean"
+metrics = ["continuity"]
+
+[calibration]
+anchors = ["ship-only", "random:1"]
+
+[harbor]
+org = "junction"          # task name prefix: <org>/<id>-s<seed>
+mcp_name = "depot"       # the MCP server name the agent sees
+agent_timeout_sec = 3600
+verifier_timeout_sec = 300
+cpus = 1
+memory_mb = 2048
