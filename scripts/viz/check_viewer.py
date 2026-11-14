@@ -1,7 +1,7 @@
 """Check that the viewer shows the real game, exactly.
 
     uv run python scripts/viz/check_viewer.py                  # every scripted grower, seed 1
-    uv run python scripts/viz/check_viewer.py --seeds 1 2 3 --scenario quick-winter
+    uv run python scripts/viz/check_viewer.py --seeds 1 2 3 --scenario dev-winter
     uv run python scripts/viz/check_viewer.py --trace artifacts/.../trace.jsonl
 
 For each game it checks:
