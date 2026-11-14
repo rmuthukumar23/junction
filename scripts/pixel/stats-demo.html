@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats demo</title>
+<!-- Standalone demo. Serve the repo root (python -m http.server 8801) and open
+     /scripts/pixel/stats-demo.html?data=real   (Harbor runs, from artifacts/pixel-cache/stats.json)
+     /scripts/pixel/stats-demo.html?data=synthetic  (synthetic greenhouse runs)
+     /scripts/pixel/stats-demo.html?data=error|empty|loading  (state previews)
+     Generate the JSON: python scripts/pixel/analytics.py --bench artifacts/bench --out artifacts/pixel-cache/stats.json
+                        python tests/pixel/synth.py artifacts/pixel-cache/stats-synthetic.json -->
+<link rel="stylesheet" href="stats.css">
+<style>
+  /* stand-ins for the shared style.css, only so this page looks right alone */
+  :root { --px-bg: #1b1a17; --px-panel: #2a2823; --px-ink: #e8e1cf; --px-accent: #f2b134; --px-good: #7bc950; --px-bad: #e8604c; --px-warn: #f2b134; --px-heat: #e8604c; --px-co2: #4fb0c6; }
+  body { margin: 0; background: var(--px-bg); }
+  .px-btn { display: inline-block; padding: 4px 10px; border: 3px solid var(--px-ink); background: var(--px-panel); color: var(--px-ink); font-family: "Courier New", monospace; cursor: pointer; border-radius: 0; }
+  .px-title { font-family: "Courier New", monospace; }
+  .px-tag { font-family: "Courier New", monospace; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="stats.js"></script>
+<script>
+  var mode = new URLSearchParams(location.search).get("data") || "real";
+  var files = { real: "/artifacts/pixel-cache/stats.json", synthetic: "/artifacts/pixel-cache/stats-synthetic.json" };
+  function fetchJson(url) {
+    if (mode === "error") return Promise.resolve({ error: "demo: backend unavailable" });
+    if (mode === "empty") return Promise.resolve({ runs: [], leaderboard: [], meta: {} });
+    if (mode === "loading") return new Promise(function () {});
+    return fetch(files[mode] || files.real).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status + " for " + files[mode]);
+      return r.json();
+    });
+  }
+  PixelStats.mount(document.getElementById("app"), { fetchJson: fetchJson });
+</script>
+</body>
+</html>
