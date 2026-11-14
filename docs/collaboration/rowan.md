@@ -51,6 +51,19 @@ Tasks 1–6 are on `main`. Max wired them into the simulator with `world/busines
 5. **Tell Max** if a per-occurrence event range matters to you: the loader currently draws every `{min, max}` once per seed, so all boiler trips in one run have the same duration.
 6. **Reference planner** with Max once the real facility lands.
 
+## Next steps (round 3: damage, contractors, parts, news)
+
+Round 2 is on `main` (#14). Read context section 0 (especially 0.3, 0.5 and 0.7) and spec sections 14.2, 14.3 and 14.5. Start with the data and schemas now; wire them to the new contract types once Max's contracts PR lands (within the hour).
+
+1. **Storm event.** A new event kind that fires when the recorded wind passes a data threshold (you get the hour's weather in `start_hour(hour, weather)`). Damage per occurrence and seed: panes broken in `A.glass` / `B.glass`, 0 possible. The effect lasts until repaired (`until_hour = None`). A storm is regional: it opens a surge window of documented length.
+2. **Parts** as market items (`part:glass_pane`, `part:boiler_kit`): price, normal lead time, surge lead time, express price and express lead fraction. The lead time is fixed when the order is placed. Unused parts are worth nothing at the end.
+3. **Contractors** in the market file (`[contractors.glazier]`, `[contractors.heating_installer]`): what they fix, the parts per job, call-out, hourly rate, job hours, normal and surge response. `book_contractor(trade, target)` waits for a day-shift slot after the response time **and** the parts on site; then it charges call-out and hours, uses the parts, and clears the effect when the job is done. The boiler trip now waits for the heating installer too.
+4. **Ledger:** the new categories `contractors`, `parts`, `express`. Use the Wilo and Dutch price-guide ranges (context 0.7) as `{min, max}` ranges, with sources.
+5. **News feed** (`data/news/*.toml` and a module of yours): signal types for storm, cold snap and gas price. Each has a lead time, a chance it appears before a real event, a false-alarm rate per day and headline texts. Drawn once at the start from a named stream, so it is identical for every agent on a seed. Never name equipment or an hour. Lucas provides the storm and frost inputs from the recorded weather.
+6. **Plugs:** set the seedling items' lead times to the propagator values Lucas researches (2–3 weeks).
+7. **Tests:** context 0.7 tests 1–4, and that the news feed does not change whatever the agent does.
+8. **Policies under shift rules:** naive and rule-based must set a night schedule and call `end_shift`; the exploiter adds hoarding parts and booking contractors for nothing. Then the reference planner with Max.
+
 ## Watch out
 
 - Doing nothing and stopping early must earn about 0. You own the costs that make that true (wages from hour 0) and the rule that standing crop counts for nothing.

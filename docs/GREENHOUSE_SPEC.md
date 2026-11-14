@@ -9,6 +9,8 @@ This environment replaces Root Cause, which has been removed (`src/rootcause/`, 
 
 ## 1. Scope of v1
 
+**Round 3 (pinned decisions, [context section 0](GREENHOUSE_BENCH_CONTEXT.md)) adds the day shift with a night schedule, persistent damage with contractors and parts, news signals and propagator plugs. Their interfaces are in section 14, and the v1 scope table is in context 0.10. Where this file disagrees with section 14, section 14 wins.**
+
 | In v1 | Later |
 |---|---|
 | One scenario: **normal winter** (Netherlands, January), 3 dev seeds, 3 eval seeds | Cold snap, storm, disease, supply crunch, price shock |
@@ -175,14 +177,13 @@ id = "B"
 crop = "basil_genovese"
 # ...
 
-[fallback]                     # the baseline the facility is handed over with at hour 0 (D5)
-heat_day_c = 18.0              # a typical standing setting, researched (Emre); never changed by itself
-heat_night_c = 15.0
-co2_ppm = 800                  # doses until the CO2 store runs dry
+[fallback]                     # the anti-freeze baseline at hour 0 (D5, revised)
+heat_c = 5.0                   # frost protection: crops survive but stall
+co2_ppm = 0
 lamps = "off"
 ```
 
-`[fallback]` is the do-nothing baseline (D5): it runs from hour 0 and stays until the agent changes it, also after a stop. Its values are researched as a typical standing setting, not as a safety mode.
+`[fallback]` is the do-nothing baseline (D5, revised): from hour 0 it is both the day settings and the night schedule, and it stays until the agent changes it. An agent that never acts keeps 5 °C for 42 days, which is the heavy punishment for doing nothing.
 
 Staff (`start_workers`, `hours_per_worker_day`), start cash and starting seedling stock are in the market file (3.4), because the business owns them. Which crop grows where, and how many compartments there are, is facility data. Going to three compartments is a third `[[compartments]]` table.
 
@@ -247,7 +248,7 @@ Every model gets the same simulated world and the same decision budget. Thinking
 
 - **Simulated time moves only with `advance`.** A model that thinks for 10 minutes before one call faces exactly the same world as one that answers in 2 seconds.
 - **The call budget is the same for everyone and generous:** `max_calls = 400` (D4), at least 2.5x what the reference uses. It exists only so that a looping agent ends. Reaching it is a legitimate agent outcome (`end_reason = "call_limit"`) and is reported as such.
-- **400 calls against 1,008 hours is by design.** The agent can act in any hour, day or night, but cannot afford to act in every hour. Choosing how far to `advance` is part of the skill: alarms wake it early, so a quiet night can be one call and a boiler trip at 03:00 gets a response at 03:00. Daytime realism lives in the staff, not the agent: planting, harvesting and repairs only progress during the crew's shift hours (market file). Limiting the agent itself to a 10-hour day was considered and rejected: an always-on operator is exactly what an agent can be, and it would make night-time events (frost, trips, price spikes) unanswerable by construction.
+- **The agent works the day shift only (round 3, section 14.1).** It can act from 06:00 to 18:00. The night runs inside one `end_shift` call on the hourly schedule it committed. That gives 42 `end_shift` calls plus the day calls, well inside 400. The earlier "always-on agent" rationale is replaced: night events are answered by planning ahead (redundancy, a charged buffer, spare parts), not by reacting, and context 0.5 sets the guardrails that keep this fair.
 - **The wall-clock timeout is a safety net, not a rule.** `agent_timeout_sec` is set to several times the slowest model's measured full run (start: 3 hours; tune after the first Pro/Hydrogen run). A run that hits it is labelled `interrupted` in the report, kept out of model-comparison means, and rerun. It still gets the stop-early score in the judges' protocol, because reward integrity requires that.
 - **Provider failures are not agent results.** Rate limits, auth errors and API outages are infrastructure failures (no reward), as envkit does today. Concurrent attempts per model are capped so that rate limits do not slow one model more than another.
 - **The report states, per run:** calls used, `advance` calls, simulated hours reached, wall time, end reason. So "ran out of time" and "chose to stop" can never be confused.
@@ -265,7 +266,7 @@ At the end of each hour: deliveries arrive, staff tasks progress, sensor reading
 
 ### 4.3 Allocation when supply is short
 
-**Decided (D2): the agent decides the trade-off.** When heat or CO2 cannot cover every compartment, who gets what is the agent's call, and it can sacrifice a crop to save another. Through `set_energy` it sets, per compartment, a `priority` (integer, default 1) and an exact allocation `heat_cap_kw` and `co2_cap_kg_h`: a compartment never gets more than its cap. Supply goes to the highest priority first; within a level it is shared in proportion to demand, up to each cap. Setting caps that add up to the supply gives an exact split. An agent that sets nothing gets plain proportional sharing, which is the do-nothing behaviour, not a smart default.
+**Decided (D2): the agent decides the trade-off.** When heat or CO2 cannot cover every compartment, who gets what is the agent's call, and it can sacrifice a crop to save another. Through `set_energy` it sets, per compartment, a `priority` (integer, default 1) and an exact allocation `heat_cap_kw` and `co2_cap_kg_h`: a compartment never gets more than its cap. Supply goes to the highest priority first; within a level it is shared in proportion to demand, up to each cap. Setting caps that add up to the supply gives an exact split. An agent that sets nothing gets plain proportional sharing, which is the do-nothing behaviour, not a smart default. **At night** the same priority and caps come from the night schedule, per hour, as fixed values (section 14.1).
 
 ---
 
@@ -287,9 +288,13 @@ Every tool's docstring is what the agent reads; the names below are the contract
 | `hire` / `release` | 0 | `workers` | Arrive or leave after notice days; fee and wages from the market file. |
 | `plant` | 0 | `compartment`, `area_m2` | Queues planting; uses seedlings and worker-hours. Refused if too few days remain. |
 | `harvest` | 0 | `batch_id` | Queues harvest; uses worker-hours. Underweight produce sells for 0. |
-| `repair` | 0 | `equipment_id` | Costs money and worker-hours; shortens an outage. |
-| `advance` | 1 | `hours` (1–24) | Runs time; stops early on a new alarm. Returns what happened, alarms and the new status. |
-| `finish_episode` | 0 | — | Stops deciding; the rest runs with the standing settings and nobody acting. |
+| `repair` | 0 | `equipment_id` | **Removed in round 3:** replaced by `book_contractor` (section 14.2). |
+| `advance` | 1 | `hours` (1–12) | Runs day hours; stops early on a new alarm and at 18:00 at the latest. Returns what happened, alarms and the new status. |
+| `set_night_schedule` | 0 | `hours` (list of night-hour entries, section 14.1) | Replaces the night schedule; repeats every night until changed. |
+| `end_shift` | 1 | — | Only at 18:00. Runs 18:00 to 06:00 on the night schedule in one call; returns nothing about the night (read `get_night_report`). |
+| `get_night_report` | 0 | — | The morning report (section 14.1). |
+| `book_contractor` | 0 | `trade`, `job`, `target`, `urgent` | Section 14.2. Replaces `repair`. |
+| `finish_episode` | 0 | — | Stops deciding; the rest runs with the last day settings and night schedule, and nobody acting. |
 
 `plant`, `harvest` and `repair` are tasks: they use worker-hours from the day's pool in queue order. A task that does not get enough hours waits. A ready batch loses quality each day it waits (a crop parameter).
 
@@ -325,14 +330,7 @@ Standing crop at the end is worth 0. The fixed crew's wages are charged from hou
 
 **Score:** an `anchored` envkit component on `profit_eur` with `zero_anchors = ["do-nothing", "absentee"]`, `top_anchors = ["reference"]`, `target = 0.8`. That gives `score = clip(0.8 × (P − P_zero) / (P_ref − P_zero), 0, 1)`, as in the context doc.
 
-**Do-nothing and stopping (D5, decided).** The facility is handed over running its `[fallback]` baseline: a typical standing heating setting, CO2 dosing, crops in the ground and some stock. Doing nothing means that baseline is never adjusted, and nobody looks after the business:
-- the heating stays on the same setpoints while the weather swings, so it overheats on mild days and falls short on cold nights;
-- consumables run out and are not reordered (the CO2 store empties in days, then nutrients when they are modelled);
-- ready batches are never harvested, so nothing is sold, and they lose quality;
-- lost or harvested areas are never replanted, and broken equipment is never repaired;
-- wages and energy keep being paid.
-
-So doing nothing loses money steadily rather than collapsing on night 1. Stopping for any reason (finish, call limit, timeout) is the same as doing nothing from then on: the standing settings stay and nobody acts. Stopping early is therefore identical to advancing without acting, so it can never score more (tested). The consumption rates (how often a real greenhouse refills its CO2 tank, nutrient use per m² per day, how fast an unharvested crop degrades) are researched, not guessed, and live in the data files.
+**Do-nothing and stopping (D5, revised in round 3).** The facility starts on the `[fallback]` anti-freeze baseline (5 °C, no CO2, lamps off), as day settings and night schedule. Doing nothing keeps it for 42 days: crops survive but stall below sellable weight, nothing is harvested or sold, nothing is replanted or repaired, and wages and gas keep being paid. That is the heavy punishment for doing nothing. Stopping for any reason (finish, call limit, timeout) is the same as doing nothing from then on: the last day settings and night schedule stay and nobody acts. Stopping early is therefore identical to advancing without acting, so it can never score more (tested). Consumption and degradation rates (CO2 use, how fast an unharvested crop loses value) are researched and live in the data files.
 
 ---
 
@@ -389,7 +387,10 @@ Workstream 0 is short and everything depends on `contracts.py`, which is already
 | D2 | Allocation when short (4.3) | **Decided:** the agent decides; priority plus exact per-compartment caps; nothing set = proportional |
 | D3 | Weather and prices | **Decided:** researched historical hourly series in data files, one window per seed, identical for every agent; no live data |
 | D4 | Call and time budget | `max_calls = 400` for every model, agent may act any hour (4.1); agent timeout 3 h as a safety net; confirm with organisers |
-| D5 | Do-nothing start state | **Decided:** handed over on a typical running baseline that is never adjusted; consumables run out, nothing is harvested or replanted; stopping = doing nothing from then on |
+| D5 | Do-nothing start state | **Decided (revised in round 3):** 5 °C anti-freeze baseline as day settings and night schedule; crops stall, nothing is harvested; stopping = doing nothing from then on |
+| D9 | Agent working hours | **Decided (round 3):** day shift 06:00–18:00; the night runs on an hourly schedule of fixed values (section 14.1) |
+| D10 | Night equipment behaviour | **Decided (round 3):** thermostat draws from scheduled-available sources in a fixed order; nothing unscheduled starts; priority and caps per hour allowed |
+| D11 | Repairs | **Decided (round 3):** persistent damage; a repair needs contractor + part + day slot; storm surge on lead times (section 14.2) |
 | D8 | Nutrients (fertiliser) as a consumable | Open: research uptake per crop and stock/order rules; add after v1 runs end to end |
 | D6 | Compartments in v1 | **Decided:** 2 (A lettuce, B basil); it is facility data, so 1 or 3 is a config change |
 | D7 | Package name | **Decided:** `src/greenhouse`; Root Cause already removed |
@@ -441,3 +442,77 @@ Rules that keep it zero-friction:
 - **Every benchmark claim is confirmed on local Docker** before it goes in the README or the pitch, because that is what judges run. Modal results are for iteration.
 - **CI runs the Docker smoke** (as now), so a Modal-only shortcut cannot break the judge path without CI failing.
 - **Same seed, same score on both.** `judge.sh` already fails if a scripted run does not reproduce its calibrated reward, whichever backend ran it.
+
+---
+
+## 14. Round 3: day shift, night schedule, damage and repairs, news
+
+Implements [context section 0](GREENHOUSE_BENCH_CONTEXT.md). Scope for v1 is context 0.10. Contract types named here land in `contracts.py` first (Max), and everyone builds against them.
+
+### 14.1 Day shift and night schedule
+
+**Clock.** Episode hour `h` has clock time `h % 24`, as now. The duty window is 06:00–18:00. Hours 00:00–06:00 of day 1 run on the baseline before the agent's first call (the handover night), so the agent wakes at 06:00 with a morning report, like every other day. The episode still ends at hour 1,008.
+
+**By day.** `set_climate` and `set_energy` change the standing day settings at once, as now. `advance(hours)` (1–12) runs day hours, stops early on a new alarm, and always stops at 18:00.
+
+**At 18:00.** Every tool except `end_shift` and `finish_episode` answers "off duty" (refused, free, nothing changes). `end_shift` (cost 1) runs 18:00 to 06:00 on the night schedule inside that call and returns only "night over"; the agent then reads `get_night_report`. Night alarms are logged with their hour and never stop anything.
+
+**Night schedule.** `set_night_schedule(hours)` replaces the whole schedule; it repeats every night until replaced. Each entry is a `NightHour` (new contract type):
+
+```python
+@dataclass(frozen=True)
+class NightHour:
+    hour: int                                  # clock hour 18..23 or 0..5
+    climate: dict[str, ClimateSetpoints]       # per compartment; omitted compartments inherit
+    energy: EnergySettings                     # chp_load, boiler, buffer, external CO2, priority, caps
+```
+
+An entry applies from its hour until the next entry, so a single entry at 18:00 sets the whole night. Values are checked by the facility's `check_climate` / `check_energy`, like day settings. The schedule only holds fixed values: there is no condition or trigger field to set.
+
+**Equipment behaviour (D10).** Day and night use the same rule, so there is one mechanism. `EnergySettings` gains two optional fields: `boiler_max_fraction` (0 = off, 1 = full; "auto" means 1.0) and `buffer_draw_max_kw`. The thermostat serves each compartment's setpoint from the available sources in a fixed order: CHP at its set load, then buffer draw up to its maximum, then boiler up to its maximum. Nothing starts that the settings did not make available, and a failed source simply delivers nothing. Shortfall is shared by priority and caps (4.3), which at night come from the schedule.
+
+**Morning report** (`get_night_report`, free): for the last night, the alarm and event log with hours; hourly climate per compartment; per batch, the change in estimated weight and quality from 18:00 to 06:00 and any losses; deliveries; stock; money by category spent over the night. Built by `views.py` from the hourly history and the ledger; nothing new is needed from the subsystems except that batch estimates stay readable.
+
+**Staff.** Shift hours must lie inside 06:00–18:00 (the market loader rejects anything else). Tasks only progress in shift hours, as now.
+
+**Baseline and stop (D5).** At hour 0 the day settings and the night schedule are both the facility's `[fallback]` (5 °C, no CO2, lamps off). After a stop, the last day settings and night schedule keep running and nobody acts.
+
+### 14.2 Persistent damage, contractors and parts
+
+**Damage.** `EquipmentEffect.until_hour = None` means "until repaired". New equipment ids per compartment for glass (`A.glass`, `B.glass`), next to `boiler`. Broken glass is an effect with `leakage_factor > 1` (more air leakage and heat loss) whose size comes from the number of panes broken, drawn per occurrence and seed from a documented range (0 panes is possible).
+
+**Storms.** A storm event (Rowan's event files) fires when the recorded wind (D3) passes a data threshold, and draws its damage on its own stream. It is **regional**: for a documented number of days after it, parts ordered get the surge lead time and contractors the surge response time. To read the wind, `BusinessModel.start_hour(hour, weather)` gets the hour's recorded weather (contract change, Max).
+
+**Parts** are market items like CO2 (`part:glass_pane`, `part:boiler_kit`), each with a price, a normal lead time, a surge lead time, an express price and an express lead time (a fraction of whichever lead time applies). The lead time is fixed when the order is placed: before a storm, normal; after, surge. Unused parts are worth nothing at the end.
+
+**Contractors** are a market table (`[contractors.glazier]`, `[contractors.heating_installer]` in v1): which equipment they fix, the parts each job needs, call-out fee, hourly rate, job hours, normal and surge response time. Per-seed values come from documented ranges.
+
+**`book_contractor(trade, target)`** (free) books a visit. The visit happens in the first day-shift slot at or after the response time **when the needed parts are on site**. Until then it waits. On the visit, the call-out and hours are charged, the parts are used, and when the job hours are done the effect is cleared. Refusals: unknown trade, a trade that does not fix that target, nothing broken there, a visit already booked. Urgent bookings come later.
+
+**Ledger categories** added to `LedgerCategory`: `contractors` (call-out and labour), `parts`, `express`. `repairs` is kept only for old traces.
+
+### 14.3 News signals
+
+A news table per signal type (Rowan's data, `data/news/*.toml`): which event type or input it relates to, how far ahead it appears, the chance it appears before a real event, the false-alarm rate per day, and the headline texts. Storm and frost signals follow the recorded weather (D3); gas-price signals follow the recorded prices. The whole news feed is drawn at episode start from a named stream, so it is the same for every agent on a seed and no action can change it. New free tool `get_news(days)` returns the headlines published so far (never future ones). No signal names a piece of equipment or an hour.
+
+### 14.4 Plugs and lettuce timing
+
+Seedling items become plugs from a propagator with a 2–3 week lead time (market data, numbers researched by Lucas, put in the file by Rowan). Lettuce: about 24 days from transplant at DLI 17, scaling with light; 24/19 °C are targets. The start-batch ages and the 42-day argument in section 4 are redone with these numbers (Lucas and Max).
+
+### 14.5 Required tests (in addition to section 8)
+
+1. A planned frost night (charged buffer, boiler and CHP available, screens closed) loses clearly less than a naive one when the boiler fails that night (context 0.5).
+2. Context 0.7 tests 1–4 (pre-ordered glass, no-damage storm, the three conditions of a repair, storm surge).
+3. Off duty: every tool but `end_shift` and `finish_episode` is refused at 18:00 and changes nothing; `advance` never crosses 18:00.
+4. Same seed, same night: identical night report across processes; the news feed is identical whatever the agent does.
+5. The reference and every scripted policy play under the shift rules.
+
+### 14.6 Who builds it (round 3)
+
+| Area | Owner | Files |
+|---|---|---|
+| Contract types, shift clock, `end_shift`, off-duty, `set_night_schedule`, morning report, `get_news` wiring, scenario | Max | `contracts.py`, `sim.py`, `env.py`, `views.py`, envkit if needed |
+| Day and night dispatch with boiler level and buffer draw caps, glass effect on leakage, `[fallback]` = 5 °C | Max (Emre's files, handed over for this round) | `world/{energy,controller,climate}.py`, `config/facility.py`, `data/facilities/` |
+| Storm event, persistent damage, contractors, parts with surge and express, `book_contractor`, news feed, new ledger categories, CO2 cleanup, policies under shift rules | Rowan | `config/market.py`, `world/{operations,events,ledger,business}.py`, `outcome.py`, `data/{markets,events,news}/`, `policies/` |
+| Lettuce at 24 days and light scaling, frost damage on near-ready batches, plug lead times (research), storm and frost news inputs from the recorded weather (D3 itself landed in #15) | Lucas | `config/crop.py`, `world/crop.py`, `data/crops/`, plus `world/weather.py`, `data/{climates,energy_prices}/` (Emre's, handed over for this round) |
+| Reference planner under shift rules | Max with Rowan | `policies/reference.py` |

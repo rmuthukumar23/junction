@@ -57,6 +57,10 @@ Your branch has the schemas, weather, climate, controller and energy centre, and
 5. **D3, after the facility runs in the game:** replace the generated weather and prices with recorded hourly series in the data files (KNMI De Bilt; EPEX/ENTSO-E NL day-ahead; TTF gas), with sources. Each seed picks a window from a list; dev seeds 1–6 and eval seeds 101–108 use different windows. Forecast = true series + seeded error growing with lead time. Keep the series in data, never fetched at run time.
 6. **D5 research:** CO2 dosing use per m² per hour, so the store runs out at a realistic pace when nobody reorders.
 
+## Round 3
+
+No tasks this round. Your facility files (`world/{energy,controller,climate}.py`, `config/facility.py`, `data/facilities/`) are with Max, and your weather files (`world/weather.py`, `data/climates/`, `data/energy_prices/`) are with Lucas, until you are back. If you pick work up again, say so in the team chat first, so two people never edit the same file. What changes in your area is in spec section 14.1 (dispatch with boiler level and buffer draw caps, glass damage, the 5 °C baseline).
+
 ## Watch out
 
 - An exploit judges will try is running the CHP flat out to sell power. Export cap and realistic price ratios must make it pay only when it really would. Test that flat-out CHP on a mild day loses money.

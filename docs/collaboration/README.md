@@ -11,6 +11,8 @@ Start here. Each person has one file in this folder with their tasks, the files 
 
 Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH_CONTEXT.md](../GREENHOUSE_BENCH_CONTEXT.md).
 
+> **Round 3 is on.** Read [context section 0](../GREENHOUSE_BENCH_CONTEXT.md) (pinned decisions: day shift, night schedule, persistent damage, contractors and parts, news, Netherlands) and [spec section 14](../GREENHOUSE_SPEC.md) (interfaces and who builds what). Then your file's "Next steps (round 3)". This round is split across Max, Rowan and Lucas: Emre's facility files are with Max, and his weather files with Lucas, until he is back. Max's contracts PR comes first; build your data and schemas meanwhile.
+
 ## Already on `main` (use it, don't rewrite it)
 
 - `src/greenhouse/contracts.py`: every type that crosses between two people's modules (`ClimateSample`, `BatchState`, `GrowthModel`, `HarvestResult`, `LedgerEntry`, `Metered`, `EquipmentEffect`, `Alarm`).
@@ -53,7 +55,7 @@ Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH
 
 | Person | Branch | Last PR | State |
 |---|---|---|---|
-| Max | `max/integrate-business` | Business adapter, D2/D3/D5, provider keys | Done and tested. Next: merge Lucas and Emre, scenario, reference planner |
+| Max | `max/round-3` | Round 3 decisions written up (context 0, spec 14) | Real game runs end to end (42 days, 1.6 s). Next: contracts PR, shift clock, facility dispatch, scenario |
 | Lucas | `lucas/crops` | Crop schema, `leafy_vanhenten`, lettuce, basil (tasks 1–8); round 2 | Round 2 done and merged: four planning methods, grades, in-game test, D5 and D8 research. Next: spec 3.1 without `seedling_cost_eur` (Max) |
-| Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Not merged: `FacilityModel` + `build_facility` pushed; next is the PR, the D5 baseline, then D3 data (round 2) |
+| Emre | `emre/facility-climate-energy` | Schemas, weather, climate, controller, energy centre | Merged (#13; recorded data in #15). Round 3: away; files held by Max and Lucas |
 | Rowan | `rowan/round-2` | Round 2: business fixes, CO2 cleanup, policies, D5 values | Policies on fakes done; ranking and exploiter bound wait for real crops and facility |
