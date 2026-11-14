@@ -24,8 +24,10 @@ class FacilityConfigTests(unittest.TestCase):
         self.assertEqual({c.id for c in facility.compartments}, {'A', 'B'})
         self.assertIn('compartments[0].floor_m2', ranges(facility))
         self.assertEqual(resolve(facility, Rng(7)), resolve(facility, Rng(7)))
-        self.assertGreater(climate.weather.daily_mean_c, 0)
-        self.assertGreater(prices.electricity.base_eur_kwh, 0)
+        self.assertEqual({w.group for w in climate.windows}, {'development', 'evaluation'})
+        self.assertEqual({w.id for w in climate.windows}, {w.id for w in prices.windows})
+        self.assertEqual(climate.windows[0].rows[0][0], 7.8)  # KNMI De Bilt, 2024-01-01 00 UTC
+        self.assertGreater(prices.windows[0].rows[0][1], 0)
 
     def test_unknown_and_bad_values_fail(self):
         doc = raw('facilities', 'nl_two_compartment.toml')
@@ -39,3 +41,11 @@ class FacilityConfigTests(unittest.TestCase):
             parse_facility(bad, 'facility.toml')
         with self.assertRaisesRegex(ConfigError, 'schema'):
             parse_climate({'schema': 'wrong'}, 'climate.toml')
+        bad_climate = raw('climates', 'nl_january.toml')
+        bad_climate['windows'][0]['rows'][0][3] = 101
+        with self.assertRaisesRegex(ConfigError, 'rows\\[0\\]'):
+            parse_climate(bad_climate, 'climate.toml')
+        bad_prices = raw('energy_prices', 'nl_winter.toml')
+        bad_prices['windows'][0]['rows'][0][1] = -1
+        with self.assertRaisesRegex(ConfigError, 'rows\\[0\\]'):
+            parse_energy_prices(bad_prices, 'prices.toml')

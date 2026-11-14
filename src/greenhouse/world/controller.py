@@ -57,6 +57,7 @@ class ClimateController:
                    * self.spec.heat_kw_per_c_m2 * float(compartment.floor_m2))
         co2_kg_h = (max(0.0, setpoints.co2_ppm - co2_ppm)
                     * self.spec.co2_kg_h_per_ppm_m2 * float(compartment.floor_m2))
-        if vent_pct >= self.spec.vent_co2_pause_pct:
+        # Photosynthesis is the reason to dose: daylight or scheduled lamps.
+        if (not is_day and lamp_kw == 0) or vent_pct >= self.spec.vent_co2_pause_pct:
             co2_kg_h = 0.0
         return Actuators(vent_pct, screen_closed, lamp_kw, heat_kw, co2_kg_h)

@@ -190,9 +190,16 @@ class Facility:
         self.spec = spec
         self.climate_profile = climate
         self.price_spec = prices
+        if climate.evaluation_seeds != prices.evaluation_seeds:
+            raise ValueError('weather and price files must reserve the same evaluation seeds')
         self.weather = WeatherSeries(climate, rng, hours)
-        self.prices = PriceSeries(prices, rng, hours)
+        self.prices = PriceSeries(prices, rng, hours, self.weather.window_id)
+        if self.weather.start_utc != self.prices.start_utc:
+            raise ValueError('recorded weather and price windows start at different hours')
         self.compartment_ids = tuple(c.id for c in spec.compartments)
+        for key, setting in self.fallback_climate().items():
+            self.check_climate(key, setting)
+        self.check_energy(self.fallback_energy())
         self.climates = {c.id: CompartmentClimate(c) for c in spec.compartments}
         self.controller = ClimateController(spec.controller)
         self.energy = EnergyCentre(spec.energy_centre)
@@ -222,9 +229,10 @@ class Facility:
 
     def fallback_climate(self) -> dict[str, ClimateSetpoints]:
         fallback = self.spec.fallback
-        setting = ClimateSetpoints(fallback.heat_c, fallback.heat_c,
-                                   0.0, 0.0, fallback.co2_ppm, fallback.screen,
-                                   (), 0.0)
+        setting = ClimateSetpoints(fallback.heat_day_c, fallback.heat_night_c,
+                                   fallback.vent_min_pct, fallback.vent_max_pct,
+                                   fallback.co2_ppm, fallback.screen,
+                                   fallback.lamp_hours, fallback.lamp_intensity_pct)
         return {c: setting for c in self.compartment_ids}
 
     def fallback_energy(self) -> EnergySettings:
@@ -298,7 +306,7 @@ class Facility:
     def substep(self, hour: int, dt_h: float,
                 climate: dict[str, ClimateSetpoints], energy: EnergySettings,
                 loads: dict[str, CropLoad]) -> dict[str, ClimateSample]:
-        """Crop loads use the preceding sample, avoiding a same-step algebraic loop."""
+        """Crop loads use the preceding sample; negative CO2 uptake is night respiration."""
         if not math.isfinite(dt_h) or dt_h <= 0 or dt_h > 1:
             raise ValueError('substep duration must be in (0, 1]')
         if self._open_hour is not None and self._open_hour != hour:
@@ -310,9 +318,10 @@ class Facility:
         for key in self.compartment_ids:
             self.check_climate(key, climate[key])
             load = loads[key]
-            if any(not math.isfinite(v) or v < 0 for v in
-                   (load.planted_m2, load.transpiration_kg_h, load.co2_uptake_kg_h)):
-                raise ValueError('crop loads must be finite and non-negative')
+            if (any(not math.isfinite(v) for v in
+                    (load.planted_m2, load.transpiration_kg_h, load.co2_uptake_kg_h)) or
+                    load.planted_m2 < 0 or load.transpiration_kg_h < 0):
+                raise ValueError('crop loads must be finite; area and transpiration must be non-negative')
         self.check_energy(energy)
         weather = self.weather.at(hour)
         effects = {key: value for key, value in self.effects.items()
@@ -431,7 +440,8 @@ class Facility:
             'controller': asdict(self.spec.controller),
             'sensors': asdict(self.spec.sensor),
             'climate_limits': asdict(self.spec.limits),
-            'weather_profile': asdict(self.climate_profile.weather),
+            'weather_profile': {**asdict(self.climate_profile.weather),
+                                'source': 'recorded hourly KNMI De Bilt observations'},
             'forecast_error': asdict(self.climate_profile.forecast),
             'fallback': {'climate': {c: asdict(sp) for c, sp in self.fallback_climate().items()},
                          'energy': asdict(self.fallback_energy())},
@@ -446,7 +456,8 @@ class Facility:
                            'start_fraction': centre.buffer.start_fraction},
                 'co2_store': asdict(centre.co2_store),
             },
-            'energy_prices': asdict(self.price_spec),
+            # Historical rows are future truth; only the tariff transformation is public.
+            'energy_prices': {'tariff': asdict(self.price_spec.tariff), 'source': 'recorded Dutch day-ahead and gas-day data'},
             'equipment_ids': self.equipment_ids(),
         }
 

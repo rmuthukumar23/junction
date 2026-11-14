@@ -1,4 +1,4 @@
-"""Seeded winter weather and energy prices with read-stable forecasts."""
+"""Recorded winter weather and prices with seeded, read-stable forecasts."""
 from __future__ import annotations
 
 import math
@@ -32,29 +32,21 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 
 class WeatherSeries:
-    """Future truth is generated once; observations never consume its RNG."""
+    """Select a committed recording; observations never consume forecast RNG."""
 
     def __init__(self, profile: ClimateProfile, rng: Rng, hours: int):
         self.profile, self.rng = profile, rng
-        w = profile.weather
-        stream = rng.stream('weather')
-        temp_state = cloud_state = 0.0
-        result = []
-        for hour in range(hours):
-            clock = hour % 24
-            is_day = w.sunrise_hour <= clock < w.sunset_hour
-            # The warmest point follows the midday solar peak by a few hours.
-            diurnal = w.diurnal_amplitude_c * math.cos(2 * math.pi * (clock - w.diurnal_peak_hour) / 24)
-            temp_state = w.ar1_persistence * temp_state + stream.normal(0, w.innovation_sigma_c)
-            cloud_state = w.cloud_persistence * cloud_state + stream.normal(0, w.cloud_innovation_sigma)
-            phase = (clock - w.sunrise_hour) / (w.sunset_hour - w.sunrise_hour)
-            clear = math.sin(math.pi * phase) if is_day else 0.0
-            solar = w.solar_peak_w_m2 * clear * _clamp(w.clear_sky_fraction + cloud_state, w.min_solar_fraction, 1.0)
-            wind = max(0.0, stream.normal(w.wind_mean_m_s, w.wind_sigma_m_s))
-            rh = _clamp(stream.normal(w.rh_mean_pct, w.rh_sigma_pct), 25.0, 100.0)
-            result.append(WeatherHour(hour, w.daily_mean_c + diurnal + temp_state,
-                                      solar, wind, rh, is_day, w.outside_co2_ppm))
-        self.hours = tuple(result)
+        group = 'evaluation' if rng.seed in profile.evaluation_seeds else 'development'
+        candidates = tuple(window for window in profile.windows if window.group == group)
+        window = rng.stream('recorded-window').choice(candidates)
+        if hours > len(window.rows):
+            raise ValueError('recorded weather window is shorter than requested horizon')
+        self.window_id = window.id
+        self.start_utc = window.start_utc
+        self.hours = tuple(WeatherHour(hour, *row[:4], row[4], profile.weather.outside_co2_ppm)
+                           for hour, row in enumerate(window.rows[:hours]))
+        daylight_solar = [row[1] for row in window.rows if row[4]]
+        self._solar_scale_w_m2 = sum(daylight_solar) / len(daylight_solar) if daylight_solar else 0.0
 
     def at(self, hour: int) -> WeatherHour:
         return self.hours[hour]
@@ -69,7 +61,9 @@ class WeatherSeries:
             stream = self.rng.stream(f'weather-forecast/{issue_hour}/{lead}')
             scale = math.sqrt(lead / 24)
             temp = actual.temp_c + stream.normal(0, f.temp_sigma_at_24h_c * scale)
-            solar = max(0.0, actual.solar_w_m2 * (1 + stream.normal(0, f.solar_fraction_sigma_at_24h * scale)))
+            solar = (max(0.0, actual.solar_w_m2 + stream.normal(
+                0, self._solar_scale_w_m2 * f.solar_fraction_sigma_at_24h * scale))
+                if actual.is_day else 0.0)
             wind = max(0.0, actual.wind_m_s + stream.normal(0, f.wind_sigma_at_24h_m_s * scale))
             rh = _clamp(actual.rh_pct + stream.normal(0, f.rh_sigma_at_24h_pct * scale), 0.0, 100.0)
             predicted.append(WeatherHour(actual.hour, temp, solar,
@@ -78,24 +72,26 @@ class WeatherSeries:
 
 
 class PriceSeries:
-    """Hourly synthetic tariff with a capped export fraction of import price."""
+    """Recorded Dutch wholesale quotes transformed by published scenario tariffs."""
 
-    def __init__(self, spec: EnergyPriceSpec, rng: Rng, hours: int):
+    def __init__(self, spec: EnergyPriceSpec, rng: Rng, hours: int, window_id: str | None = None):
         self.spec, self.rng = spec, rng
-        e = spec.electricity
-        stream = rng.stream('prices/noise')
-        spikes = [rng.stream(f'prices/spike/{day}').bernoulli(e.spike_probability_per_day)
-                  for day in range((hours + 23) // 24)]
-        result = []
-        for hour in range(hours):
-            clock = hour % 24
-            peak = max(0.0, math.cos(2 * math.pi * (clock - e.daily_peak_hour) / 24))
-            price = e.base_eur_kwh * (1 + e.daily_peak_multiplier * peak)
-            if spikes[hour // 24]:
-                price *= e.spike_multiplier
-            price = max(0.0, price + stream.normal(0, e.noise_sigma_eur_kwh))
-            result.append(PriceHour(hour, price, price * e.export_fraction, spec.gas_eur_m3))
-        self.hours = tuple(result)
+        group = 'evaluation' if rng.seed in spec.evaluation_seeds else 'development'
+        candidates = tuple(window for window in spec.windows if window.group == group)
+        if window_id is None:
+            window = rng.stream('recorded-window').choice(candidates)
+        else:
+            window = next((item for item in candidates if item.id == window_id), None)
+            if window is None:
+                raise ValueError(f'price recording has no matching {group} window {window_id!r}')
+        if hours > len(window.rows):
+            raise ValueError('recorded price window is shorter than requested horizon')
+        self.window_id = window.id
+        self.start_utc = window.start_utc
+        self.hours = tuple(PriceHour(hour, wholesale / 1000 + spec.tariff.import_markup_eur_kwh,
+                                     wholesale / 1000 * spec.tariff.export_fraction, gas)
+                           for hour, (wholesale, gas) in enumerate(window.rows[:hours]))
+        self._wholesale_scale_eur_kwh = sum(abs(row[0]) for row in window.rows) / len(window.rows) / 1000
 
     def at(self, hour: int) -> PriceHour:
         return self.hours[hour]
@@ -107,8 +103,12 @@ class PriceSeries:
         for lead in range(1, hours + 1):
             actual = self.hours[issue_hour + lead]
             stream = self.rng.stream(f'price-forecast/{issue_hour}/{lead}')
-            factor = max(0.0, 1 + stream.normal(0, forecast_spec.price_fraction_sigma_at_24h * math.sqrt(lead / 24)))
-            value = actual.import_eur_kwh * factor
-            predicted.append(PriceHour(actual.hour, value, value * self.spec.electricity.export_fraction,
-                                       actual.gas_eur_m3))
+            wholesale = (actual.import_eur_kwh - self.spec.tariff.import_markup_eur_kwh +
+                         stream.normal(0, self._wholesale_scale_eur_kwh *
+                                       forecast_spec.price_fraction_sigma_at_24h * math.sqrt(lead / 24)))
+            gas_stream = self.rng.stream(f'gas-forecast/{issue_hour}/{lead}')
+            gas_factor = max(0.0, 1 + gas_stream.normal(0, forecast_spec.price_fraction_sigma_at_24h * math.sqrt(lead / 24)))
+            predicted.append(PriceHour(actual.hour, wholesale + self.spec.tariff.import_markup_eur_kwh,
+                                       wholesale * self.spec.tariff.export_fraction,
+                                       actual.gas_eur_m3 * gas_factor))
         return tuple(predicted)

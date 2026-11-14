@@ -8,7 +8,8 @@ from envkit.rng import Rng
 from greenhouse.config.base import resolve
 from greenhouse.config.facility import parse_facility, parse_climate, parse_energy_prices
 from greenhouse.world.energy import EnergyCentre, EnergySettings, Facility, build_facility
-from greenhouse.contracts import CropLoad, EquipmentEffect
+from greenhouse.world.weather import PriceSeries
+from greenhouse.contracts import CropLoad, EquipmentEffect, RuleError
 
 DATA = Path(__file__).resolve().parents[2] / 'data'
 
@@ -81,10 +82,113 @@ class AdditionalEnergyTests(unittest.TestCase):
         meter = energy.end_hour(0)
         prices = parse_energy_prices(tomllib.loads((DATA / 'energy_prices/nl_winter.toml').read_text()), 'prices')
         # Mild day: no heat/CO2 demand, so power export alone cannot pay for gas.
-        self.assertLess(meter.electricity_export_kwh * prices.electricity.base_eur_kwh *
-                        prices.electricity.export_fraction - meter.gas_m3 * prices.gas_eur_m3, 0)
+        first_price = PriceSeries(prices, Rng(2), 1).at(0)
+        self.assertLess(meter.electricity_export_kwh * first_price.export_eur_kwh -
+                        meter.gas_m3 * first_price.gas_eur_m3, 0)
 
 class FacilityEpisodeTests(unittest.TestCase):
+    def test_handover_baseline_uses_crop_climate_and_depletes_unreplenished_co2(self):
+        spec = resolve(parse_facility(tomllib.loads((DATA / 'facilities/nl_two_compartment.toml').read_text()),
+                                      'facility'), Rng(19))
+        climate = parse_climate(tomllib.loads((DATA / 'climates/nl_january.toml').read_text()), 'climate')
+        prices = parse_energy_prices(tomllib.loads((DATA / 'energy_prices/nl_winter.toml').read_text()), 'prices')
+        facility = build_facility(spec, climate, prices, Rng(19))
+        baseline = facility.fallback_climate()['A']
+        self.assertGreater(baseline.heat_day_c, baseline.heat_night_c)
+        self.assertGreater(baseline.heat_night_c, facility.spec.alarms.frost_risk_temp_c)
+        self.assertGreater(baseline.co2_ppm, 0)
+        self.assertTrue(baseline.lamp_hours)
+        self.assertIn('boiler', facility.equipment_ids())
+        loads = {key: CropLoad(0, 0, 0) for key in facility.compartment_ids}
+        low_alarms = []
+        for hour in range(1008):
+            for _ in range(12):
+                facility.substep(hour, 1/12, facility.fallback_climate(), facility.fallback_energy(), loads)
+            _, alarms = facility.end_hour(hour)
+            low_alarms.extend(a for a in alarms if a.target == 'co2_store' and a.kind == 'stock_low')
+        self.assertEqual(facility.energy.co2_store_kg, 0)
+        self.assertEqual(len(low_alarms), 1)
+
+    def test_contract_refusals_do_not_mutate_state_and_hour_meter_has_prices(self):
+        spec = resolve(parse_facility(tomllib.loads((DATA / 'facilities/nl_two_compartment.toml').read_text()),
+                                      'facility'), Rng(20))
+        climate = parse_climate(tomllib.loads((DATA / 'climates/nl_january.toml').read_text()), 'climate')
+        prices = parse_energy_prices(tomllib.loads((DATA / 'energy_prices/nl_winter.toml').read_text()), 'prices')
+        facility = build_facility(spec, climate, prices, Rng(20))
+        before = (facility.energy.buffer_kwh, facility.energy.co2_store_kg,
+                  {k: v.temp_c for k, v in facility.climates.items()})
+        with self.assertRaises(RuleError):
+            facility.check_energy(EnergySettings(0, 'auto', 'auto', 0, heat_cap_kw={'missing': 1}))
+        with self.assertRaises(RuleError):
+            facility.check_climate('A', dataclasses.replace(facility.fallback_climate()['A'], heat_day_c=100))
+        self.assertEqual(before, (facility.energy.buffer_kwh, facility.energy.co2_store_kg,
+                                  {k: v.temp_c for k, v in facility.climates.items()}))
+        loads = {key: CropLoad(0, 0, 0) for key in facility.compartment_ids}
+        for _ in range(12):
+            facility.substep(0, 1/12, facility.fallback_climate(), facility.fallback_energy(), loads)
+        metered, alarms = facility.end_hour(0)
+        self.assertGreater(metered.gas_eur_per_m3, 0)
+        self.assertEqual(metered.import_eur_per_kwh, facility.prices.at(0).import_eur_kwh)
+        self.assertEqual(metered.export_eur_per_kwh, facility.prices.at(0).export_eur_kwh)
+        self.assertIsInstance(alarms, list)
+
+    def test_real_facility_with_real_business_and_fake_crops_for_ten_days(self):
+        from fakes import FakeCrop
+        from greenhouse.config.market import parse_event, parse_market
+        from greenhouse.world.business import build_business
+        from greenhouse.world.modules import Modules
+        from greenhouse.world.sim import Greenhouse
+
+        def read(relative):
+            return tomllib.loads((DATA / relative).read_text())
+
+        rng = Rng(21)
+        spec = resolve(parse_facility(read('facilities/nl_two_compartment.toml'), 'facility'), rng.stream('facility'))
+        climate = parse_climate(read('climates/nl_january.toml'), 'climate')
+        prices = parse_energy_prices(read('energy_prices/nl_winter.toml'), 'prices')
+        facility = build_facility(spec, climate, prices, rng.stream('facility'))
+        market = resolve(parse_market(read('markets/nl_winter.toml'), 'market'), rng.stream('market'))
+        events = [resolve(parse_event(read(f'events/{name}.toml'), name), rng.stream(name))
+                  for name in ('boiler_trip', 'late_delivery')]
+        events = [dataclasses.replace(e, rate_per_day=0.0) for e in events]
+        events[0] = dataclasses.replace(events[0], pinned_hours=(7,))
+        growth = {c.crop: FakeCrop(c.crop) for c in spec.compartments}
+        business = build_business(market, events, tuple(growth), facility.equipment_ids(), 240,
+                                  rng.stream('business'))
+        sim = Greenhouse(Modules(facility, business, growth, 240, 12), rng.stream('sim'))
+        for hour in range(240):
+            sim.run_hour()
+            if hour == 7:
+                self.assertIn('boiler', sim.effects)
+                self.assertEqual(facility.effects['boiler'].capacity_factor, 0)
+        self.assertEqual(sim.hour, 240)
+        self.assertEqual(len(sim.history), 240)
+        self.assertGreater(sim.history[0].metered['gas_eur_per_m3'], 0)
+        self.assertLess(sim.business.totals()['gas'], 0)
+
+    def test_real_modules_run_together_for_ten_days(self):
+        from greenhouse.world.modules import build
+        from greenhouse.world.sim import Greenhouse
+
+        env = {
+            'facility': 'data/facilities/nl_two_compartment.toml',
+            'climate': 'data/climates/nl_january.toml',
+            'energy_prices': 'data/energy_prices/nl_winter.toml',
+            'market': 'data/markets/nl_winter.toml',
+            'crops': ['data/crops/lettuce_butterhead.toml', 'data/crops/basil_genovese.toml'],
+            'events': ['data/events/boiler_trip.toml', 'data/events/late_delivery.toml'],
+            'horizon_days': 10,
+            'substeps_per_hour': 12,
+        }
+        sim = Greenhouse(build(env, Rng(1)), Rng(1))
+        for _ in range(240):
+            sim.run_hour()
+        self.assertEqual(sim.hour, 240)
+        self.assertEqual(len(sim.history), 240)
+        self.assertLess(sim.facility.energy.co2_store_kg,
+                        sim.facility.spec.energy_centre.co2_store.start_kg)
+        self.assertLess(sim.business.profit_eur(), 0)
+
     def test_full_42_days_under_10s_and_conserved(self):
         import time
         from greenhouse.world.controller import ClimateSetpoints
@@ -190,7 +294,9 @@ class FacilityEpisodeTests(unittest.TestCase):
         prices = parse_energy_prices(tomllib.loads((DATA / 'energy_prices/nl_winter.toml').read_text()), 'prices')
         facility = build_facility(spec, climate, prices, Rng(18))
         rules = facility.rules()
-        self.assertEqual(rules['weather_profile']['daily_mean_c'], 3.6)
-        self.assertIn('daily_peak_multiplier', rules['energy_prices']['electricity'])
+        self.assertEqual(rules['weather_profile']['outside_co2_ppm'], 420.0)
+        self.assertIn('export_fraction', rules['energy_prices']['tariff'])
+        self.assertNotIn('windows', str(rules))
+        self.assertNotIn('2024-jan', str(rules))
         self.assertNotIn('electric_kw', rules['energy_centre']['chp'])
         self.assertNotIn('floor_m2', rules['compartments']['A'])

@@ -6,6 +6,7 @@ by `config.base.resolve`; their published bounds are available through `ranges`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any
 
 from greenhouse.config.base import ConfigError, Param, Table
@@ -122,10 +123,13 @@ class SensorSpec:
 
 @dataclass(frozen=True)
 class FallbackSpec:
-    heat_c: float
-    vents: str
+    heat_day_c: float
+    heat_night_c: float
+    vent_min_pct: float
+    vent_max_pct: float
     co2_ppm: float
-    lamps: str
+    lamp_hours: tuple[int, ...]
+    lamp_intensity_pct: float
     screen: str
     chp_load: float
     boiler: str
@@ -160,22 +164,6 @@ class FacilitySpec:
 
 @dataclass(frozen=True)
 class WeatherSpec:
-    daily_mean_c: float
-    diurnal_amplitude_c: float
-    diurnal_peak_hour: int
-    ar1_persistence: float
-    innovation_sigma_c: float
-    sunrise_hour: int
-    sunset_hour: int
-    solar_peak_w_m2: float
-    cloud_persistence: float
-    cloud_innovation_sigma: float
-    clear_sky_fraction: float
-    min_solar_fraction: float
-    wind_mean_m_s: float
-    wind_sigma_m_s: float
-    rh_mean_pct: float
-    rh_sigma_pct: float
     outside_co2_ppm: float
 
 
@@ -189,29 +177,43 @@ class ForecastSpec:
 
 
 @dataclass(frozen=True)
+class RecordedWeatherWindow:
+    id: str
+    group: str
+    start_utc: str
+    rows: tuple[tuple[float, float, float, float, bool], ...]
+
+
+@dataclass(frozen=True)
 class ClimateProfile:
     id: str
     series_hours: int
     weather: WeatherSpec
     forecast: ForecastSpec
+    evaluation_seeds: tuple[int, ...]
+    windows: tuple[RecordedWeatherWindow, ...]
 
 
 @dataclass(frozen=True)
-class ElectricityPriceSpec:
-    base_eur_kwh: float
-    daily_peak_multiplier: float
-    daily_peak_hour: int
-    noise_sigma_eur_kwh: float
-    spike_probability_per_day: float
-    spike_multiplier: float
+class TariffSpec:
+    import_markup_eur_kwh: float
     export_fraction: float
+
+
+@dataclass(frozen=True)
+class RecordedPriceWindow:
+    id: str
+    group: str
+    start_utc: str
+    rows: tuple[tuple[float, float], ...]
 
 
 @dataclass(frozen=True)
 class EnergyPriceSpec:
     id: str
-    gas_eur_m3: float
-    electricity: ElectricityPriceSpec
+    tariff: TariffSpec
+    evaluation_seeds: tuple[int, ...]
+    windows: tuple[RecordedPriceWindow, ...]
 
 
 def _schema(t: Table, expected: str) -> None:
@@ -295,10 +297,14 @@ def parse_facility(raw: dict[str, Any], source: str) -> FacilitySpec:
                         t.num('sensor.rh_sigma_pct', lo=0),
                         t.num('sensor.co2_sigma_ppm', lo=0),
                         t.num('sensor.par_sigma_umol_m2_s', lo=0))
-    fallback = FallbackSpec(t.num('fallback.heat_c'),
-                            t.str('fallback.vents', choices=('closed',)),
-                            t.num('fallback.co2_ppm', lo=0),
-                            t.str('fallback.lamps', choices=('off',)),
+    lamp_hours = t.list('fallback.lamp_hours')
+    if any(type(h) is not int or not 0 <= h <= 23 for h in lamp_hours) or len(set(lamp_hours)) != len(lamp_hours):
+        raise ConfigError(f'{source}: fallback.lamp_hours must contain distinct hours 0 to 23')
+    fallback = FallbackSpec(t.num('fallback.heat_day_c'), t.num('fallback.heat_night_c'),
+                            t.num('fallback.vent_min_pct', lo=0, hi=100),
+                            t.num('fallback.vent_max_pct', lo=0, hi=100),
+                            t.num('fallback.co2_ppm', lo=0), tuple(lamp_hours),
+                            t.num('fallback.lamp_intensity_pct', lo=0, hi=100),
                             t.str('fallback.screen', choices=('auto', 'open', 'closed')),
                             t.num('fallback.chp_load', lo=0, hi=1),
                             t.str('fallback.boiler', choices=('auto', 'off')),
@@ -308,6 +314,16 @@ def parse_facility(raw: dict[str, Any], source: str) -> FacilitySpec:
                            t.num('limits.max_co2_ppm', lo=0))
     if limits.min_heat_c > limits.max_heat_c:
         raise ConfigError(f'{source}: limits.min_heat_c must not exceed max_heat_c')
+    if (not all(math.isfinite(v) for v in (fallback.heat_day_c, fallback.heat_night_c,
+                                          fallback.vent_min_pct, fallback.vent_max_pct,
+                                          fallback.co2_ppm, fallback.lamp_intensity_pct,
+                                          fallback.chp_load, fallback.external_co2_kg_h)) or
+            not limits.min_heat_c <= fallback.heat_day_c <= limits.max_heat_c or
+            not limits.min_heat_c <= fallback.heat_night_c <= limits.max_heat_c or
+            fallback.vent_min_pct > fallback.vent_max_pct or
+            fallback.co2_ppm > limits.max_co2_ppm or
+            (fallback.chp_load != 0 and fallback.chp_load < energy.chp.min_load)):
+        raise ConfigError(f'{source}: fallback settings exceed facility limits')
     alarms = AlarmLimits(t.num('alarms.frost_risk_temp_c'), t.num('alarms.co2_low_kg', lo=0))
     spec = FacilitySpec(t.str('id'), energy, compartments, controller, sensor, fallback, limits, alarms)
     t.done()
@@ -317,31 +333,36 @@ def parse_facility(raw: dict[str, Any], source: str) -> FacilitySpec:
 def parse_climate(raw: dict[str, Any], source: str) -> ClimateProfile:
     t = Table(raw, source)
     _schema(t, 'climate/1')
-    weather = WeatherSpec(
-        t.num('weather.daily_mean_c'), t.num('weather.diurnal_amplitude_c', lo=0),
-        t.int('weather.diurnal_peak_hour', lo=0, hi=23),
-        t.num('weather.ar1_persistence', lo=0, hi=0.999),
-        t.num('weather.innovation_sigma_c', lo=0),
-        t.int('weather.sunrise_hour', lo=0, hi=23),
-        t.int('weather.sunset_hour', lo=1, hi=24),
-        t.num('weather.solar_peak_w_m2', lo=0),
-        t.num('weather.cloud_persistence', lo=0, hi=0.999),
-        t.num('weather.cloud_innovation_sigma', lo=0),
-        t.num('weather.clear_sky_fraction', lo=0, hi=1),
-        t.num('weather.min_solar_fraction', lo=0, hi=1),
-        t.num('weather.wind_mean_m_s', lo=0), t.num('weather.wind_sigma_m_s', lo=0),
-        t.num('weather.rh_mean_pct', lo=0, hi=100),
-        t.num('weather.rh_sigma_pct', lo=0),
-        t.num('weather.outside_co2_ppm', lo=0),
-    )
-    if weather.sunset_hour <= weather.sunrise_hour:
-        raise ConfigError(f'{source}: sunset_hour must exceed sunrise_hour')
+    weather = WeatherSpec(t.num('weather.outside_co2_ppm', lo=0))
     forecast = ForecastSpec(t.num('forecast.temp_sigma_at_24h_c', lo=0),
                             t.num('forecast.solar_fraction_sigma_at_24h', lo=0),
                             t.num('forecast.wind_sigma_at_24h_m_s', lo=0),
                             t.num('forecast.rh_sigma_at_24h_pct', lo=0),
                             t.num('forecast.price_fraction_sigma_at_24h', lo=0))
-    spec = ClimateProfile(t.str('id'), t.int('series_hours', lo=1), weather, forecast)
+    if not all(math.isfinite(v) for v in (weather.outside_co2_ppm, *vars(forecast).values())):
+        raise ConfigError(f'{source}: weather and forecast values must be finite')
+    series_hours = t.int('series_hours', lo=1)
+    seeds = _evaluation_seeds(t, source)
+    windows = []
+    for i, raw_window in enumerate(t.list('windows')):
+        window = Table(raw_window, source, f'windows[{i}]')
+        ident = window.str('id')
+        group = window.str('group', choices=('development', 'evaluation'))
+        start = window.str('start_utc')
+        rows = []
+        for j, raw_row in enumerate(window.list('rows')):
+            if (not isinstance(raw_row, list) or len(raw_row) != 5 or
+                    any(type(v) not in (int, float) or not math.isfinite(v) for v in raw_row[:4]) or
+                    type(raw_row[4]) is not bool or raw_row[1] < 0 or raw_row[2] < 0 or
+                    not 0 <= raw_row[3] <= 100):
+                raise ConfigError(f'{source}: windows[{i}].rows[{j}] needs [temp_c, solar_w_m2, wind_m_s, rh_pct, is_day]')
+            rows.append((*map(float, raw_row[:4]), raw_row[4]))
+        if len(rows) < series_hours:
+            raise ConfigError(f'{source}: windows[{i}].rows has fewer than series_hours')
+        windows.append(RecordedWeatherWindow(ident, group, start, tuple(rows)))
+        window.done()
+    _validate_windows(windows, source)
+    spec = ClimateProfile(t.str('id'), series_hours, weather, forecast, seeds, tuple(windows))
     t.done()
     return spec
 
@@ -349,15 +370,43 @@ def parse_climate(raw: dict[str, Any], source: str) -> ClimateProfile:
 def parse_energy_prices(raw: dict[str, Any], source: str) -> EnergyPriceSpec:
     t = Table(raw, source)
     _schema(t, 'energy_prices/1')
-    elec = ElectricityPriceSpec(
-        t.num('electricity.base_eur_kwh', lo=0),
-        t.num('electricity.daily_peak_multiplier', lo=0),
-        t.int('electricity.daily_peak_hour', lo=0, hi=23),
-        t.num('electricity.noise_sigma_eur_kwh', lo=0),
-        t.num('electricity.spike_probability_per_day', lo=0, hi=1),
-        t.num('electricity.spike_multiplier', lo=1),
-        t.num('electricity.export_fraction', lo=0, hi=1),
-    )
-    spec = EnergyPriceSpec(t.str('id'), t.num('gas_eur_m3', lo=0), elec)
+    tariff = TariffSpec(t.num('tariff.import_markup_eur_kwh', lo=0),
+                        t.num('tariff.export_fraction', lo=0, hi=1))
+    if not all(math.isfinite(v) for v in vars(tariff).values()):
+        raise ConfigError(f'{source}: tariff values must be finite')
+    seeds = _evaluation_seeds(t, source)
+    windows = []
+    for i, raw_window in enumerate(t.list('windows')):
+        window = Table(raw_window, source, f'windows[{i}]')
+        ident = window.str('id')
+        group = window.str('group', choices=('development', 'evaluation'))
+        start = window.str('start_utc')
+        rows = []
+        for j, raw_row in enumerate(window.list('rows')):
+            if (not isinstance(raw_row, list) or len(raw_row) != 2 or
+                    any(type(v) not in (int, float) or not math.isfinite(v) for v in raw_row) or
+                    raw_row[1] < 0):
+                raise ConfigError(f'{source}: windows[{i}].rows[{j}] needs [wholesale_eur_mwh, gas_eur_m3]')
+            rows.append((float(raw_row[0]), float(raw_row[1])))
+        if not rows:
+            raise ConfigError(f'{source}: windows[{i}].rows must not be empty')
+        windows.append(RecordedPriceWindow(ident, group, start, tuple(rows)))
+        window.done()
+    _validate_windows(windows, source)
+    spec = EnergyPriceSpec(t.str('id'), tariff, seeds, tuple(windows))
     t.done()
     return spec
+
+
+def _evaluation_seeds(t: Table, source: str) -> tuple[int, ...]:
+    seeds = t.list('evaluation_seeds')
+    if not seeds or any(type(seed) is not int or seed < 0 for seed in seeds) or len(set(seeds)) != len(seeds):
+        raise ConfigError(f'{source}: evaluation_seeds needs distinct non-negative integers')
+    return tuple(seeds)
+
+
+def _validate_windows(windows: list, source: str) -> None:
+    if len({window.id for window in windows}) != len(windows):
+        raise ConfigError(f'{source}: window ids must be unique')
+    if {window.group for window in windows} != {'development', 'evaluation'}:
+        raise ConfigError(f'{source}: windows need both development and evaluation groups')
