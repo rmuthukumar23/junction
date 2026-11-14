@@ -34,8 +34,13 @@
 <main>
   <section class="stage-wrap">
     <div class="stage">
-      <canvas id="scene" width="1280" height="720" aria-label="Pixel-art view of the greenhouse"></canvas>
-      <div class="hud hud-left"><span id="hud-day">DAY 1</span><span id="hud-time">00:00</span></div>
+      <canvas id="scene" aria-label="3D view of the greenhouse site"></canvas>
+      <div class="hint">Drag to rotate · scroll to zoom · click a building</div>
+      <div class="hud hud-left">
+        <div class="hud-item"><span class="hud-label">DAY</span><span class="hud-val" id="hud-day">1</span></div>
+        <div class="hud-item"><span class="hud-label">TIME</span><span class="hud-val" id="hud-time">00:00</span></div>
+        <div class="hud-item"><span class="hud-label">OUTSIDE</span><span class="hud-val" id="hud-temp">–</span></div>
+      </div>
       <div class="hud hud-right"><span class="hud-label">PROFIT</span><span id="hud-profit">€0</span></div>
       <div class="loading" id="loading"><div class="spinner"></div><p id="loading-text">Simulating 42 days…</p></div>
       <div class="done" id="done" hidden>
@@ -79,14 +84,6 @@
       <h3>Outside</h3><div class="big" id="c-out">–</div><p class="small" id="c-out-sub">–</p>
       <button class="link">Details →</button>
     </article>
-    <article class="card" data-open="A">
-      <h3 id="c-A-title">House A</h3><div class="big" id="c-A">–</div><p class="small" id="c-A-sub">–</p>
-      <button class="link">Details →</button>
-    </article>
-    <article class="card" data-open="B">
-      <h3 id="c-B-title">House B</h3><div class="big" id="c-B">–</div><p class="small" id="c-B-sub">–</p>
-      <button class="link">Details →</button>
-    </article>
     <article class="card" data-open="energy">
       <h3>Energy centre</h3><div class="big" id="c-en">–</div><p class="small" id="c-en-sub">–</p>
       <button class="link">Details →</button>
@@ -98,7 +95,6 @@
 <aside class="drawer" id="drawer" aria-hidden="true">
   <div class="drawer-head">
     <nav class="tabs" id="tabs">
-      <button data-tab="A">House A</button><button data-tab="B">House B</button>
       <button data-tab="energy">Energy</button><button data-tab="weather">Weather</button>
       <button data-tab="money">Money</button><button data-tab="log">Grower log</button>
       <button data-tab="raw">Raw data</button><button data-tab="about">How it works</button>
@@ -111,6 +107,7 @@
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="scene.js"></script>
 <script src="ui.js"></script>
 </body>

@@ -7,13 +7,13 @@
   const COLORS = { fault: C.red, fixed: C.green, delivery: C.blue, ready: C.yellow, sale: C.green,
                    order: C.blue, grower: C.purple, low: C.yellow, info: C.grey };
   let D = null, M = null, events = [], hf = 0, speed = 1, playing = true, lastHour = -1, last = 0, feedShown = 0;
-  let tab = "A", range = "all", drawerOpen = false, lastDrawer = 0;
+  let tab = "money", range = "all", drawerOpen = false, lastDrawer = 0, IDS = [];
 
   const eur = (v, sign = false) => (v < 0 ? "-" : sign && v > 0 ? "+" : "") + "€" + Math.abs(Math.round(v)).toLocaleString("en-US");
   const num = (v, d = 0) => (v == null ? "–" : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d }));
   const when = (h) => `Day ${Math.floor(h / 24) + 1} · ${String(h % 24).padStart(2, "0")}:00`;
   const cropName = (id) => (D.crops[id] || {}).name || id;
-  const houseName = (c) => `House ${c} · ${cropName(D.compartments[c].crop).split(" ").pop()}`;
+  const houseName = (c) => `House ${c} · ${cropName(D.compartments[c].crop)}`;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
   // ---------------- loading a run ----------------
@@ -33,22 +33,22 @@
 
   function prepare() {
     const F = D.frames, max = (fn) => Math.max(1e-6, ...F.map(fn));
+    IDS = Object.keys(D.compartments).sort();
     const maxW = {};
     for (const f of F) for (const b of f.b) if (b.st !== "harvested") maxW[b.crop] = Math.max(maxW[b.crop] || 0, b.w);
     const temps = F.map((f) => f.out.t), snowAt = temps.map((_, i) => {
       const s = temps.slice(Math.max(0, i - 24), i + 1); return s.reduce((a, b) => a + b, 0) / s.length < 0.5 ? 1 : 0; });
     const sh = (D.shift || "07:00-15:00").split("-").map((s) => parseInt(s, 10));
     M = { compartments: D.compartments, maxW, snowAt, shift: sh,
-          maxLamp: { A: max((f) => f.c.A.lamp), B: max((f) => f.c.B.lamp) }, maxHeat: { A: max((f) => f.c.A.heat), B: max((f) => f.c.B.heat) },
+          maxLamp: Object.fromEntries(IDS.map((id) => [id, max((f) => f.c[id].lamp)])),
+          maxHeat: Object.fromEntries(IDS.map((id) => [id, max((f) => f.c[id].heat)])),
           maxBuffer: max((f) => f.ec.buffer), maxCO2: max((f) => f.ec.co2), maxHeatAll: max((f) => f.ec.heat),
           deliveries: D.alarms.filter((a) => a.kind === "delivery").map((a) => a.h) };
     Scene.setData(M);
     events = buildEvents();
     const who = { reference: "The expert planner", "rule-based": "A rule-based grower", naive: "A naive grower", "do-nothing": "Nobody" }[D.policy] || D.policy;
     $("subtitle").textContent = `${who} runs the real simulator for 42 winter days · seed ${D.seed} · ${D.calls.length} decisions`;
-    $("c-A-title").textContent = houseName("A"); $("c-B-title").textContent = houseName("B");
-    document.querySelector('[data-tab="A"]').textContent = houseName("A");
-    document.querySelector('[data-tab="B"]').textContent = houseName("B");
+    buildHouseUI();
     // timeline markers
     $("tl-marks").innerHTML = events.filter((e) => ["fault", "delivery", "sale", "ready"].includes(e.type))
       .map((e) => `<i style="left:${(e.h / D.hours) * 100}%;background:${COLORS[e.type]}" title="${esc(when(e.h) + " " + e.text)}"></i>`).join("");
@@ -58,6 +58,23 @@
     vent_min_pct: ["vents at least", "%"], vent_max_pct: ["vents at most", "%"], screen: ["screen", ""], lamp_intensity_pct: ["lamps", "%"] };
   const setting = (k, v) => k === "lamp_hours" ? `lamps on ${v.length} h a day` : SETTING[k] ? `${SETTING[k][0]} ${v}${SETTING[k][1]}` : `${k.replace(/_/g, " ")} ${v}`;
 
+  const comp = (target) => (IDS.includes(target) ? target : IDS.includes(String(target)[0]) ? String(target)[0] : null);
+
+  // One card and one details tab per compartment, however many the scenario has.
+  function buildHouseUI() {
+    document.querySelectorAll(".card.house, #tabs .house").forEach((el) => el.remove());
+    const energyCard = document.querySelector('.card[data-open="energy"]'), energyTab = document.querySelector('#tabs [data-tab="energy"]');
+    for (const id of IDS) {
+      TABS[id] = houseTab(id);
+      energyCard.insertAdjacentHTML("beforebegin", `<article class="card house" data-open="${id}"><h3>${esc(houseName(id))}</h3>` +
+        `<div class="big" id="c-${id}">–</div><p class="small" id="c-${id}-sub">–</p><button class="link">Details →</button></article>`);
+      energyTab.insertAdjacentHTML("beforebegin", `<button class="house" data-tab="${id}">${esc(houseName(id))}</button>`);
+    }
+    document.querySelectorAll(".card.house").forEach((el) => el.onclick = () => openDrawer(el.dataset.open));
+    document.querySelectorAll("#tabs .house").forEach((b) => b.onclick = () => openDrawer(b.dataset.tab));
+    if (!TABS[tab]) tab = "money";
+  }
+
   // Turn alarms, grower decisions and sales into plain-language events.
   function buildEvents() {
     const ev = [];
@@ -65,18 +82,20 @@
       const tgt = a.target || "";
       if (a.kind === "equipment" && /working again/.test(a.text)) ev.push({ h: a.h, type: "fixed", where: "energy", text: `The ${tgt} works again`, bubble: `${tgt} fixed` });
       else if (a.kind === "equipment") ev.push({ h: a.h, type: "fault", where: "energy", text: `The ${tgt} broke down. ${a.text.split(". ").slice(1).join(". ")}`, bubble: `${tgt} broke!` });
-      else if (a.kind === "delivery") ev.push({ h: a.h, type: "delivery", where: "road", text: a.text.replace("co2_kg", "kg of CO2"), bubble: "delivery" });
-      else if (a.kind === "batch_ready") ev.push({ h: a.h, type: "ready", where: tgt[0], text: `Batch ${tgt} is ready to harvest`, bubble: `${tgt} ready` });
+      else if (a.kind === "delivery") ev.push({ h: a.h, type: "delivery", where: "road", text: a.text.replace(/([\d.]+e[+-]?\d+|\d+(\.\d+)?)/, (n) => num(+n)).replace("co2_kg", "kg of CO2").replace(/seedlings:(\w+)/, (_, c) => `${cropName(c)} seedlings`), bubble: "delivery" });
+      else if (a.kind === "batch_ready") ev.push({ h: a.h, type: "ready", where: comp(tgt), text: `Batch ${tgt} is ready to harvest`, bubble: `${tgt} ready` });
       else if (a.kind === "stock_low") ev.push({ h: a.h, type: "low", where: "co2", text: a.text.replace("co2_store", "CO2 tank"), bubble: "CO2 low" });
-      else ev.push({ h: a.h, type: "info", where: tgt[0] in { A: 1, B: 1 } ? tgt[0] : "energy", text: a.text, bubble: a.kind.replace(/_/g, " ") });
+      else ev.push({ h: a.h, type: "info", where: comp(tgt) || "energy", text: a.text, bubble: a.kind.replace(/_/g, " ") });
     }
     for (const c of D.calls) {
       const a = c.args, fail = c.ok ? "" : " (refused)";
       if (c.tool === "advance") continue;
       if (c.tool === "set_climate") ev.push({ h: c.h, type: "grower", where: a.compartment, text: `Grower changed ${houseName(a.compartment)}: ` +
         Object.entries(a).filter(([k]) => k !== "compartment").map(([k, v]) => setting(k, v)).join(", ") + fail, bubble: "new settings" });
-      else if (c.tool === "place_order") ev.push({ h: c.h, type: "order", where: "energy", text: `Grower ordered ${num(a.quantity)} ${a.item === "co2_kg" ? "kg of CO2" : a.item.replace("seedlings:", "seedlings of ")}${fail}`, bubble: "order placed" });
-      else if (c.tool === "harvest") ev.push({ h: c.h, type: "grower", where: a.batch_id[0], text: `Grower started harvesting ${a.batch_id}${fail}`, bubble: `harvest ${a.batch_id}` });
+      else if (c.tool === "place_order") ev.push({ h: c.h, type: "order", where: "energy", text: `Grower ordered ${num(a.quantity)} ${a.item === "co2_kg" ? "kg of CO2" : `${cropName(a.item.replace("seedlings:", ""))} seedlings`}${fail}`, bubble: "order placed" });
+      else if (c.tool === "harvest") ev.push({ h: c.h, type: "grower", where: comp(a.batch_id), text: `Grower started harvesting ${a.batch_id}${fail}`, bubble: `harvest ${a.batch_id}` });
+      else if (c.tool === "plant") ev.push({ h: c.h, type: "grower", where: a.compartment, text: `Grower planted ${num(a.area_m2)} m² in ${houseName(a.compartment)}${fail}`, bubble: "planting" });
+      else if (c.tool === "hire") ev.push({ h: c.h, type: "grower", where: "energy", text: `Grower hired ${a.workers} worker(s)${fail}`, bubble: "hiring" });
       else if (c.tool === "set_energy") ev.push({ h: c.h, type: "grower", where: "energy", text: `Grower set the energy centre: ${Object.entries(a).map(([k, v]) => `${k.replace(/_/g, " ")} ${JSON.stringify(v)}`).join(", ")}${fail}`, bubble: "energy settings" });
       else ev.push({ h: c.h, type: "grower", where: (a.compartment || "energy"), text: `Grower: ${c.tool.replace(/_/g, " ")} ${JSON.stringify(a)}${fail}`, bubble: c.tool.replace(/_/g, " ") });
     }
@@ -87,7 +106,7 @@
         let sold = f.b.filter((b) => b.st === "harvested" && (p.b.find((x) => x.id === b.id) || {}).st !== "harvested").map((b) => b.id);
         sold.forEach((id) => { const k = pending.indexOf(id); if (k >= 0) pending.splice(k, 1); });
         if (!sold.length && pending.length) sold = [pending.shift()];
-        const where = sold.length ? sold[0][0] : "A";
+        const where = sold.length ? comp(sold[0]) : IDS[0];
         ev.push({ h: f.h, type: "sale", where, text: `Sold ${sold.join(", ") || "a harvest"} for ${eur(gain)}`, bubble: `+${eur(gain)}` });
       }
     }
@@ -137,14 +156,15 @@
   function houseState(c) { return c.t < c.sp_night - 1 ? ["Too cold", "info"] : c.t > c.sp_day + 3 ? ["Too warm", "bad"] : ["On target", "good"]; }
   function updateHud() {
     const f = frameAt(hf), h = Math.min(Math.floor(hf), D.hours), m = f.money;
-    $("hud-day").textContent = `DAY ${Math.min(42, Math.floor(h / 24) + 1)}`; $("hud-time").textContent = `${String(h % 24).padStart(2, "0")}:00 · ${f.out.t.toFixed(1)}°C outside`;
+    $("hud-day").textContent = Math.min(42, Math.floor(h / 24) + 1); $("hud-time").textContent = `${String(h % 24).padStart(2, "0")}:00`;
+    $("hud-temp").textContent = `${f.out.t.toFixed(1)}°C`;
     const p = m.profit_so_far_eur; $("hud-profit").textContent = eur(p); $("hud-profit").className = p >= 0 ? "good" : "bad";
     $("tl-fill").style.width = $("tl-head").style.left = `${(hf / D.hours) * 100}%`;
     $("tl-time").textContent = `${(hf / 24).toFixed(1)} / 42 d`;
     $("c-money").textContent = eur(p); $("c-money").className = "big " + (p >= 0 ? "good" : "bad");
     $("c-money-sub").textContent = `Cash ${eur(m.cash_eur)} · sales ${eur(m.harvest_revenue_eur)}`;
     $("c-out").textContent = `${f.out.t.toFixed(1)}°C`; $("c-out-sub").textContent = weatherWord(f.out);
-    for (const id of ["A", "B"]) {
+    for (const id of IDS) {
       const c = f.c[id], [word, cls] = houseState(c), bs = f.b.filter((b) => b.c === id && b.st !== "harvested");
       const ready = bs.filter((b) => b.st === "ready").length;
       $(`c-${id}`).innerHTML = `${c.t.toFixed(1)}°C <span class="pill ${cls}">${word}</span>`;
@@ -207,7 +227,7 @@
     TABS[tab].update(f);
   }
   const TABS = {};
-  for (const id of ["A", "B"]) TABS[id] = {
+  function houseTab(id) { return {
     html: () => {
       const crop = D.crops[D.compartments[id].crop] || {}, ct = crop.climate_targets || {};
       return sec("Temperature", `Inside vs the grower's heating setpoints. Green band: the crop's ideal day range (${(ct.day_temp_c || []).join("–")}°C).`,
@@ -238,7 +258,7 @@
       }).join("");
       $("beds").innerHTML = `<table><tr><th>Batch</th><th>Status</th><th class="num">Age</th><th class="num">Weight</th><th class="num">Quality</th><th class="num">Ready in</th><th class="num">Plants</th></tr>${rows}</table>`;
     },
-  };
+  }; }
   TABS.energy = {
     html: () => sec("Heat", "Heat made by the boiler and CHP each hour, and gas burnt to make it.", legend([[C.orange, "heat kWh"], [C.grey, "gas m³ ×10"]]) + `<canvas class="chart" id="ch-heat"></canvas>`) +
       sec("Electricity", "Lamps need lots of power. Bought from the grid, or made by the CHP (which can also sell the surplus).", legend([[C.yellow, "bought kWh"], [C.green, "sold kWh"]]) + `<canvas class="chart" id="ch-el"></canvas>`) +
@@ -325,7 +345,7 @@
   document.querySelectorAll("#range button").forEach((b) => b.onclick = () => { range = b.dataset.range; built = "";
     document.querySelectorAll("#range button").forEach((x) => x.classList.toggle("on", x === b)); renderDrawer(); });
   $("close").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
-  $("scene").onclick = (e) => { if (!D) return; const r = e.target.getBoundingClientRect(); const where = Scene.hit(e.clientX - r.left, e.clientY - r.top); if (where) openDrawer(where); };
+  $("scene").addEventListener("scenepick", (e) => { if (D && e.detail) openDrawer(e.detail); });
   $("replay").onclick = () => { seek(0); rebuildFeed(0); playing = true; setPlayIcon(); };
   $("done-details").onclick = () => openDrawer("money");
   $("newrun").onsubmit = (e) => { e.preventDefault(); load($("policy").value, Math.max(1, Math.min(9999, +$("seed").value || 1))); };
