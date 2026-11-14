@@ -18,7 +18,7 @@ fitted to data.
 | `src/rootcause/sim.py` | `Greenhouse`: plans, tests, the daily update, the notice, accounting |
 | `src/rootcause/views.py` | What a player may see during play |
 | `src/rootcause/outcome.py` | Profit, the reward bounds, conservation checks, failure modes, the post-episode report |
-| `src/rootcause/env.py` | The `envkit` binding: the tools |
+| `src/rootcause/env.py` | The `envkit` binding: the tools. `advance_day(bench_plans)` sets and applies a day in one call |
 | `src/rootcause/planner.py` | Reference, blind and informed planners (one planning core) |
 | `src/rootcause/policies.py` | Absentee and EC-rules comparators |
 | `scenarios/root-cause.toml` | The scenario: prompt, clock, call limit, scoring, Harbor limits |
@@ -127,7 +127,7 @@ Every parameter is in `Params` and published by `get_rules`.
   the cheapest water and fertilizer) is reported as `profit_upper_bound_eur`.
   No plan reaches it.
 - **Every run is scored at the end of day 5.** Stopping early,
-  `finish_episode`, the 120-call limit, a timeout or a dead agent all run
+  `finish_episode`, the 60-call limit, a timeout or a dead agent all run
   the remaining days on the default plan. Tests already ordered stay charged.
 
 ## Failure modes

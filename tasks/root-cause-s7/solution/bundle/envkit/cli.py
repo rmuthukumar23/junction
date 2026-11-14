@@ -271,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
                         "(default: GEMINI_API_KEY for google/gemini models, else OPENAI_API_KEY)")
     p.add_argument("--runs", type=int, default=3, help="number of agent runs per seed")
     p.add_argument("--smoke", action="store_true", help="one reference run per seed; no model credentials")
+    p.add_argument("--agent-only", action="store_true",
+                   help="run only the model attempts (needs --model); the scripted scores are in calibration.json")
     p.add_argument("--backend", choices=["auto", "docker", "podman", "modal"], default="auto",
                    help="auto: docker if present, else podman")
     p.set_defaults(fn=cmd_eval)

@@ -23,13 +23,15 @@ PYTHONPATH=src python3 scripts/compare.py 101 102 103 104 105 106 107 108 --json
 
 **Checks that passed**
 
-- Without packages: 59 unit tests (greenhouse model, simulator, tools,
+- Without packages: 60 unit tests (after the one-call-per-day change) (greenhouse model, simulator, tools,
   verifier, tampering, failure modes).
-- Locked environment: the same 59 tests and 63 backend pytest tests. The
+- Locked environment: the same 60 tests and 63 backend pytest tests. The
   committed `tasks/root-cause-s7` and `calibration.json` match the source.
   The reward audit passes on seed 7.
 - JavaScript: 15 modules parse and the type check passes. These belong to the
   browser app, which is pending rework.
+
+The comparator numbers below are unchanged by the one-call-per-day change, which re-measured seeds 7, 1 and 2 with the same rewards; the reference now uses 9 calls.
 
 **Comparators** (reward, with profit for seed 7). The reward scale runs from
 0 (the default plan) to 1 (the informed planner).
@@ -79,8 +81,8 @@ failure analysis yet.**
 
 ```bash
 cp .env.example .env     # fill in GEMINI_API_KEY and AFTERQUERY_MODEL
-bash scripts/judge.sh --output artifacts/judge-1
-PYTHONPATH=src python3 scripts/analyze.py artifacts/judge-1
+bash scripts/quick.sh                       # one attempt + analysis.md
+bash scripts/judge.sh --output artifacts/judge-1   # full protocol
 ```
 
 Record:

@@ -31,7 +31,14 @@ from .trace import Trace, digest
 class ToolError(Exception):
     """Raise inside a tool for a domain failure the agent should see
     ("not enough cash"). The operation is still spent: it was a real attempt.
-    Raise it before mutating state, so a failed call changes nothing."""
+    Raise it before mutating state, so a failed call changes nothing.
+
+    `spend=False` refunds the operation: use it when a refused request must
+    not move the clock (e.g. a day-advancing call whose inline plan is invalid)."""
+
+    def __init__(self, message: str = "", *, spend: bool = True):
+        super().__init__(message)
+        self.spend = spend
 
 
 @dataclass(frozen=True)
@@ -245,7 +252,7 @@ class Episode:
                     spent = spec.cost
                 except ToolError as e:
                     error = {"code": "tool_error", "message": str(e)}
-                    spent = spec.cost
+                    spent = spec.cost if e.spend else 0
                 except Exception:  # a bug in the environment, never the agent's fault
                     self.faults += 1
                     self.fault_log.append(f"{name}({args!r})\n{traceback.format_exc()}")

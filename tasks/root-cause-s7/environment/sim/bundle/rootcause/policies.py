@@ -49,8 +49,7 @@ class ECRules(Policy):
         p = Params.from_mapping(rules["parameters"])
         status = client.call("get_status")["result"]
         while not client.done:
-            client.call("submit_day_plan", bench_plans=self.plan(p, status))
-            response = client.call("advance_day")
+            response = client.call("advance_day", bench_plans=self.plan(p, status))
             if client.done or not response["ok"]:
                 return
             status = response["result"]["status"]

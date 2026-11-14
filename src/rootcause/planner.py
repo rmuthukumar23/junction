@@ -190,12 +190,14 @@ class Reference(Policy):
                 client.call("order_water_test")
             temps = horizon_temps([f["temp_c"] for f in status["forecast_c"]], status["days_left"])
             plan = plan_day(p, track.beliefs(), temps, day, [believed] * len(temps), status["reserve_left_l"])
-            if not client.call("submit_day_plan", bench_plans=plan)["ok"]:
-                plan = None
             before = track.beliefs()
-            response = client.call("advance_day")
+            response = client.call("advance_day", bench_plans=plan)   # set and apply in one call
             if not response["ok"]:
-                return
+                if client.done:
+                    return
+                response = client.call("advance_day")                 # a refused plan: run the default
+                if not response["ok"]:
+                    return
             report = response["result"]
             applied = {r["bench_id"]: r["plan"] for r in report["benches"]}
             history.append({"day": day, "before": before, "plan": applied, "temp": report["temp_c"]})

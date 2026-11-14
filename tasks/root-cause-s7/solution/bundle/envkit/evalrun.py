@@ -9,8 +9,9 @@ task from the working tree and runs:
   do-nothing   harbor run -a nop
   stop-early   harbor run -a oracle --ae ENVKIT_POLICY=stop-early
 
-`--smoke` runs the reference only. Without `--model` the three scripted runs
-execute, which needs no credentials. Every scripted run must reproduce the
+`--smoke` runs the reference only; `--agent-only` runs only the model
+attempts (their scripted comparators are already in calibration.json). Without
+`--model` the three scripted runs execute, which needs no credentials. Every scripted run must reproduce the
 score calibration computed for it in-process; a mismatch fails the command.
 
 The output directory must be new. It receives the tasks that were run, one
@@ -129,7 +130,15 @@ def run_eval(a: argparse.Namespace, scenario: Scenario) -> int:
     out = Path(a.output)
     out.mkdir(parents=True, exist_ok=False)
 
-    labels = ["reference"] if a.smoke else ["reference", *(["agent"] if a.model else []), "do-nothing", "stop-early"]
+    if getattr(a, "agent_only", False) and not a.model:
+        print("Preflight failed: --agent-only needs --model (or AFTERQUERY_MODEL in .env)")
+        return 2
+    if a.smoke:
+        labels = ["reference"]
+    elif getattr(a, "agent_only", False):
+        labels = ["agent"]
+    else:
+        labels = ["reference", *(["agent"] if a.model else []), "do-nothing", "stop-early"]
     report: dict[str, Any] = {
         "schema_version": 2, **code_metadata(), "created_at": datetime.now(timezone.utc).isoformat(),
         "scenario": scenario.id, "backend": backend, "harness_version": HARBOR_VERSION, "model": a.model,

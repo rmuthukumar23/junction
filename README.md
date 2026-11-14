@@ -18,32 +18,55 @@ agronomic model. Model and rules: [docs/GREENHOUSE.md](docs/GREENHOUSE.md).
 
 **Status.** The engine, task, reference, comparators, failure analysis,
 verifier and tests are implemented and pass (results below). **No model has
-played this version yet.** That is the next step: put your key in `.env` and
-run the judge command.
+played this version yet.** An earlier 14-day tomato version showed no gap:
+Gemini 4 Hydrogen beat its weaker reference (0.67) in 4 of 4 seasons
+([EXPERIMENTS](docs/EXPERIMENTS.md)). This version was redesigned in response.
+It has one diagnosable incident, a reference that scores 0.90, and runs of a
+few minutes.
 
 ## Run it
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/) 0.13.8, and Docker
-(or Podman) running.
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and Docker or Podman running.
+
+```bash
+bash scripts/quick.sh        # first time: creates .env and asks for your key
+# open .env, paste the key after GEMINI_API_KEY=, save
+bash scripts/quick.sh        # one Gemini attempt on seed 7, then the explanation
+```
+
+`quick.sh` runs one model attempt through Harbor and OpenCode, then writes
+`artifacts/quick-<time>/analysis.md`. That file gives:
+- the reward and whether the run passed;
+- the failure modes;
+- a day-by-day table of each decision next to the hidden salt and nutrient levels;
+- what the agent wrote.
+
+The model is set in `.env`: `AFTERQUERY_MODEL=google/gemini-4-hydrogen` by
+default, which has already played this harness. Use `bash scripts/quick.sh --runs 3`
+for three attempts in parallel. Any `judge.sh` option passes through, e.g.
+`--backend podman`.
+
+**Time.** A season takes about 10 tool calls: `get_rules`, `get_status`, any
+tests, then one `advance_day` per day with the plan inline. At the ~18 s per
+call measured for Gemini, that is 3–4 minutes. Harbor stops the agent at 7
+minutes, and the session allows at most 60 calls; both are safety nets a
+normal run does not reach. The first run also builds the container images,
+which takes a few minutes once.
+
+**A reward of 0 with 0 calls is a provider problem** (bad key, unknown model,
+quota), not an agent result; `analysis.md` says so. To list the models your
+key can use:
+`curl -s -H "x-goog-api-key: $GEMINI_API_KEY" https://generativelanguage.googleapis.com/v1beta/models | grep '"name"'`.
+
+The full judging protocol also re-runs the scripted comparators in Harbor:
+the reference, do-nothing and stop-early must reproduce their calibrated
+scores, or the command fails.
 
 ```bash
 uv sync --locked --extra eval --extra mcp --extra harbor
-cp .env.example .env            # then fill in GEMINI_API_KEY and AFTERQUERY_MODEL
-bash scripts/judge.sh --output artifacts/judge-1
-PYTHONPATH=src python3 scripts/analyze.py artifacts/judge-1   # writes artifacts/judge-1/analysis.md
+bash scripts/judge.sh --output artifacts/judge-1        # reference, 3 model attempts, do-nothing, stop-early
+PYTHONPATH=src python3 scripts/analyze.py artifacts/judge-1
 ```
-
-`judge.sh` builds the Harbor task fresh and runs, on seed 7:
-- the reference (`oracle`);
-- three Gemini attempts through OpenCode, run in parallel;
-- do-nothing (`nop`);
-- stop-early.
-
-Each scripted run must reproduce its calibrated score, or the command fails.
-Without a key in `.env`, only the three scripted runs execute.
-`analyze.py` replays every collected trace and writes the explanation: the
-failure modes, a day-by-day table with the hidden state next to each
-decision, and what the agent wrote.
 
 Checks that need no Docker and no key:
 
@@ -52,11 +75,6 @@ bash scripts/check.sh                          # unit tests (plain Python)
 uv run --no-sync bash scripts/check.sh         # + backend tests, task freshness, reward audit
 PYTHONPATH=src python3 scripts/compare.py 7    # all comparators with failure modes, in-process
 ```
-
-**Run time.** A careful season takes 20–40 tool calls. Harbor stops the agent
-after 7 minutes, and the session allows at most 120 calls; either way, the
-remaining days run under the default plan. The scripted runs finish in under
-a minute each, after the images are built once.
 
 ## The task
 
@@ -68,6 +86,7 @@ a minute each, after the images are built once.
 | Observations | EC (noisy), volume, crop condition, growth; a day-0 lab report; notices; forecast |
 | Hidden | each bench's split of EC into nutrients and salt after day 0; the backup water's salinity (1.2–1.5 g/L, against 0.10 normally) |
 | Diagnosis tools | `order_test(bench)` and `order_water_test()`, €15 each, results the next morning; or infer the salt from EC against the published formulas |
+| One call per day | `advance_day(bench_plans)` sets and applies the day's plan; a rejected plan moves nothing |
 | Objective | profit at the end of day 5: €2.50/kg of head weight added, minus water, fertilizer, discharge and tests |
 
 Everything except the incident's salinity is public: `get_rules` returns every
@@ -97,6 +116,9 @@ Why this shape:
 - **The scale is explainable.** The gap between the reference (which must
   diagnose) and 1.0 is the cost of one day of uncertainty. The gap between
   an agent and the reference is what the agent failed to work out.
+- **Pass line: reward ≥ 0.5,** i.e. it recovered at least half of what
+  knowing the root cause at once is worth. The reference passes on all 15
+  seeds measured; the blind planner and EC rules on none.
 - **Stopping never pays.** Every run is scored at the end of day 5, and
   remaining days run on the default plan. A dead agent, `finish_episode`,
   the call limit and a timeout all end the same way.
@@ -208,7 +230,8 @@ Their gap isolates the value of finding the root cause.
 | `scenarios/root-cause.toml` | The task: prompt, clock, call limit, scoring, Harbor limits |
 | `tasks/root-cause-s7/` | Generated Harbor task, committed; do not edit by hand (`envkit build`) |
 | `calibration.json` | Committed comparator scores; the judge checks scripted runs against it |
-| `scripts/judge.sh` | The judge command; reads `.env` |
+| `scripts/quick.sh` | One model attempt plus its analysis: the fast feedback loop |
+| `scripts/judge.sh` | The full judge command; reads `.env` |
 | `scripts/compare.py`, `scripts/analyze.py` | Comparator table; trial explanations |
 | `tests/` | Greenhouse tests; `tests/envkit/` backend tests (with depot and strict fixtures) |
 | `src/rootcause_app/` | Browser app (pending rework for the demo) |

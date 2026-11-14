@@ -83,8 +83,13 @@ class RootCause(Environment):
         return self._ask(self.sim.submit_plan, bench_plans)
 
     @tool(cost=1)
-    def advance_day(self) -> dict[str, Any]:
-        """Apply the plan in effect (the plan submitted today, else the default plan), run the day, and move to the next morning. Returns what happened, tests delivered, new notices and the new status, and after the last day the final result. This is the only tool that moves time."""
+    def advance_day(self, bench_plans: Annotated[Optional[BenchPlans], "Optional: today's plan for all three benches, in the same form as submit_day_plan. Given here, it is checked and applied in one call; if it is rejected, nothing happens and the day does not move. Omitted: the plan already submitted today runs, else the default plan."] = None) -> dict[str, Any]:
+        """Run today and move to the next morning. Pass today's plan as bench_plans to set and apply it in one call, or omit it to apply the plan already submitted (else the default plan). Returns what happened, tests delivered, new notices and the new status, and after the last day the final result. This is the only tool that moves time."""
+        if bench_plans is not None:
+            try:
+                self.sim.submit_plan(bench_plans)
+            except RuleError as e:
+                raise ToolError(f"{e} The day was not advanced.", spend=False) from None
         report = self._ask(self.sim.advance)
         if self.sim.done:
             report["final_result"] = outcome.ledger(self.sim)

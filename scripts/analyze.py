@@ -30,6 +30,7 @@ from envkit.trace import read_trace  # noqa: E402
 from rootcause import outcome  # noqa: E402
 
 SCENARIO = load_scenario(ROOT / "scenarios" / "root-cause.toml")
+PASS = 0.5   # recovered at least half of what knowing the root cause at once is worth
 EXPLAIN = {
     "salinity": "salt from the backup water built up and cut growth (the reserve was not used enough)",
     "nutrient": "the crop ran short of nutrient; typically feeding was cut because rising EC was read as nutrient",
@@ -121,14 +122,17 @@ def render(results: list[dict]) -> str:
     lines = ["# Root Cause: trial analysis", "",
              "Each trial's trace was replayed with the verifier's engine. Hidden state (true salt and nutrient, "
              "the backup water's salinity) is shown here for analysis only; no player saw it during play.", "",
-             "| trial | reward | profit € | calls | first test after notice | mains test day | dominant loss | "
+             f"A trial **passes** at reward >= {PASS}: it recovered at least half of what knowing the root cause at "
+             "once is worth. The reference passes on every seed; the blind planner and EC rules on none.", "",
+             "| trial | pass | reward | profit € | calls | first test after notice | mains test day | dominant loss | "
              "fed less while short (bench-days) | salt-stress bench-days | flushed after incident L | reserve used L |",
-             "|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|"]
+             "|---|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|"]
     for r in results:
         fm, lg = r["modes"], r["ledger"]
         first = "never" if fm["days_to_first_test"] is None else f"+{fm['days_to_first_test']} d"
         mains = "never" if fm["mains_test_day"] is None else f"day {fm['mains_test_day']}"
-        lines.append(f"| {r['label']} | {lg['normalized_profit']:.3f} | {lg['profit_eur']:.2f} | {r['calls']} | {first} | "
+        verdict = "yes" if lg["normalized_profit"] >= PASS else "no"
+        lines.append(f"| {r['label']} | {verdict} | {lg['normalized_profit']:.3f} | {lg['profit_eur']:.2f} | {r['calls']} | {first} | "
                      f"{mains} | {fm['dominant_loss']} | {fm['fed_less_while_short_bench_days']} | "
                      f"{fm['salt_stress_bench_days']} | {fm['flushed_after_incident_l']:.0f} | {fm['reserve_used_l']:.0f} |")
     if results:
@@ -137,6 +141,11 @@ def render(results: list[dict]) -> str:
                       f"(€{lg['profit_informed_eur']:.2f}), which knows the backup salinity from the notice on."]
     for r in results:
         fm, lg = r["modes"], r["ledger"]
+        if r["calls"] == 0 and "agent" in r["label"]:
+            lines += ["", f"## {r['label']} ({r['trial'].name})", "",
+                      "**No tool calls: the model never played.** This is almost always a provider problem (bad key, "
+                      "unknown model id, quota), not an agent result. Check the trial's agent log under `agent/`.", ""]
+            continue
         lines += ["", f"## {r['label']} ({r['trial'].name})", "",
                   f"Reward **{lg['normalized_profit']:.3f}**, profit €{lg['profit_eur']:.2f}, {r['calls']} calls, "
                   f"replay {'consistent' if r['mismatches'] == 0 else str(r['mismatches']) + ' mismatches'}.", "",

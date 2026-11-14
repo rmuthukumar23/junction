@@ -66,9 +66,12 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - **The remedy has a price.** The clean reserve costs 4× mains (€0.04/L), so a planner that ignores the notice has no reason to use it. A free reserve made the blind planner match the reference (measured, then changed).
 - **Reward = clamp((profit − default) / (informed − default)).** `informed` is the same planner told the backup salinity at the notice. Reasons: 1.0 is explainable ("knew the root cause at once"), the bound is instance-only and computed in the verifier, and the reference's gap to 1.0 measures the cost of diagnosing. The proven upper bound is still reported as `profit_upper_bound_eur`.
 - **Outcome-only reward; diagnosis is evidence.** Failure modes (`fm_*` in the ledger) are computed from hidden state after the run and never rewarded, so testing or explaining cannot be gamed.
-- **Runtime.** The design keeps runs far from the limits: a season is 20–40 calls. Safety nets: `[shift] max_calls = 120` (a new optional envkit feature; reaching it equals stopping), agent timeout 420 s, verifier timeout 120 s.
+- **Runtime.** The design keeps runs far from the limits. Safety nets: `[shift] max_calls` (now 60) (a new optional envkit feature; reaching it equals stopping), agent timeout 420 s, verifier timeout 120 s.
 - **Audit change.** A cut-short reference may tie the full reference only if every omitted call is listed in `[audit] clock_tools` (`advance_day`), because that day runs the already-submitted plan anyway.
 - **Credentials.** `scripts/judge.sh` loads `GEMINI_API_KEY` and `AFTERQUERY_MODEL` from a gitignored `.env` (template `.env.example`).
+- **One call per day (after merging main's Hydrogen runs).** Gemini took about 18 s per call and 15–26 min per 14-day season on the tomato version. `advance_day` now takes the day's plan inline, so a season is about 10 calls and 3–4 minutes. A rejected inline plan raises `ToolError(spend=False)`, a new envkit option that refunds the operation, so the day does not move. `max_calls` was lowered to 60.
+- **Fast feedback.** `scripts/quick.sh` runs one model attempt (`envkit eval --agent-only`) and writes `analysis.md`. The scripted comparators' scores are already fixed in `calibration.json`. It creates `.env` from the template on first use; the default model is `google/gemini-4-hydrogen`.
+- **Pass line 0.5** in the analysis: the run recovered half the value of knowing the root cause at once. It is explanatory only; the reward is unchanged.
 - **Not done, by decision.** The browser app (`src/rootcause_app`) is not ported yet, and its tests are removed until the UI is reworked for the demo.
 
 ## Remaining event decisions

@@ -45,11 +45,13 @@ parameter, price and limit, and the exact order of a day.
    They never move time and never change anything.
 3. `order_test(bench_id)` and `order_water_test()` sample now and charge the
    fee once; the result arrives the next morning.
-4. `submit_day_plan(bench_plans)` sets today's plan for all three benches. It
-   is accepted or rejected as a whole; the error says what to fix.
-5. `advance_day` applies the plan in effect and moves to the next morning. It
-   is the only call that moves time: 6 calls play the whole season.
-6. `finish_episode` stops early; the remaining days still run.
+4. `advance_day(bench_plans)` sets today's plan for all three benches, runs
+   the day and returns the next morning's status. It is the only call that
+   moves time: 6 calls play the whole season. A plan is accepted or
+   rejected as a whole; if it is rejected, the error says what to fix and the
+   day does not move. (`submit_day_plan` sets a plan without advancing, if you
+   want to see its cost first.)
+5. `finish_episode` stops early; the remaining days still run.
 
 A plan lasts one day. Any day with no submitted plan runs the default plan
 (see `get_rules`).
@@ -61,8 +63,10 @@ A plan lasts one day. Any day with no submitted plan runs the default plan
   default plan. Stopping never freezes a result.
 - Only profit counts. The number of calls, tests or plans is not rewarded, and
   neither is any explanation. Tests and other spending stay charged.
-- This session allows at most 120 tool calls in total; after that the
-  remaining days run under the default plan. A season needs about 20 to 40.
+- This session allows at most 60 tool calls in total, and a limited
+  time; after either, the remaining days run under the default plan. A season
+  needs about 10 calls: `get_rules`, `get_status`, any tests, then one
+  `advance_day` per day.
 - You may write and run code to model the benches and plan; the published
   formulas are the ones the simulator uses.
 - There is no reset and no second attempt. No file in this container affects

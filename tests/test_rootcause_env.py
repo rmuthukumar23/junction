@@ -79,7 +79,7 @@ class ToolTests(unittest.TestCase):
 
     def test_reads_never_move_time_or_change_state(self):
         before, header = state(self.episode), self.episode.header()
-        for _ in range(15):    # 90 reads: within the call limit
+        for _ in range(8):     # 48 reads: within the call limit
             for tool, args in (("get_status", {}), ("get_rules", {}), ("get_tests", {}),
                                ("get_events", {}), ("get_history", {"bench_id": "A"}),
                                ("get_history", {"bench_id": "C", "first_day": 0, "last_day": 5})):
@@ -144,6 +144,18 @@ class ToolTests(unittest.TestCase):
                 self.assertEqual(state(self.episode), before)
         self.assertEqual((self.episode.header()["day"], self.episode.faults), (0, 0))
         self.assertEqual(sum(self.episode.env.sim.costs.values()), 0.0)
+
+    def test_an_inline_plan_is_applied_in_one_call_and_a_rejected_one_moves_nothing(self):
+        before = state(self.episode)
+        refused = self.call("advance_day", bench_plans=plan(900.0))
+        self.assertEqual(refused["error"]["code"], "tool_error")
+        self.assertIn("not advanced", refused["error"]["message"])
+        self.assertEqual(state(self.episode), before)
+        self.assertEqual((self.episode.header()["day"], self.episode.ops_left), (0, 1))
+        done = self.call("advance_day", bench_plans=plan(0.0, reserve=200.0))
+        self.assertTrue(done["ok"])
+        self.assertEqual((done["header"]["day"], done["result"]["plan_source"]), (1, "submitted"))
+        self.assertEqual(self.episode.env.sim.days[0]["benches"]["A"]["plan"]["reserve_l"], 200.0)
 
     def test_a_rejected_plan_leaves_the_previous_plan_in_force(self):
         good = plan(200.0, 100.0)
