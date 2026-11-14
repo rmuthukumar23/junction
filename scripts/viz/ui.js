@@ -58,6 +58,7 @@
     vent_min_pct: ["vents at least", "%"], vent_max_pct: ["vents at most", "%"], screen: ["screen", ""], lamp_intensity_pct: ["lamps", "%"] };
   const setting = (k, v) => k === "lamp_hours" ? `lamps on ${v.length} h a day` : SETTING[k] ? `${SETTING[k][0]} ${v}${SETTING[k][1]}` : `${k.replace(/_/g, " ")} ${v}`;
 
+  const houseFault = (x) => (x.includes(".") && IDS.includes(x.split(".")[0]) ? x.split(".")[0] : null);
   const comp = (target) => (IDS.includes(target) ? target : IDS.includes(String(target)[0]) ? String(target)[0] : null);
 
   // One card and one details tab per compartment, however many the scenario has.
@@ -85,21 +86,33 @@
       else if (a.kind === "delivery") ev.push({ h: a.h, type: "delivery", where: "road", text: a.text.replace(/arrived: ([\d.e+-]+)/, (_, n) => `arrived: ${num(+n)}`).replace("co2_kg", "kg of CO2").replace(/seedlings:(\w+)/, (_, c) => `${cropName(c)} seedlings`), bubble: "delivery" });
       else if (a.kind === "batch_ready") ev.push({ h: a.h, type: "ready", where: comp(tgt), text: `Batch ${tgt} is ready to harvest`, bubble: `${tgt} ready` });
       else if (a.kind === "stock_low") ev.push({ h: a.h, type: "low", where: "co2", text: a.text.replace("co2_store", "CO2 tank"), bubble: "CO2 low" });
+      else if (a.kind === "storm" || a.kind === "bankrupt") ev.push({ h: a.h, type: "fault", where: comp(tgt) || "energy", text: a.text, bubble: a.kind });
       else ev.push({ h: a.h, type: "info", where: comp(tgt) || "energy", text: a.text, bubble: a.kind.replace(/_/g, " ") });
     }
+    const item = (k) => k === "co2_kg" ? "kg of CO2" : k.startsWith("seedlings:") ? `${cropName(k.slice(10))} seedlings` : k.startsWith("part:") ? `spare ${k.slice(5).replace(/_/g, " ")}` : k;
+    const houses = (list) => (list && list.length ? list : IDS).join(", ");
     for (const c of D.calls) {
-      const a = c.args, fail = c.ok ? "" : " (refused)";
-      if (c.tool === "advance") continue;
-      if (c.tool === "set_climate") ev.push({ h: c.h, type: "grower", where: a.compartment, text: `Grower changed ${houseName(a.compartment)}: ` +
-        Object.entries(a).filter(([k]) => k !== "compartment").map(([k, v]) => setting(k, v)).join(", ") + fail, bubble: "new settings" });
-      else if (c.tool === "place_order") ev.push({ h: c.h, type: "order", where: "energy", text: `Grower ordered ${num(a.quantity)} ${a.item === "co2_kg" ? "kg of CO2" : `${cropName(a.item.replace("seedlings:", ""))} seedlings`}${fail}`, bubble: "order placed" });
-      else if (c.tool === "harvest") ev.push({ h: c.h, type: "grower", where: comp(a.batch_id), text: `Grower started harvesting ${a.batch_id}${fail}`, bubble: `harvest ${a.batch_id}` });
-      else if (c.tool === "plant") ev.push({ h: c.h, type: "grower", where: a.compartment, text: `Grower planted ${num(a.area_m2)} m² in ${houseName(a.compartment)}${fail}`, bubble: "planting" });
-      else if (c.tool === "hire") ev.push({ h: c.h, type: "grower", where: "energy", text: `Grower hired ${a.workers} worker(s)${fail}`, bubble: "hiring" });
-      else if (c.tool === "set_energy") ev.push({ h: c.h, type: "grower", where: "energy", text: `Grower set the energy centre: ${Object.entries(a).map(([k, v]) => `${k.replace(/_/g, " ")} ${JSON.stringify(v)}`).join(", ")}${fail}`, bubble: "energy settings" });
-      else ev.push({ h: c.h, type: "grower", where: (a.compartment || "energy"), text: `Grower: ${c.tool.replace(/_/g, " ")} ${JSON.stringify(a)}${fail}`, bubble: c.tool.replace(/_/g, " ") });
+      const a = c.args, fail = c.ok ? "" : ` (refused${c.err ? `: ${c.err}` : ""})`, push = (o) => ev.push({ h: c.h, type: "grower", ...o });
+      if (c.tool === "advance" || c.tool === "submit_day") continue;
+      if (c.tool === "set_climate") {
+        const where = a.compartment || (a.compartments && a.compartments.length === 1 ? a.compartments[0] : "energy");
+        push({ where, bubble: "new settings", text: `Grower changed ${a.compartment ? houseName(a.compartment) : `houses ${houses(a.compartments)}`}: ` +
+          Object.entries(a).filter(([k]) => !["compartment", "compartments"].includes(k)).map(([k, v]) => setting(k, v)).join(", ") + fail });
+      } else if (c.tool === "set_night_schedule") push({ where: (a.compartments || [])[0] || "energy", bubble: "night plan",
+          text: `Grower set the night schedule${a.compartments ? ` for houses ${houses(a.compartments)}` : ""}: ${Object.entries(a).filter(([k]) => k !== "compartments").map(([k, v]) => `${k.replace(/_/g, " ")} ${JSON.stringify(v)}`).join(", ")}${fail}` });
+      else if (c.tool === "place_order") push({ type: "order", where: "energy", bubble: "order placed", text: `Grower ordered ${num(a.quantity)} ${item(a.item)}${fail}` });
+      else if (c.tool === "place_orders") push({ type: "order", where: "energy", bubble: "order placed", text: `Grower ordered ${Object.entries(a.orders || {}).map(([k, q]) => `${num(q)} ${item(k)}`).join(" and ")}${fail}` });
+      else if (c.tool === "harvest") { const ids = a.batch_ids || [a.batch_id];
+        push({ where: comp(ids[0]), bubble: `harvest ${ids.join(" ")}`.slice(0, 24), text: `Grower started harvesting ${ids.join(", ")}${fail}` }); }
+      else if (c.tool === "plant") { const areas = a.areas_m2 || { [a.compartment]: a.area_m2 };
+        push({ where: Object.keys(areas)[0], bubble: "planting", text: `Grower planted ${Object.entries(areas).map(([k, v]) => `${num(v)} m² in ${houseName(k)}`).join(", ")}${fail}` }); }
+      else if (c.tool === "book_contractor") push({ where: "energy", bubble: "contractor", text: `Grower booked a ${String(a.trade || "contractor").replace(/_/g, " ")}${a.target ? ` for ${a.target}` : ""}${fail}` });
+      else if (c.tool === "hire") push({ where: "energy", bubble: "hiring", text: `Grower hired ${a.workers} worker(s)${fail}` });
+      else if (c.tool === "release") push({ where: "energy", bubble: "release", text: `Grower released ${a.workers} worker(s)${fail}` });
+      else if (c.tool === "set_energy") push({ where: "energy", bubble: "energy settings", text: `Grower set the energy centre: ${Object.entries(a).map(([k, v]) => `${k.replace(/_/g, " ")} ${JSON.stringify(v)}`).join(", ")}${fail}` });
+      else push({ where: a.compartment || "energy", bubble: c.tool.replace(/_/g, " "), text: `Grower: ${c.tool.replace(/_/g, " ")} ${JSON.stringify(a)}${fail}` });
     }
-    const pending = D.calls.filter((c) => c.tool === "harvest" && c.ok).map((c) => c.args.batch_id);
+    const pending = D.calls.filter((c) => c.tool === "harvest" && c.ok).flatMap((c) => c.args.batch_ids || [c.args.batch_id]);
     for (let i = 1; i < D.frames.length; i++) {
       const p = D.frames[i - 1], f = D.frames[i], gain = f.money.harvest_revenue_eur - p.money.harvest_revenue_eur;
       if (gain > 1) {
@@ -167,11 +180,12 @@
     for (const id of IDS) {
       const c = f.c[id], [word, cls] = houseState(c), bs = f.b.filter((b) => b.c === id && b.st !== "harvested");
       const ready = bs.filter((b) => b.st === "ready").length;
-      $(`c-${id}`).innerHTML = `${c.t.toFixed(1)}°C <span class="pill ${cls}">${word}</span>`;
+      const dmg = f.faults.filter((x) => houseFault(x) === id).map((x) => x.split(".")[1].replace(/_/g, " "));
+      $(`c-${id}`).innerHTML = `${c.t.toFixed(1)}°C <span class="pill ${cls}">${word}</span>${dmg.length ? ` <span class="pill bad">${esc(dmg.join(", "))} broken</span>` : ""}`;
       $(`c-${id}-sub`).textContent = `Target ${c.sp_night}–${c.sp_day}° · ${bs.length} beds growing${ready ? ` · ${ready} ready` : ""}${c.free > 1 ? ` · ${num(c.free)} m² empty` : ""}`;
     }
-    const broken = f.faults.length;
-    $("c-en").innerHTML = broken ? `<span class="bad">${esc(f.faults.join(", "))} down</span>` : `<span class="good">All running</span>`;
+    const plant = f.faults.filter((x) => !houseFault(x));
+    $("c-en").innerHTML = plant.length ? `<span class="bad">${esc(plant.join(", ").replace(/_/g, " "))} down</span>` : `<span class="good">All running</span>`;
     const co2pct = (f.ec.co2 / M.maxCO2) * 100;
     $("c-en-sub").textContent = `CO2 tank ${num(co2pct)}% · ${f.ec.imp > 0.5 ? `buying ${num(f.ec.imp)} kWh` : f.ec.exp > 0.5 ? `selling ${num(f.ec.exp)} kWh` : "grid idle"} · gas ${num(f.ec.gas, 1)} m³/h`;
   }
@@ -303,20 +317,21 @@
     },
   };
   TABS.log = {
-    html: () => sec("Every decision so far", `The grower plays through the same tools an AI agent gets. "advance" moves time forward and is the only call that counts against the budget of ${D.max_calls}.`,
-      `<label class="note"><input type="checkbox" id="hide-adv" checked> hide "advance"</label><div id="log"></div>`) + sec("Every event so far", "", `<div id="evlog"></div>`),
+    html: () => sec("Every decision so far", `The grower plays through the same tools an AI agent gets: one "submit_day" call per day, holding that day's actions. Days played so far are counted against the budget of ${D.max_calls} calls.`,
+      `<label class="note"><input type="checkbox" id="hide-adv" checked> hide the daily "submit_day" calls</label><div id="log"></div>`) + sec("Every event so far", "", `<div id="evlog"></div>`),
     update: (f) => {
       const hide = $("hide-adv") ? $("hide-adv").checked : true, now = f.h;
-      const calls = D.calls.filter((c) => c.h <= now && !(hide && c.tool === "advance"));
-      const used = D.calls.filter((c) => c.h <= now && c.tool === "advance").length;
-      $("log").innerHTML = `<p class="note">Time steps used: ${used} of ${D.max_calls}</p><table><tr><th>When</th><th>Tool</th><th>Arguments</th><th>OK</th></tr>${calls.slice(-200).reverse().map((c) =>
+      const turn = (c) => c.tool === "advance" || c.tool === "submit_day";
+      const calls = D.calls.filter((c) => c.h <= now && !(hide && turn(c)));
+      const used = D.calls.filter((c) => c.h <= now && turn(c)).length;
+      $("log").innerHTML = `<p class="note">Turns used: ${used} of ${D.max_calls}</p><table><tr><th>When</th><th>Tool</th><th>Arguments</th><th>OK</th></tr>${calls.slice(-200).reverse().map((c) =>
         `<tr><td>${when(c.h)}</td><td>${c.tool}</td><td><code>${esc(JSON.stringify(c.args))}</code></td><td>${c.ok ? "✓" : `<span class="err">${esc(c.err || "no")}</span>`}</td></tr>`).join("")}</table>`;
       $("evlog").innerHTML = `<table>${events.filter((e) => e.h <= now).reverse().map((e) => `<tr><td>${when(e.h)}</td><td><span class="pill" style="color:${COLORS[e.type]}">${e.type}</span></td><td>${esc(e.text)}</td></tr>`).join("")}</table>`;
     },
   };
   TABS.raw = { html: () => sec("This hour, exactly as the simulator reports it", "", `<pre id="raw"></pre>`), update: (f) => { $("raw").textContent = JSON.stringify(f, null, 1); } };
   TABS.about = {
-    html: () => sec("What you're watching", "", `<p class="note">This is the real Greenhouse Bench simulator from <code>src/greenhouse</code>, not an animation. A grower plays 42 winter days through the same tools an AI agent gets (read status, change heating and CO2, order stock, harvest, advance time). Every simulated hour is recorded and replayed here. The picture is drawn from those numbers: lamps glow when lamp power is on, smoke follows gas burnt, plants grow with their real weight, the red light flashes when equipment is broken.</p>`) +
+    html: () => sec("What you're watching", "", `<p class="note">This is the real Greenhouse Bench simulator from <code>src/greenhouse</code>, not an animation. A grower plays 42 winter days through the same tools an AI agent gets (each morning one turn: change heating, CO2 and the night schedule, order stock and parts, plant, harvest, book contractors). Every simulated hour is recorded and replayed here. The picture is drawn from those numbers: lamps glow when lamp power is on, smoke follows gas burnt, plants grow with their real weight, the red light flashes when equipment is broken.</p>`) +
       sec("The goal", "", `<p class="note">${esc(D.objective)}</p>`) +
       sec("Growers you can pick", "", `<p class="note"><b>Expert planner</b>: the hand-written reference the benchmark is calibrated against. <b>Rule-based</b>: a sensible grower following fixed rules. <b>Naive</b>: crop-file targets, reorders CO2 only when the tank is empty, harvests when ready. <b>Nobody</b>: the starting settings run untouched; the baseline every grower must beat. A different seed gives different weather windows, breakdowns and hidden parameters.</p>`) +
       sec("Scenario", "", `<p class="note">The benchmark scenario <code>scenarios/normal-winter.toml</code>: 42 days, 400 tool calls. Profit here is the raw EUR figure; the official score maps it so doing nothing is 0 and the expert planner is 0.8.</p>`),

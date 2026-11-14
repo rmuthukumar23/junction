@@ -96,8 +96,18 @@ class Recorder(InProcessClient):
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
         hour = self.sim.hour
         resp = super().call(tool, **args)
-        if tool in FREE_TOOLS_SHOWN:
-            err = None if resp.get("ok") else str(resp.get("error", ""))[:200]
+        err = None if resp.get("ok") else str(resp.get("error", ""))[:200]
+        if tool == "submit_day":
+            # One call is one day: log the turn, then each action in it with its own outcome.
+            self.log.append({"h": hour, "tool": tool, "args": {"actions": len(args.get("actions", []))},
+                             "ok": bool(resp.get("ok")), "err": err})
+            results = (resp.get("result") or {}).get("results", []) if resp.get("ok") else []
+            for i, action in enumerate(args.get("actions", [])):
+                res = results[i] if i < len(results) else {}
+                self.log.append({"h": hour, "tool": action.get("tool", "?"),
+                                 "args": {k: v for k, v in action.items() if k != "tool"},
+                                 "ok": bool(res.get("ok")), "err": None if res.get("ok") else str(res.get("error", err or ""))[:200]})
+        elif tool in FREE_TOOLS_SHOWN:
             self.log.append({"h": hour, "tool": tool, "args": args, "ok": bool(resp.get("ok")), "err": err})
         return resp
 
@@ -122,6 +132,11 @@ def play(policy: str, seed: int) -> dict[str, Any]:
     except StopPolicy:
         pass
     ep.finalize()
+    # Frames are indexed by hour: the handover hours ran before recording started, and a
+    # bankrupt run stops early, so pad both ends to cover 0..horizon.
+    first, last = frames[0], frames[-1]
+    frames = [{**first, "h": h} for h in range(first["h"])] + frames
+    frames += [{**last, "h": h} for h in range(last["h"] + 1, sim.horizon_h + 1)]
     from greenhouse import views
     rl = views.rules(sim)
     crops = {}
