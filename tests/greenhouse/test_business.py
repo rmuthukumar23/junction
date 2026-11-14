@@ -16,7 +16,7 @@ from greenhouse.world.sim import Greenhouse
 from fakes import FakeCrop, FakeFacility
 
 ROOT = Path(__file__).resolve().parents[2]
-CROPS = ("lettuce_butterhead", "basil_genovese")
+CROPS = ("lettuce_butterhead", "broccoli_micro")
 EQUIPMENT = ("boiler", "A.vents", "B.vents")
 
 

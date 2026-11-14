@@ -14,7 +14,7 @@ from greenhouse.world import crop as crop_module
 from greenhouse.world.crop import MODELS, model_for, target_climate
 
 LETTUCE = ROOT / "data" / "crops" / "lettuce_butterhead.toml"
-BASIL = ROOT / "data" / "crops" / "basil_genovese.toml"
+BROCCOLI = ROOT / "data" / "crops" / "broccoli_micro.toml"
 PROTOCOL = [n for n in vars(GrowthModel) if not n.startswith("_")]
 
 
@@ -125,7 +125,7 @@ class WaitingTests(unittest.TestCase):
     """D5: a ready batch that is not harvested loses grade, then all its value."""
 
     def test_waiting_ready_drops_grades_then_sells_for_nothing(self):
-        for path in (LETTUCE, BASIL):
+        for path in (LETTUCE, BROCCOLI):
             spec = load(path)
             model = model_for(spec)
             with self.subTest(path.name):

@@ -5,11 +5,11 @@
     climate       = "data/climates/nl_january.toml"
     energy_prices = "data/energy_prices/nl_winter.toml"
     market        = "data/markets/nl_winter.toml"
-    crops         = ["data/crops/lettuce_butterhead.toml", "data/crops/basil_genovese.toml"]
+    crops         = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml"]
     events        = ["data/events/boiler_trip.toml"]
     horizon_days  = 42
     substeps_per_hour = 12
-    overrides = { "market.crops.basil_genovese.price_eur" = 9.0, "crops.lettuce_butterhead.planting.density_per_m2" = 18 }
+    overrides = { "market.crops.broccoli_micro.price_eur" = 28.0, "crops.lettuce_butterhead.planting.density_per_m2" = 18 }
 
 Each file is parsed by its owner's `parse_*` function (PARSERS) after
 `overrides` are applied to the raw TOML. An override key is

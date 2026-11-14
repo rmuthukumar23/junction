@@ -30,13 +30,13 @@ facility = "data/facilities/nl_two_compartment.toml"
 climate = "data/climates/nl_january.toml"
 energy_prices = "data/energy_prices/nl_winter.toml"
 market = "data/markets/nl_winter.toml"
-crops = ["data/crops/lettuce_butterhead.toml", "data/crops/basil_genovese.toml"]
+crops = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml", "data/crops/radish_micro.toml"]
 events = ["data/events/boiler_trip.toml", "data/events/late_delivery.toml"]
 horizon_days = 1
 
 [env.overrides]
-"facility.compartments.A.start_batches" = [{age_days = 45, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
-"facility.compartments.B.start_batches" = [{age_days = 50, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
+"facility.compartments.A.start_batches" = [{age_days = 23, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
+"facility.compartments.B.start_batches" = [{age_days = 13, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]
 
 # The score only shows that the agent reached the tools: the share of hours in which
 # it acted (do-nothing = 0). Profit is in the ledger but not scored here.

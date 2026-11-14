@@ -74,6 +74,12 @@ Round 2 is on `main`. Read context section 0 (especially 0.8 and 0.9) and spec s
 - A merge leftover in `tests/envkit/test_schema.py` (a stray `p["note"]` line, `NameError`) is removed.
 - `normal-winter.toml` is marked `benchmark = true`: its `tasks/` and calibration are built only at benchmark time (`envkit build normal-winter`), no longer committed day to day. The quick check is `bash scripts/quick.sh` (about 30 s); your old one-attempt `quick.sh` is now `scripts/model-smoke.sh` on the smoke task. See AGENTS.md, "Checks and handoff".
 
+### Max changed your crop files (branch `max/locked-crops`, please review)
+
+- Added `data/crops/broccoli_micro.toml` and `data/crops/radish_micro.toml` from CROPS.md, with no germination phase: a batch starts as an emerged seedling (`transplant_dry_weight_g` 0.0012 and 0.0025, [DES]), because radish's seed outweighs its harvested plant's dry matter.
+- Lettuce: `nominal_days` and `min_days_before_end` 21, `canopy_closure_m2_kg` 17.4 (20.7 days).
+- Deleted `basil_genovese.toml` and its tests (`BasilTests`, the after-a-cut and kg estimate tests, the regrow check in `test_crop_game.py`). `test_crop_estimate.py` ages are now 6, 12, 18; `test_crop_game.py` start ages 18 and 9.
+
 ## Watch out
 
 - An exploit judges will try is harvesting everything early. Your minimum sellable weight blocks it. Test it.

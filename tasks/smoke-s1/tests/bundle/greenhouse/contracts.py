@@ -329,7 +329,7 @@ class Task:
     target: str                           # compartment (plant), batch id (harvest), equipment id (repair)
     worker_hours: float
     queued_hour: int
-    detail: dict[str, Any] = field(default_factory=dict)   # e.g. {"area_m2": 500.0, "crop_id": "basil_genovese"}
+    detail: dict[str, Any] = field(default_factory=dict)   # e.g. {"area_m2": 500.0, "crop_id": "broccoli_micro"}
 
 
 @dataclass(frozen=True)

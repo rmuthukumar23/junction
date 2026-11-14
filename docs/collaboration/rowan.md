@@ -73,6 +73,11 @@ They crashed the first runs on the real game, so Max fixed them directly instead
 - **Also new for you:** bankruptcy ends the episode when cash goes below 0 (`sim.bankrupt_hour`, ledger key `bankrupt`), using your `start_cash_eur` (EUR 50,000). `naive` is registered in `env.policies()`, and `reference` points at naive until the planner exists.
 - **Found, not fixed, yours to judge:** on the real game over 42 days, naive ends at about -EUR 16.6k (wages 22k, electricity 15k, revenue 27k), so even honest play loses money. Exploits that already run on it: harvest-early -31.8k (9 of 10 harvests unsellable), extreme-climate -42.7k.
 
+### Max edited your market file and tests (branch `max/locked-crops`, please review)
+
+- `data/markets/nl_winter.toml`: basil out; `[crops.broccoli_micro]` EUR 30/kg and `[crops.radish_micro]` EUR 22/kg; seed as `seedlings:broccoli_micro` / `seedlings:radish_micro`, priced per seed (EUR 0.00014 / 0.00015), 72 h lead time, minimum about 5 kg of seed. No demand cap yet: that is still yours (DECISIONS, "Locked crop set").
+- Crop id `basil_genovese` replaced by `broccoli_micro` in `test_business.py`, `test_ops.py`, `test_ops_business.py`, `test_ops_market.py`, `test_policies.py`.
+
 ## Watch out
 
 - Doing nothing and stopping early must earn about 0. You own the costs that make that true (wages from hour 0) and the rule that standing crop counts for nothing.

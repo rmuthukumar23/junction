@@ -16,7 +16,6 @@ def _is_crop(path: Path) -> bool:
 
 
 CROP_FILES = sorted((ROOT / "data" / "crops").glob("*.toml")) + sorted(filter(_is_crop, FIXTURES.glob("*.toml")))
-BASIL = ROOT / "data" / "crops" / "basil_genovese.toml"
 
 
 def at_targets(model, spec, batch, start):
@@ -33,7 +32,7 @@ def at_targets(model, spec, batch, start):
 class EveryCropFileTests(unittest.TestCase):
     def test_the_crop_files_are_found(self):
         names = {p.name for p in CROP_FILES}
-        self.assertTrue({"lettuce_butterhead.toml", "basil_genovese.toml"} <= names, names)
+        self.assertTrue({"lettuce_butterhead.toml", "broccoli_micro.toml", "radish_micro.toml"} <= names, names)
 
     def test_ready_in_nominal_days_under_the_targets(self):
         for path in CROP_FILES:
@@ -76,34 +75,6 @@ class EveryCropFileTests(unittest.TestCase):
                 fine = grow(model, model.new_batch("b", "A", 1.0, 0), 20 * 24, substeps=12)
                 coarse = grow(model, model.new_batch("b", "A", 1.0, 0), 20 * 24)
                 self.assertAlmostEqual(model.fresh_weight_g(fine) / model.fresh_weight_g(coarse), 1.0, delta=0.01)
-
-
-class BasilTests(unittest.TestCase):
-    def setUp(self):
-        self.spec = load(BASIL)
-        self.model = model_for(self.spec)
-
-    def new(self):
-        return self.model.new_batch("b", "B", 10.0, 0)
-
-    def test_basil_is_repeated_and_sold_by_kg(self):
-        self.assertEqual((self.spec.cycle.harvest_mode, self.spec.market.unit), ("repeated", "kg"))
-        self.assertGreater(self.spec.climate_targets.day_temp_c[0], load(ROOT / "data/crops/lettuce_butterhead.toml")
-                           .climate_targets.day_temp_c[0])
-
-    def test_basil_wants_warmth_more_than_lettuce_does(self):
-        def cool_over_warm(model):
-            def weight(**kw):
-                return model.fresh_weight_g(grow(model, model.new_batch("b", "B", 10.0, 0), 20 * 24, **kw))
-            return weight(day_c=14, night_c=10) / weight(day_c=25, night_c=20)
-        lettuce = model_for(load(ROOT / "data/crops/lettuce_butterhead.toml"))
-        self.assertLess(cool_over_warm(self.model), 0.7)
-        self.assertLess(cool_over_warm(self.model), cool_over_warm(lettuce) - 0.3)
-
-    def test_chilling_lowers_quality(self):
-        batch = grow(self.model, self.new(), 3 * 24 + 1, day_c=25, night_c=6)
-        self.assertGreater(batch.stress["chilling"], 0)
-        self.assertLess(self.model.quality(batch), 1.0)
 
 
 class SpinachFixtureTests(unittest.TestCase):

@@ -24,7 +24,7 @@ from greenhouse.world.modules import Modules
 from fakes import FakeCrop, FakeFacility
 
 ROOT = Path(__file__).resolve().parents[2]
-CROPS = ("lettuce_butterhead", "basil_genovese")
+CROPS = ("lettuce_butterhead", "broccoli_micro")
 DAYS = 14
 
 SCENARIO = parse_scenario(f"""
@@ -53,7 +53,7 @@ metrics = ["profit_eur"]
 
 
 class _KgCrop(FakeCrop):
-    """The fake crop sold by the kg, as the real basil file does (1 kg per m2 per cut)."""
+    """The fake crop sold by the kg, as the real microgreen files do."""
 
     def harvest(self, batch, hour):
         res = super().harvest(batch, hour)

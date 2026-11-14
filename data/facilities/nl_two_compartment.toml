@@ -63,7 +63,7 @@ par_sigma_umol_m2_s = 5.0
 # https://cea.cals.cornell.edu/files/2019/06/Cornell-CEA-Lettuce-Handbook-.pdf
 # https://extension.umn.edu/garden-and-home/yard-and-garden/gardening-minnesota/lighting-indoor-plants-and-starting-seeds
 # https://edepot.wur.nl/366433
-# One shared setting is a scenario simplification; basil would prefer warmer nights.
+# One shared setting is a scenario simplification; the microgreens prefer slightly warmer nights.
 heat_day_c = 18.0
 heat_night_c = 15.0
 vent_min_pct = 0.0
@@ -106,11 +106,11 @@ initial_rh_pct = 75.0
 initial_co2_ppm = 420.0
 screen = {insulation = {min = 0.3, max = 0.5}}
 lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
-start_batches = [{age_days = 24, area_fraction = 0.25}, {age_days = 16, area_fraction = 0.25}, {age_days = 8, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
+start_batches = [{age_days = 18, area_fraction = 0.25}, {age_days = 12, area_fraction = 0.25}, {age_days = 6, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
 
 [[compartments]]
 id = "B"
-crop = "basil_genovese"
+crop = "broccoli_micro"
 floor_m2 = {min = 1800, max = 2400}
 height_m = {min = 4.5, max = 6.0}
 cover_u_w_m2_k = {min = 4.5, max = 6.5}
@@ -126,4 +126,4 @@ initial_rh_pct = 75.0
 initial_co2_ppm = 420.0
 screen = {insulation = {min = 0.3, max = 0.5}}
 lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
-start_batches = [{age_days = 20, area_fraction = 0.5}, {age_days = 10, area_fraction = 0.5}]
+start_batches = [{age_days = 9, area_fraction = 0.25}, {age_days = 6, area_fraction = 0.25}, {age_days = 3, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]

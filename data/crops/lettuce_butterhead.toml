@@ -25,8 +25,8 @@ growth_model = "leafy_vanhenten"
 
 [cycle]
 harvest_mode = "single"
-nominal_days = 32                  # [DES] commercial winter cycle with lighting; spec 3.1 / 4 (D1)
-min_days_before_end = 30           # [DES] spec 3.1
+nominal_days = 21                  # [DES] pinned in docs/CROPS.md: DLI 17 with CO2; [CEA] gives 24, grower guides 21-28
+min_days_before_end = 21           # [DES] same as the cycle (docs/CROPS.md)
 ready_fresh_weight_g = 250         # [DES] a typical marketable butterhead head (about 250-300 g)
 
 [planting]
@@ -45,7 +45,7 @@ radiation_j_per_umol = 0.2188      # [MCR] 1/4.57: crop-level PAR read as W m-2 
 # 0.2-0.35 measured for lettuce). Only this coefficient is calibrated: it sets how fast the
 # young canopy closes, while the full-canopy rate and all light, CO2 and temperature
 # responses keep the published values. [CAL]
-canopy_closure_m2_kg = 9.5             # [CAL] gives 32.2 days under the target midpoints
+canopy_closure_m2_kg = 17.4            # [CAL] gives 20.7 days under the target midpoints
 boundary_conductance_m_s = 0.007   # g_bnd [VH94][VS10][BvM]
 stomatal_conductance_m_s = 0.005   # g_stm [VH94][VS10][BvM]
 # g_car = -5.11e-6 T^2 + 2.3e-4 T - 6.29e-4 m s-1 in [VH94][VS10][BvM]. That parabola is

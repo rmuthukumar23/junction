@@ -20,10 +20,10 @@ LAMP_HOURS = tuple(range(6, 22))
 
 
 class _Lit(_Facility):
-    """One lettuce and one basil batch a few days from ready, as a handed-over facility would have."""
+    """One lettuce and one broccoli batch a few days from ready, as a handed-over facility would have."""
 
     def start_batches(self):
-        return [StartBatch("A", CROPS[0], 29.0, 500.0), StartBatch("B", CROPS[1], 25.0, 500.0)]
+        return [StartBatch("A", CROPS[0], 18.0, 500.0), StartBatch("B", CROPS[1], 9.0, 500.0)]
 
 
 def real_growth():
@@ -39,7 +39,7 @@ def sim(seed: int = 1, days: int = DAYS) -> Greenhouse:
 
 def tend(s: Greenhouse):
     """Heat to the crops' targets with lamps and CO2, and harvest whatever is ready."""
-    for c, (day, night) in {"A": (20.0, 16.0), "B": (25.0, 20.0)}.items():
+    for c, (day, night) in {"A": (20.0, 16.0), "B": (20.0, 17.0)}.items():
         s.set_climate(c, {"heat_day_c": day, "heat_night_c": night, "co2_ppm": 900.0,
                           "lamp_hours": LAMP_HOURS, "lamp_intensity_pct": 100.0})
     while not s.done:
@@ -60,8 +60,6 @@ class InGameTests(unittest.TestCase):
             self.assertEqual(h["grade"], "A")
             self.assertGreater(h["eur"], 0)
         self.assertGreater(s.business.totals()["harvest_revenue"], 0)
-        basil = next(b for b in s.batches.values() if b.crop_id == CROPS[1])
-        self.assertEqual((basil.cuts, basil.status), (1, "growing"))       # basil regrows after a cut
 
     def test_untended_crops_earn_nothing(self):
         """D5: nobody harvests, so nothing is sold, and the ready batch loses quality."""

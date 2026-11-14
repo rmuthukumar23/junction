@@ -83,7 +83,7 @@ class OrderTests(unittest.TestCase):
         alarms = o.delay(10, 30, ("co2_kg",))
         self.assertEqual((first.eta_hour, second.eta_hour), (102, 77))
         self.assertEqual(alarms[0].kind, "delivery")
-        self.assertEqual(o.delay(10, 30, ("seedlings:basil_genovese",)), [])   # nothing open of that item
+        self.assertEqual(o.delay(10, 30, ("seedlings:broccoli_micro",)), [])   # nothing open of that item
 
 
 class StockTests(unittest.TestCase):

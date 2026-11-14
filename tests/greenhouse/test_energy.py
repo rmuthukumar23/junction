@@ -175,7 +175,7 @@ class FacilityEpisodeTests(unittest.TestCase):
             'climate': 'data/climates/nl_january.toml',
             'energy_prices': 'data/energy_prices/nl_winter.toml',
             'market': 'data/markets/nl_winter.toml',
-            'crops': ['data/crops/lettuce_butterhead.toml', 'data/crops/basil_genovese.toml'],
+            'crops': ['data/crops/lettuce_butterhead.toml', 'data/crops/broccoli_micro.toml'],
             'events': ['data/events/boiler_trip.toml', 'data/events/late_delivery.toml'],
             'horizon_days': 10,
             'substeps_per_hour': 12,

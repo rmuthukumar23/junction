@@ -20,7 +20,7 @@ class MarketSchemaTests(unittest.TestCase):
     def test_the_committed_market_loads(self):
         m = parse_market(load(MARKET), str(MARKET))
         self.assertEqual(m.id, "nl_winter")
-        self.assertEqual(set(m.crops), {"lettuce_butterhead", "basil_genovese"})
+        self.assertEqual(set(m.crops), {"lettuce_butterhead", "broccoli_micro", "radish_micro"})
         self.assertIn("co2_kg", m.items)
         self.assertEqual(m.items["co2_kg"].lead_time_h, 72.0)
         self.assertGreater(m.staff.wage_eur_per_worker_hour, 0)
@@ -36,7 +36,7 @@ class MarketSchemaTests(unittest.TestCase):
         cases.append((negative, "min_quantity"))
         bad_item = copy.deepcopy(raw); bad_item["items"]["gas_m3"] = dict(raw["items"]["co2_kg"])
         cases.append((bad_item, "gas_m3"))
-        orphan = copy.deepcopy(raw); orphan["items"]["seedlings:spinach"] = dict(raw["items"]["seedlings:basil_genovese"])
+        orphan = copy.deepcopy(raw); orphan["items"]["seedlings:spinach"] = dict(raw["items"]["seedlings:broccoli_micro"])
         cases.append((orphan, "seedlings:spinach"))
         stock = copy.deepcopy(raw); stock["start_stock"]["nutrients_kg"] = 5.0
         cases.append((stock, "nutrients_kg"))

@@ -8,7 +8,7 @@ Locked on 14 Nov 2026 for the hackathon. Every scenario uses only these three cr
 | `broccoli_micro` | Broccoli microgreens | Sown in trays in the compartment | 12 | Single cut | Per kg |
 | `radish_micro` | Radish microgreens | Sown in trays in the compartment | 8 | Single cut | Per kg |
 
-Basil (`data/crops/basil_genovese.toml`) leaves the locked set. Its file can stay as a test fixture for the repeated-cut code path, but no scenario uses it.
+Basil is deleted. **State (branch `max/locked-crops`):** all three crop files exist and are calibrated. Germination days are skipped (a batch starts as an emerged seedling), and seed uses the existing `seedlings:<id>` market item priced per seed. Where this page says `germination_days` or `seed:<id>`, read that. See DECISIONS.md, "Locked crop set".
 
 **Why these three.** They cover three cycle lengths (8, 12 and 21 days), so a 42-day episode has many harvest and resowing decisions, and they give two supply routes: lettuce depends on a plug order with a lead time, while microgreens are sown directly from seed held in stock. All three are cool-season brassicas or lettuce, so they share one climate band, and a mixed compartment remains a real but manageable compromise.
 
