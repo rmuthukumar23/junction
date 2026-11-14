@@ -15,8 +15,10 @@ reference = "reference"
 prompt = """
 Smoke test of a greenhouse simulator. You run a three-compartment winter greenhouse
 for ${horizon_days} day (${windows} one-hour windows) with ${max_calls} tool calls.
-Call get_rules once, then get_batches, harvest every batch whose status is
-"ready", and call advance with hours=12 until the episode is done.
+You take one turn a day at 06:00, with up to ${actions_per_day} actions. Below is the
+morning briefing. Call harvest once with the ids of every batch whose status is
+"ready", call set_night_schedule with from_hour=18 and copy_day=true, then call
+end_shift until the episode is done.
 """
 
 [shift]
@@ -31,8 +33,10 @@ climate = "data/climates/nl_january.toml"
 energy_prices = "data/energy_prices/nl_winter.toml"
 market = "data/markets/nl_winter.toml"
 crops = ["data/crops/lettuce_butterhead.toml", "data/crops/broccoli_micro.toml", "data/crops/radish_micro.toml"]
-events = ["data/events/boiler_trip.toml", "data/events/late_delivery.toml"]
+events = ["data/events/boiler_trip.toml", "data/events/late_delivery.toml", "data/events/storm.toml"]
+news = ["data/news/storm.toml", "data/news/frost.toml", "data/news/gas_price.toml"]
 horizon_days = 1
+actions_per_day = 5
 
 [env.overrides]
 "facility.compartments.A.start_batches" = [{age_days = 13, area_fraction = 0.5}, {age_days = 0, area_fraction = 0.5}]

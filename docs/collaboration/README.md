@@ -11,6 +11,8 @@ Start here. Each person has one file in this folder with their tasks, the files 
 
 Spec: [GREENHOUSE_SPEC.md](../GREENHOUSE_SPEC.md). Background: [GREENHOUSE_BENCH_CONTEXT.md](../GREENHOUSE_BENCH_CONTEXT.md).
 
+> **Round 3 is built** on branch `max/no-finish-episode` (14 Nov 2026), with a change from spec 14.1 as first written: the agent plays a **daily turn**, one decision point at 06:00 with at most 5 actions and no read tools. It sees the rules and each morning's briefing instead. See DECISIONS, "Round 3 built". **Rowan:** your business files (`config/market.py`, `world/{business,events,operations}.py`, `outcome.py`, new `world/contractors.py` and `world/news.py`, `data/{markets,events,news}/`, your tests) were edited by a subagent for storms, contractors, parts and news; please review. **Lucas:** lettuce plug lead time (336-504 h) is set in the market file. Benchmark checks on the new rules are not run yet.
+
 > **Round 3 is on.** Read [context section 0](../GREENHOUSE_BENCH_CONTEXT.md) (pinned decisions: day shift, night schedule, persistent damage, contractors and parts, news, Netherlands) and [spec section 14](../GREENHOUSE_SPEC.md) (interfaces and who builds what). Then your file's "Next steps (round 3)". This round is split across Max, Rowan and Lucas: Emre's facility files are with Max, and his weather files with Lucas, until he is back. Max's contracts PR comes first; build your data and schemas meanwhile.
 
 ## Already on `main` (use it, don't rewrite it)

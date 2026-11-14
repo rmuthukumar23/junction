@@ -42,6 +42,7 @@ def tend(s: Greenhouse):
     for c, (day, night) in {"A": (20.0, 16.0), "B": (20.0, 17.0)}.items():
         s.set_climate(c, {"heat_day_c": day, "heat_night_c": night, "co2_ppm": 900.0,
                           "lamp_hours": LAMP_HOURS, "lamp_intensity_pct": 100.0})
+    s.set_night_entry(18, None, {}, {}, copy_day=True)     # the night runs on the same settings
     while not s.done:
         s.run_hour()
         for b in s.batch_views():

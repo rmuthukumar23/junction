@@ -1,13 +1,26 @@
-"""Greenhouse Bench served by envkit: the tools (spec 5).
+"""Greenhouse Bench served by envkit: the tools (spec 5 and 14).
 
-One window is one simulated hour. `advance(hours)` is the only tool that costs
-an operation and moves time: it runs the hours itself, stops after an hour with
-a new alarm, then asks the engine to close that many windows. Every other tool
-is free and never moves time.
+One window is one simulated hour. The agent plays one turn a day, at 06:00
+(round 3, the daily turn decided 14 Nov 2026):
 
-Hours that nobody ran (after `finish_episode`, the call limit, a timeout or a
-dead agent) still run, with the standing settings and nobody acting, so every
-run is scored at the end of the same last hour.
+  * There are no read tools. Before its first call the agent is shown every rule
+    and the first morning's briefing (status, last night, news, forecast): they are
+    in the task instruction (`opening`). Every later briefing comes back in the
+    result of the call that ends the day.
+  * It takes at most `actions_per_day` actions (scenario `[env]`, 5 by default).
+    Lists are accepted where work comes in numbers (harvest several batches, plant
+    several compartments, order several items, set several compartments), and
+    each such call is one action. A refused action is free and does not count.
+  * The day ends with `end_shift`, or by itself with the last allowed action. The
+    whole day (06:00-18:00 on the day settings, crew at work) and the night
+    (18:00-06:00 on the night schedule) then run inside that call, nobody acting and
+    nothing stopping it.
+
+The handover night (00:00-06:00 of day 1) runs before the first call as envkit
+prelude windows, so day 1 starts at 06:00 like every other day. Hours nobody ran
+(the agent quit, the call limit, a timeout or a dead agent) still run, with the
+day settings and the night schedule and nobody acting, so every run is scored at
+the end of the same last hour.
 """
 from __future__ import annotations
 
@@ -21,7 +34,9 @@ from . import outcome, views
 from .config.loader import data_files
 from .contracts import RuleError
 from .world.modules import builder
-from .world.sim import Greenhouse
+from .world.sim import DUTY_START_H, Greenhouse
+
+DEFAULT_ACTIONS_PER_DAY = 5
 
 
 class GreenhouseBench(Environment):
@@ -34,66 +49,47 @@ class GreenhouseBench(Environment):
             raise ValueError(f"[shift] must be window_hours = 1, ops_per_window = 1 and windows = "
                              f"{modules.horizon_h} (horizon_days x 24)")
         self.sim = Greenhouse(modules, self.rng.stream("sim"))
+        self.handover_h = min(DUTY_START_H, modules.horizon_h)
+        self.actions_per_day = int(self.config.get("actions_per_day", DEFAULT_ACTIONS_PER_DAY))
+        if self.actions_per_day < 1:
+            raise ValueError("[env] actions_per_day must be at least 1")
+        self.actions_today = 0
+
+    def prelude_windows(self) -> int:
+        return self.handover_h
 
     @classmethod
     def data_files(cls, config: dict[str, Any]) -> list[str]:
         return data_files(config)
 
-    # -- reads: free, change nothing ----------------------------------------------------
+    # -- what the player is shown: no read tools ------------------------------------------
+
+    def opening(self) -> dict[str, Any]:
+        """Shown before the first call (in the task instruction, and to scripted policies):
+        every rule, and the first morning's briefing. There are no read tools."""
+        return {"rules": {**views.rules(self.sim), "turn": self._turn_rules()}, "briefing": self._briefing()}
+
+    # -- actions: each counts once toward today's limit ------------------------------------------
 
     @tool(cost=0)
-    def get_rules(self) -> dict[str, Any]:
-        """Every rule: the objective, the clock, the facility's mechanisms and equipment limits, each crop's growth, stress, harvest and market rules, prices, lead times, wages, event types and rates, and the published ranges of hidden facility parameters. Read this first. Free; changes nothing."""
-        return views.rules(self.sim)
-
-    @tool(cost=0)
-    def get_status(self) -> dict[str, Any]:
-        """The clock, the latest sensor readings per compartment and the energy centre, the standing settings, equipment faults, free area, stock, open orders, staff, task queue, money, alarms of the last 24 hours, and every batch with its estimate. Free; changes nothing."""
-        return views.status(self.sim)
-
-    @tool(cost=0)
-    def get_batches(self) -> dict[str, Any]:
-        """Every batch: crop, compartment, area, age, status, whether a harvest is queued, and its estimated weight, days to ready and quality. Free; changes nothing."""
-        return views.batches(self.sim)
-
-    @tool(cost=0)
-    def get_forecast(self, hours: Annotated[int, "Hours ahead, 1 to 72."] = 72) -> dict[str, Any]:
-        """Weather and energy-price forecast from now. Forecast error grows with lead time. Free; changes nothing."""
-        if not 1 <= hours <= 72:
-            raise ToolError("hours must be 1 to 72", spend=False)
-        return views.forecast(self.sim, hours)
-
-    @tool(cost=0)
-    def get_history(self, compartment: Annotated[str, "Compartment id."],
-                    from_hour: Annotated[int, "First hour."] = 0,
-                    to_hour: Annotated[Optional[int], "Last hour; omit for the latest."] = None) -> dict[str, Any]:
-        """Hourly sensor readings, settings and metered energy for one compartment, at most 168 hours per call. Free; changes nothing."""
-        self._ask(self.sim._compartment, compartment)
-        if from_hour < 0 or (to_hour is not None and to_hour < from_hour):
-            raise ToolError("from_hour must be 0 or more and to_hour not before it", spend=False)
-        return views.history(self.sim, compartment, from_hour, to_hour)
-
-    # -- standing settings ---------------------------------------------------------------
-
-    @tool(cost=0)
-    def set_climate(self, compartment: Annotated[str, "Compartment id."],
-                    heat_day_c: Annotated[Optional[float], "Heating setpoint by day, C."] = None,
-                    heat_night_c: Annotated[Optional[float], "Heating setpoint by night, C."] = None,
+    def set_climate(self, compartments: Annotated[Optional[list[str]], "Compartment ids; omit for every compartment."] = None,
+                    heat_day_c: Annotated[Optional[float], "Heating setpoint while the sun is up, C."] = None,
+                    heat_night_c: Annotated[Optional[float], "Heating setpoint while it is dark, C."] = None,
                     vent_min_pct: Annotated[Optional[float], "Minimum vent opening, %."] = None,
                     vent_max_pct: Annotated[Optional[float], "Maximum vent opening, %."] = None,
                     co2_ppm: Annotated[Optional[float], "CO2 dosing target, ppm; 0 = no dosing."] = None,
                     screen: Annotated[Optional[Literal["auto", "open", "closed"]], "Energy screen mode."] = None,
                     lamp_hours: Annotated[Optional[list[int]], "Hours of the day (0-23) the lamps are on."] = None,
                     lamp_intensity_pct: Annotated[Optional[float], "Lamp intensity, %."] = None) -> dict[str, Any]:
-        """Change a compartment's standing climate setpoints. Give only the fields to change; the rest stay. Checked against equipment limits; a rejected change changes nothing. Takes effect from the next sub-step."""
+        """One action. Change the day settings (06:00-18:00) of one or more compartments; give only the fields to change. Checked against equipment limits; a rejected change changes nothing and does not count. The night runs on the night schedule (set_night_schedule), not on these."""
         changes = {k: v for k, v in {"heat_day_c": heat_day_c, "heat_night_c": heat_night_c,
                                      "vent_min_pct": vent_min_pct, "vent_max_pct": vent_max_pct, "co2_ppm": co2_ppm,
                                      "screen": screen, "lamp_hours": lamp_hours,
                                      "lamp_intensity_pct": lamp_intensity_pct}.items() if v is not None}
         if not changes:
             raise ToolError("give at least one setting to change", spend=False)
-        new = self._ask(self.sim.set_climate, compartment, changes)
-        return {"compartment": compartment, "climate": asdict(new)}
+        new = self._ask(self.sim.set_climate_many, compartments, changes)
+        return self._acted({"climate": {c: asdict(sp) for c, sp in new.items()}})
 
     @tool(cost=0)
     def set_energy(self, chp_load: Annotated[Optional[float], "CHP load: 0 = off, else its minimum load to 1."] = None,
@@ -102,84 +98,119 @@ class GreenhouseBench(Environment):
                    external_co2_kg_h: Annotated[Optional[float], "External CO2 purchase rate, kg/h."] = None,
                    priority: Annotated[Optional[dict[str, int]], "Compartment -> priority level when supply is short; higher is served first."] = None,
                    heat_cap_kw: Annotated[Optional[dict[str, float]], "Compartment -> heat cap, kW, when supply is short."] = None,
-                   co2_cap_kg_h: Annotated[Optional[dict[str, float]], "Compartment -> CO2 cap, kg/h, when supply is short."] = None) -> dict[str, Any]:
-        """Change the energy centre's standing settings. Give only the fields to change; maps are merged into the current ones. Checked against equipment limits; a rejected change changes nothing."""
-        changes = {k: v for k, v in {"chp_load": chp_load, "boiler": boiler, "buffer": buffer,
-                                     "external_co2_kg_h": external_co2_kg_h, "priority": priority,
-                                     "heat_cap_kw": heat_cap_kw, "co2_cap_kg_h": co2_cap_kg_h}.items()
-                   if v is not None}
+                   co2_cap_kg_h: Annotated[Optional[dict[str, float]], "Compartment -> CO2 cap, kg/h, when supply is short."] = None,
+                   boiler_max_fraction: Annotated[Optional[float], "Highest boiler level the thermostat may use, 0 (off) to 1 (full)."] = None,
+                   buffer_draw_max_kw: Annotated[Optional[float], "Highest heat the thermostat may draw from the buffer, kW."] = None) -> dict[str, Any]:
+        """One action. Change the energy centre's day settings (06:00-18:00); give only the fields to change; maps are merged into the current ones. The thermostat takes heat from the CHP at its load, then the buffer up to its draw cap, then the boiler up to its level. A rejected change changes nothing and does not count."""
+        changes = _energy_changes(chp_load, boiler, buffer, external_co2_kg_h, priority, heat_cap_kw, co2_cap_kg_h,
+                                  boiler_max_fraction, buffer_draw_max_kw)
         if not changes:
             raise ToolError("give at least one setting to change", spend=False)
-        return {"energy": asdict(self._ask(self.sim.set_energy, changes))}
-
-    # -- operations ----------------------------------------------------------------------
+        return self._acted({"energy": asdict(self._ask(self.sim.set_energy, changes))})
 
     @tool(cost=0)
-    def place_order(self, item: Annotated[str, "'co2_kg' or 'seedlings:<crop id>'."],
-                    quantity: Annotated[float, "Amount: kg of CO2, or number of seedlings."]) -> dict[str, Any]:
-        """Order stock. Minimum quantities and lead times apply (get_rules); the result shows the expected arrival. Charged on delivery."""
-        return self._ask(self.sim.business.place_order, self.sim.hour, item, quantity)
+    def set_night_schedule(
+            self, from_hour: Annotated[int, "Clock hour the entry starts: 18-23 or 0-5. It applies until the next entry."],
+            compartments: Annotated[Optional[list[str]], "Compartments for the climate fields; omit for every compartment."] = None,
+            copy_day: Annotated[Optional[bool], "Start the entry from your day settings as they are now."] = None,
+            remove: Annotated[Optional[bool], "Remove the entry at from_hour (not the 18:00 one)."] = None,
+            heat_c: Annotated[Optional[float], "Heating setpoint, C."] = None,
+            vent_min_pct: Annotated[Optional[float], "Minimum vent opening, %."] = None,
+            vent_max_pct: Annotated[Optional[float], "Maximum vent opening, %."] = None,
+            co2_ppm: Annotated[Optional[float], "CO2 dosing target, ppm; 0 = no dosing."] = None,
+            screen: Annotated[Optional[Literal["auto", "open", "closed"]], "Energy screen mode."] = None,
+            lamps_on: Annotated[Optional[bool], "Lamps on for the hours of this entry."] = None,
+            lamp_intensity_pct: Annotated[Optional[float], "Lamp intensity, %."] = None,
+            chp_load: Annotated[Optional[float], "CHP load: 0 = off, else its minimum load to 1."] = None,
+            boiler_max_fraction: Annotated[Optional[float], "Highest boiler level the thermostat may use, 0 (off) to 1."] = None,
+            buffer: Annotated[Optional[Literal["auto", "charge", "hold", "discharge"]], "Heat buffer mode."] = None,
+            buffer_draw_max_kw: Annotated[Optional[float], "Highest heat drawn from the buffer, kW."] = None,
+            external_co2_kg_h: Annotated[Optional[float], "External CO2 purchase rate, kg/h."] = None,
+            priority: Annotated[Optional[dict[str, int]], "Compartment -> priority level when supply is short."] = None,
+            heat_cap_kw: Annotated[Optional[dict[str, float]], "Compartment -> heat cap, kW, when supply is short."] = None,
+            co2_cap_kg_h: Annotated[Optional[dict[str, float]], "Compartment -> CO2 cap, kg/h, when supply is short."] = None) -> dict[str, Any]:
+        """One action. Set one entry of the night schedule (18:00-06:00): fixed values from from_hour until the next entry, every night until you change it. Nobody acts at night: there are no conditions or triggers, only these values. The entry starts from what is in force at that hour (or from your day settings with copy_day) and the fields you give change it. At hour 0 the schedule is the facility's baseline. Returns the whole schedule."""
+        climate = {k: v for k, v in {"heat_day_c": heat_c, "heat_night_c": heat_c, "vent_min_pct": vent_min_pct,
+                                     "vent_max_pct": vent_max_pct, "co2_ppm": co2_ppm, "screen": screen,
+                                     "lamp_intensity_pct": lamp_intensity_pct}.items() if v is not None}
+        if lamps_on is not None:
+            climate["lamp_hours"] = list(range(24)) if lamps_on else []
+        energy = _energy_changes(chp_load, None, buffer, external_co2_kg_h, priority, heat_cap_kw, co2_cap_kg_h,
+                                 boiler_max_fraction, buffer_draw_max_kw)
+        if "boiler_max_fraction" in energy:          # a level above 0 makes the boiler available
+            energy["boiler"] = "auto" if energy["boiler_max_fraction"] > 0 else "off"
+        if not (climate or energy or copy_day or remove):
+            raise ToolError("give copy_day, remove or at least one setting", spend=False)
+        self._ask(self.sim.set_night_entry, from_hour, compartments, climate, energy, bool(copy_day), bool(remove))
+        return self._acted({"night_schedule": views.night_schedule(self.sim)})
+
+    @tool(cost=0)
+    def place_orders(self, orders: Annotated[dict[str, float], "Item -> quantity: 'co2_kg' (kg), 'seedlings:<crop id>' (seeds or plants), 'part:<part id>' (parts)."],
+                     express: Annotated[Optional[list[str]], "Items from `orders` to send express, at a higher price, where offered."] = None) -> dict[str, Any]:
+        """One action. Order stock. Minimum quantities and lead times apply (the rules); the lead time is fixed when you order, and is longer while a storm surge lasts. Each item is ordered on its own: the result lists what was ordered and what was refused. Charged on delivery. Unused parts are worth nothing at the end."""
+        if not orders:
+            raise ToolError("give at least one item", spend=False)
+        rush = set(express or ())
+        unknown = sorted(rush - set(orders))
+        if unknown:
+            raise ToolError(f"express names items that are not in orders: {unknown}", spend=False)
+        return self._each(orders.items(), lambda kv: self.sim.business.place_order(
+            self.sim.hour, kv[0], kv[1], kv[0] in rush), key=lambda kv: kv[0])
 
     @tool(cost=0)
     def cancel_order(self, order_id: Annotated[str, "Order id."]) -> dict[str, Any]:
-        """Cancel an order that has not been dispatched; a fee may apply (get_rules)."""
-        return self._ask(self.sim.business.cancel_order, self.sim.hour, order_id)
+        """One action. Cancel an order that has not been dispatched; a fee may apply (the rules)."""
+        return self._acted(self._ask(self.sim.business.cancel_order, self.sim.hour, order_id))
 
     @tool(cost=0)
     def hire(self, workers: Annotated[int, "Number of workers."]) -> dict[str, Any]:
-        """Hire workers. They start after the notice period; a hiring fee and daily wages apply (get_rules)."""
-        return self._ask(self.sim.business.hire, self.sim.hour, workers)
+        """One action. Hire workers. They start after the notice period; a hiring fee and daily wages apply (the rules)."""
+        return self._acted(self._ask(self.sim.business.hire, self.sim.hour, workers))
 
     @tool(cost=0)
     def release(self, workers: Annotated[int, "Number of workers."]) -> dict[str, Any]:
-        """Release workers after the notice period (get_rules)."""
-        return self._ask(self.sim.business.release, self.sim.hour, workers)
+        """One action. Release workers after the notice period (the rules)."""
+        return self._acted(self._ask(self.sim.business.release, self.sim.hour, workers))
 
     @tool(cost=0)
-    def plant(self, compartment: Annotated[str, "Compartment id."],
-              area_m2: Annotated[float, "Area to plant, m2; at most the free area."]) -> dict[str, Any]:
-        """Queue planting of the compartment's crop. Uses seedlings from stock now and worker-hours when the task runs. Refused if too few days remain for the crop to finish."""
-        return {"task": asdict(self._ask(self.sim.plant, compartment, area_m2))}
+    def plant(self, areas_m2: Annotated[dict[str, float], "Compartment -> area to plant, m2 (at most its free area)."]) -> dict[str, Any]:
+        """One action. Queue planting of each compartment's crop. Uses seedlings (seed) from stock now and worker-hours when the crew does it. A compartment is refused if too few days remain for its crop to finish; the result lists what was queued and what was refused."""
+        if not areas_m2:
+            raise ToolError("give at least one compartment", spend=False)
+        return self._each(areas_m2.items(), lambda kv: asdict(self.sim.plant(kv[0], kv[1])), key=lambda kv: kv[0])
 
     @tool(cost=0)
-    def harvest(self, batch_id: Annotated[str, "Batch id."]) -> dict[str, Any]:
-        """Queue a batch's harvest. It uses worker-hours and is sold when the task runs. Produce below the crop's minimum sellable weight sells for nothing."""
-        return {"task": asdict(self._ask(self.sim.harvest, batch_id))}
+    def harvest(self, batch_ids: Annotated[list[str], "Batch ids to harvest."]) -> dict[str, Any]:
+        """One action. Queue the harvest of each batch. It uses worker-hours and is sold when the crew does it. Produce below the crop's minimum sellable weight sells for nothing. The result lists what was queued and what was refused."""
+        if not batch_ids:
+            raise ToolError("give at least one batch id", spend=False)
+        return self._each(dict.fromkeys(batch_ids), lambda b: asdict(self.sim.harvest(b)), key=lambda b: b)
 
     @tool(cost=0)
-    def repair(self, equipment_id: Annotated[str, "Equipment id with a fault (get_status)."]) -> dict[str, Any]:
-        """Queue a repair of faulty equipment. Costs money now and worker-hours when it runs (get_rules)."""
-        return {"task": asdict(self._ask(self.sim.repair, equipment_id))}
+    def book_contractor(self, trade: Annotated[str, "Trade, e.g. 'glazier' or 'heating_installer' (the rules)."],
+                        target: Annotated[str, "Damaged equipment id (the briefing), e.g. 'A.glass' or 'boiler'."]) -> dict[str, Any]:
+        """One action. Book a contractor to repair damaged equipment. The visit happens in the first day-shift hour after the response time in which the parts the job needs are on site (order them with place_orders); call-out, hourly rate and parts are charged then. Damage stays until a repair is done. Response times are longer while a storm surge lasts (the rules)."""
+        return self._acted({"booking": self._ask(self.sim.book_contractor, trade, target)})
 
-    # -- time ----------------------------------------------------------------------------
+    # -- the end of the day ------------------------------------------------------------------
 
     @tool(cost=1)
-    def advance(self, hours: Annotated[int, "Hours to run, 1 to 24."]) -> dict[str, Any]:
-        """Run time forward with the standing settings. Stops at the end of the first hour in which a new alarm appears (equipment fault, delivery, frost risk, batch ready, low stock, ...). Returns what happened and the new status. The only tool that moves time."""
-        report = self._ask(self.sim.advance, hours, spend=False)
-        self.close_windows(max(1, report["hours_run"]))
-        report["status"] = views.status(self.sim)
-        if self.sim.done:
-            report["final_result"] = self._result()
-        return report
-
-    @tool(cost=0)
-    def finish_episode(self) -> dict[str, Any]:
-        """Stop deciding. All remaining hours run with the current settings and nobody acting (no orders, planting or harvests), and the result is taken at the end of the last hour. Cannot be undone."""
-        self.sim.finish()
-        return {"final_result": self._result()}
+    def end_shift(self) -> dict[str, Any]:
+        """End today's turn. The day (06:00-18:00, the crew at work) runs on the day settings and the night on the night schedule until 06:00 tomorrow, with nobody acting and nothing stopping it. Your last allowed action ends the day by itself. Returns tomorrow morning's briefing."""
+        return self._end_day()
 
     # -- engine hooks ----------------------------------------------------------------------
 
     def on_window_end(self, window: int) -> None:
         if self.sim.hour <= window and not self.sim.done:
-            self.sim.go_unattended()
+            if window >= self.handover_h:          # the handover night is nobody's absence
+                self.sim.go_unattended()
             self.sim.run_hour()
 
     def terminated(self) -> str | None:
         if self.sim.bankrupt_hour is not None:
             return "bankrupt"
-        return "finished" if self.sim.finished_by_player else None
+        return None
 
     def on_finish(self) -> None:
         self.sim.go_unattended()
@@ -188,8 +219,8 @@ class GreenhouseBench(Environment):
 
     def header(self) -> dict[str, Any]:
         c = views.clock(self.sim)
-        return {"hour": c["hour"], "day": c["day"], "hours_left": c["hours_left"],
-                "cash_eur": round(self.sim.business.cash_eur(), 2)}
+        return {"hour": c["hour"], "day": c["day"], "time": c["time"], "hours_left": c["hours_left"],
+                "actions_left_today": self._actions_left(), "cash_eur": round(self.sim.business.cash_eur(), 2)}
 
     def snapshot(self) -> dict[str, Any]:
         s = self.sim
@@ -212,6 +243,52 @@ class GreenhouseBench(Environment):
         out["bankrupt"] = float(s.bankrupt_hour is not None)
         return out
 
+    # -- the daily turn ----------------------------------------------------------------------
+
+    def _turn_rules(self) -> dict[str, Any]:
+        return {"actions_per_day": self.actions_per_day,
+                "rule": (f"One turn a day at 06:00, after reading the morning briefing. At most "
+                         f"{self.actions_per_day} actions a day; an action is any tool that changes something, "
+                         "and a list of harvests, plantings or orders is one action. A refused action does not "
+                         "count. end_shift, or your last allowed action, ends the day: the day and the night then "
+                         "run with nobody acting, and the result carries the next morning's briefing.")}
+
+    def _actions_left(self) -> int:
+        return max(0, self.actions_per_day - self.actions_today)
+
+    def _briefing(self) -> dict[str, Any]:
+        return views.briefing(self.sim, self._actions_left())
+
+    def _acted(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Count one accepted action; the last one allowed ends the day."""
+        self.actions_today += 1
+        result = {**result, "actions_left_today": self._actions_left()}
+        if self._actions_left() == 0 and not self.sim.done:
+            result["day_ended"] = self._end_day()
+        return result
+
+    def _each(self, items: Any, fn: Any, key: Any) -> dict[str, Any]:
+        """Apply `fn` to each entry; one action if any entry was accepted. Every entry is
+        checked before it changes anything, so a refused entry changes nothing."""
+        done, refused = {}, {}
+        for item in items:
+            try:
+                done[key(item)] = fn(item)
+            except RuleError as e:
+                refused[key(item)] = str(e)
+        if not done:
+            raise ToolError("nothing was accepted: " + "; ".join(f"{k}: {v}" for k, v in refused.items()),
+                            spend=False)
+        return self._acted({"accepted": done, "refused": refused})
+
+    def _end_day(self) -> dict[str, Any]:
+        report = self._ask(self.sim.end_shift, spend=False)
+        self.close_windows(max(1, report["hours_run"]))
+        self.actions_today = 0
+        if self.sim.done:
+            return {"final_result": self._result()}
+        return {"briefing": self._briefing()}
+
     def _result(self) -> dict[str, Any]:
         return {"profit_eur": round(self.sim.business.profit_eur(), 2), "totals": self.sim.business.totals(),
                 "harvests": len(self.sim.harvests)}
@@ -232,8 +309,6 @@ class GreenhouseBench(Environment):
 
     @classmethod
     def fuzz_args(cls, tool_name: str, rng: Rng) -> dict[str, Any] | None:
-        if tool_name == "advance":
-            return {"hours": rng.randint(1, 24)}
         return None
 
     @staticmethod
@@ -242,3 +317,12 @@ class GreenhouseBench(Environment):
             return fn(*args)
         except RuleError as e:
             raise ToolError(str(e), spend=spend) from None
+
+
+def _energy_changes(chp_load, boiler, buffer, external_co2_kg_h, priority, heat_cap_kw, co2_cap_kg_h,
+                    boiler_max_fraction, buffer_draw_max_kw) -> dict[str, Any]:
+    return {k: v for k, v in {"chp_load": chp_load, "boiler": boiler, "buffer": buffer,
+                              "external_co2_kg_h": external_co2_kg_h, "priority": priority,
+                              "heat_cap_kw": heat_cap_kw, "co2_cap_kg_h": co2_cap_kg_h,
+                              "boiler_max_fraction": boiler_max_fraction,
+                              "buffer_draw_max_kw": buffer_draw_max_kw}.items() if v is not None}

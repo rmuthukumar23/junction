@@ -30,6 +30,9 @@ What it does that the rule-based grower does not:
   * Labour ahead of time. Tasks run in queue order on the crew's worker-hours. It works
     out when the last harvests must start to finish inside the episode, and hires for
     that in advance (hiring has a notice period).
+  * The shift rules (spec 14.1): one planning round each morning at 06:00, the night
+    schedule set to the day settings, then end_shift. Damage is always repaired: the
+    contractor is booked and the parts ordered the morning it is seen.
   * Nothing for an empty house: once a compartment holds no crop and none can be
     planted any more, its lamps, CO2 and heating are turned down.
 """
@@ -38,20 +41,18 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from envkit.policies import Client, Policy
-
-from .common import import_prices, result
+from .common import ToolPolicy, import_prices, repair_damage, result
 
 STANDING = ("growing", "ready")
 _MOL_PER_UMOL_H = 3600.0 / 1e6      # umol m-2 s-1 held for one hour -> mol m-2 (unit conversion)
 
 
-class Reference(Policy):
+class Reference(ToolPolicy):
     name = "reference"
 
     # -- policy choices (tuned on development seeds 1-6; none is a fact about the world) --
     call_budget = 390             # the task allows 400 calls; keep a few in hand
-    decision_hour = 6             # one planning round a day, before the crew's shift
+    decision_hour = 6             # one planning round a day, at the start of the duty shift (06:00)
     heat_day_frac = 0.5           # where in a crop's published day range the setpoint sits (0 = low, 1 = high)
     heat_night_frac = 1.0
     chp_load = 0.75
@@ -68,37 +69,17 @@ class Reference(Policy):
     end_crew = 5                  # crew size for the last harvests
     end_hire_days = 7.0           # that crew is hired this many days before the end
     co2_reorder_kg = 1500.0       # reorder CO2 below this store level
-    repair_faults = False         # the CHP and the buffer carry a boiler trip; the call-out costs more than it saves
+    repair_faults = True          # damage persists until repaired (round 3), so it is always fixed
     lamp_probe_pct = 100.0        # intensity used for the first hour, to measure the lamps
 
-    # -- the loop --------------------------------------------------------------------------
+    # -- the daily turn ----------------------------------------------------------------------
+    # ToolPolicy runs the loop: the first morning `setup`, then every morning `decide`;
+    # the day's actions are merged and sent within the day's limit, the night entry copies
+    # the day settings when they changed, and the day ends.
 
-    def run(self, client: Client) -> None:
-        self.client = client
-        self.calls = 0
-        self.rules = result(self.call("get_rules"))
-        status = result(self.call("get_status"))
-        if not self.rules or not status:
-            return
+    def setup(self, status: dict[str, Any]) -> None:
         self.read_rules(status)
         self.first_hour(status)
-        guard = 0
-        while not client.done and guard < 5000:
-            guard += 1
-            status = result(self.call("get_status"))
-            if not status or client.done:
-                return
-            self.decide(status)
-            if client.done:
-                return
-            clock = status["clock"]
-            hours = (self.decision_hour - clock["hour_of_day"]) % 24 or 24
-            if not self.call("advance", hours=max(1, min(hours, clock["hours_left"]))).get("ok"):
-                return
-
-    def call(self, tool: str, **args: Any) -> dict[str, Any]:
-        self.calls += 1
-        return self.client.call(tool, **args)
 
     # -- reading the rules -------------------------------------------------------------------
 
@@ -184,14 +165,21 @@ class Reference(Policy):
         self.order_seedlings(status)
         if self.start_hires > 0:
             self.call("hire", workers=self.start_hires)
-        # One hour with the lamps on tells what they deliver per m2.
-        r = result(self.call("advance", hours=1))
-        readings = r.get("status", {}).get("readings", {}).get("compartments", {})
+
+    def measure_lamps(self, status: dict[str, Any]) -> None:
+        """The last hour's lamp power, at the intensity that was set, tells what the lamps
+        deliver per m2 (the night copies the day's lamps, so 05:00 had them on)."""
+        readings = status.get("readings", {}).get("compartments", {})
+        night = status.get("settings", {}).get("night_schedule", [])
         for c, spec in self.compartments.items():
+            if c in self.lamp_par:
+                continue
             lamp_kw = readings.get(c, {}).get("actuators", {}).get("lamp_kw")
-            if isinstance(lamp_kw, (int, float)) and lamp_kw > 0 and self.area[c] > 0:
+            pct = next((float(e["climate"][c]["lamp_intensity_pct"]) for e in reversed(night)
+                        if c in e.get("climate", {})), 0.0)
+            if isinstance(lamp_kw, (int, float)) and lamp_kw > 0 and pct > 0 and self.area[c] > 0:
                 self.lamp_par[c] = (lamp_kw * 1000.0 / self.area[c] * float(spec.get("lamp_umol_per_j", 0.0))
-                                    / (self.lamp_probe_pct / 100.0))
+                                    / (pct / 100.0))
 
     def order_seedlings(self, status: dict[str, Any]) -> None:
         """Seedlings for the space that will be free while planting is still allowed."""
@@ -220,6 +208,7 @@ class Reference(Policy):
     # -- one planning round ----------------------------------------------------------------------
 
     def decide(self, status: dict[str, Any]) -> None:
+        self.measure_lamps(status)
         clock = status["clock"]
         hour = int(clock["hour"])
         batches = status.get("batches", [])
@@ -233,18 +222,14 @@ class Reference(Policy):
                     self.ready_hour.pop(b["id"], None)
 
         if self.repair_faults:
-            for outage in status["business"].get("outages", []):
-                key = (outage["equipment"], int(outage["since_hour"]))
-                if not outage.get("repair_requested") and key not in self.repairs_asked:
-                    self.repairs_asked.add(key)
-                    self.call("repair", equipment_id=outage["equipment"])
+            repair_damage(self, status)
 
         self.staff(status, hour)
         self.harvests(status, hour, batches)
         self.planting(status, hour)
         self.reorder_seedlings(status, hour)
         self.co2(status)
-        if clock["day"] != self.planned_day and self.calls < self.call_budget - 2 * clock["hours_left"] / 24 - 30:
+        if clock["day"] != self.planned_day and self.calls < self.call_budget - 3 * clock["hours_left"] / 24 - 30:
             self.planned_day = clock["day"]
             self.light(status, hour, batches)
         self.shut_empty(status, hour, batches)

@@ -128,7 +128,7 @@ def test_policies_see_only_the_client(scenario):
     """A policy is handed a client with no reference to the episode's internals."""
     client = InProcessClient(Episode(scenario, 7))
     public = [n for n in dir(client) if not n.startswith("_")]
-    assert sorted(public) == ["call", "done", "last_header", "tools"]
+    assert sorted(public) == ["call", "done", "last_header", "opening", "tools"]
 
 
 # -- switches an environment's contract can set ----------------------------------

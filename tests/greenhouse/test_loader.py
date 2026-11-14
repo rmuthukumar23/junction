@@ -24,7 +24,7 @@ def parse(raw, source):
     return d
 
 
-PARSERS = {k: parse for k in ("facility", "climate", "energy_prices", "market", "crops", "events")}
+PARSERS = {k: parse for k in ("facility", "climate", "energy_prices", "market", "crops", "events", "news")}
 FILES = {
     "f.toml": 'id = "fac"\nsize = {min = 1, max = 2}\n',
     "c.toml": 'id = "clim"\nsize = 3\n',
@@ -32,6 +32,7 @@ FILES = {
     "m.toml": 'id = "mkt"\nsize = 5\n',
     "lettuce.toml": 'id = "lettuce"\nsize = {min = 10, max = 20}\n',
     "basil.toml": 'id = "basil"\nsize = {min = 10, max = 20}\n',
+    "storm_news.toml": 'id = "storm_news"\nsize = 1\n',
 }
 ENV = {"facility": "f.toml", "climate": "c.toml", "energy_prices": "e.toml", "market": "m.toml",
        "crops": ["lettuce.toml", "basil.toml"], "horizon_days": 2}
@@ -101,6 +102,14 @@ class LoaderTests(unittest.TestCase):
         with mock.patch.dict(loader.PARSERS, {"crops": ("greenhouse.config.not_yet", "parse_crop", "Lucas")}):
             with self.assertRaisesRegex(ConfigError, r"not built \(Lucas\)"):
                 load(ENV, Rng(1), self.root)
+
+    def test_news_files_are_an_optional_list_like_events(self):
+        self.assertEqual(self.load().news, {})                         # no 'news' key = no news
+        cfg = self.load({**ENV, "news": ["storm_news.toml"]})
+        self.assertEqual(list(cfg.news), ["storm_news"])
+        self.assertEqual(data_files({**ENV, "news": ["storm_news.toml"]})[-1], "storm_news.toml")
+        with self.assertRaisesRegex(ConfigError, "duplicate news id"):
+            self.load({**ENV, "news": ["storm_news.toml", "storm_news.toml"]})
 
     def test_data_files_lists_every_file(self):
         self.assertEqual(data_files(ENV), ["f.toml", "c.toml", "e.toml", "m.toml", "lettuce.toml", "basil.toml"])

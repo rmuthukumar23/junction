@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 
 from greenhouse.config.base import ConfigError, Range
-from greenhouse.config.market import parse_event, parse_market
+from greenhouse.config.market import parse_event, parse_market, parse_news
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKET = ROOT / "data" / "markets" / "nl_winter.toml"
 EVENTS = sorted((ROOT / "data" / "events").glob("*.toml"))
+NEWS = sorted((ROOT / "data" / "news").glob("*.toml"))
 
 
 def load(path):
@@ -21,6 +22,17 @@ class MarketSchemaTests(unittest.TestCase):
         m = parse_market(load(MARKET), str(MARKET))
         self.assertEqual(m.id, "nl_winter")
         self.assertEqual(set(m.crops), {"lettuce_butterhead", "broccoli_micro", "radish_micro"})
+        self.assertEqual({"part:glass_pane", "part:boiler_kit"}, {i for i in m.items if i.startswith("part:")})
+        self.assertEqual(set(m.contractors), {"glazier", "heating_installer"})
+        self.assertTrue(m.contractors["glazier"].fixes_target("A.glass"))
+        self.assertTrue(m.contractors["heating_installer"].fixes_target("boiler"))
+        self.assertFalse(m.contractors["glazier"].fixes_target("boiler"))
+        pane = m.items["part:glass_pane"]
+        self.assertEqual(pane.category, "parts")
+        self.assertGreater(pane.surge_lead_time_h.min, pane.lead_time_h.max)       # the surge is much slower
+        self.assertLess(pane.express_lead_fraction, 1.0)
+        self.assertEqual(m.items["co2_kg"].surge_lead_time_h, m.items["co2_kg"].lead_time_h)   # default: no surge
+        self.assertIsNone(m.items["co2_kg"].express_price_eur_per_unit)
         self.assertIn("co2_kg", m.items)
         self.assertEqual(m.items["co2_kg"].lead_time_h, 72.0)
         self.assertGreater(m.staff.wage_eur_per_worker_hour, 0)
@@ -46,6 +58,18 @@ class MarketSchemaTests(unittest.TestCase):
         cases.append((bad_cat, "category"))
         co2_stock = copy.deepcopy(raw); co2_stock["start_stock"]["co2_kg"] = 500.0
         cases.append((co2_stock, "start_stock.co2_kg"))
+        night = copy.deepcopy(raw); night["staff"]["shift_start_h"] = 12
+        cases.append((night, "06:00-18:00"))
+        early = copy.deepcopy(raw); early["staff"]["shift_start_h"] = 5
+        cases.append((early, "06:00-18:00"))
+        half_express = copy.deepcopy(raw); del half_express["items"]["part:glass_pane"]["express_lead_fraction"]
+        cases.append((half_express, "express"))
+        part_cat = copy.deepcopy(raw); part_cat["items"]["part:glass_pane"]["category"] = "orders"
+        cases.append((part_cat, "part:glass_pane"))
+        no_part = copy.deepcopy(raw); no_part["contractors"]["glazier"]["part"] = "part:nothing"
+        cases.append((no_part, "contractors.glazier.part"))
+        no_site = copy.deepcopy(raw); del no_site["site_hours"]
+        cases.append((no_site, "site_hours"))
         for doc, key in cases:
             with self.subTest(key=key):
                 with self.assertRaises(ConfigError) as cm:
@@ -70,24 +94,70 @@ class EventSchemaTests(unittest.TestCase):
 
     def test_bad_event_files_fail_with_file_and_key(self):
         raw = load(ROOT / "data" / "events" / "boiler_trip.toml")
+        late = load(ROOT / "data" / "events" / "late_delivery.toml")
         cases = []
         no_rate = copy.deepcopy(raw); del no_rate["rate_per_day"]
         cases.append((no_rate, "rate_per_day"))
         bad_kind = copy.deepcopy(raw); bad_kind["kind"] = "meteor"
         cases.append((bad_kind, "kind"))
-        bad_range = copy.deepcopy(raw); bad_range["duration_h"] = {"min": 30, "max": 6}
-        cases.append((bad_range, "duration_h"))
+        bad_range = copy.deepcopy(late); bad_range["delay_h"] = {"min": 30, "max": 6}
+        late_cases = [(bad_range, "delay_h")]
+        old_repair = copy.deepcopy(raw); old_repair["repair"] = {"cost_eur": 1200.0, "worker_hours": 4.0, "shortens_to_h": 3.0}
+        cases.append((old_repair, "repair"))
+        timed_with_repair = copy.deepcopy(raw); timed_with_repair["persistent"] = False
+        timed_with_repair["duration_h"] = {"min": 6, "max": 30}
+        cases.append((timed_with_repair, "repair"))
+        no_trade = copy.deepcopy(raw); del no_trade["repair"]["trade"]
+        cases.append((no_trade, "repair.trade"))
+        not_a_part = copy.deepcopy(raw); not_a_part["repair"]["parts"] = {"co2_kg": 1}
+        cases.append((not_a_part, "repair.parts"))
         stray = copy.deepcopy(raw); stray["effect"]["colour"] = "red"
         cases.append((stray, "effect.colour"))
         bad_factor = copy.deepcopy(raw); bad_factor["effect"]["capacity_factor"] = 2.0
         cases.append((bad_factor, "capacity_factor"))
         bad_pin = copy.deepcopy(raw); bad_pin["pinned_hours"] = [-3]
         cases.append((bad_pin, "pinned_hours"))
+        storm = load(ROOT / "data" / "events" / "storm.toml")
+        no_threshold = copy.deepcopy(storm); del no_threshold["wind_threshold_m_s"]
+        cases.append((no_threshold, "wind_threshold_m_s"))
+        bad_panes = copy.deepcopy(storm); bad_panes["panes"] = {"min": 9, "max": 2}
+        cases.append((bad_panes, "panes"))
+        cases += late_cases
         for doc, key in cases:
             with self.subTest(key=key):
                 with self.assertRaises(ConfigError) as cm:
                     parse_event(doc, "events/test.toml")
                 self.assertIn("events/test.toml", str(cm.exception))
+                self.assertIn(key, str(cm.exception))
+
+
+class NewsSchemaTests(unittest.TestCase):
+    def test_every_committed_news_file_loads(self):
+        self.assertEqual({p.stem for p in NEWS}, {"storm", "frost", "gas_price"})
+        for path in NEWS:
+            with self.subTest(path=path.name):
+                spec = parse_news(load(path), str(path))
+                self.assertEqual((spec.id, spec.relates_to), (path.stem, path.stem))
+                self.assertTrue(spec.headlines)
+
+    def test_bad_news_files_fail_with_file_and_key(self):
+        raw = load(ROOT / "data" / "news" / "frost.toml")
+        cases = []
+        no_headlines = copy.deepcopy(raw); no_headlines["headlines"] = []
+        cases.append((no_headlines, "headlines"))
+        bad_type = copy.deepcopy(raw); bad_type["relates_to"] = "earthquake"
+        cases.append((bad_type, "relates_to"))
+        bad_rate = copy.deepcopy(raw); bad_rate["hit_rate"] = 1.5
+        cases.append((bad_rate, "hit_rate"))
+        bad_lead = copy.deepcopy(raw); bad_lead["lead_h"] = {"min": 48, "max": 24}
+        cases.append((bad_lead, "lead_h"))
+        no_threshold = copy.deepcopy(raw); del no_threshold["frost_below_c"]
+        cases.append((no_threshold, "frost_below_c"))
+        for doc, key in cases:
+            with self.subTest(key=key):
+                with self.assertRaises(ConfigError) as cm:
+                    parse_news(doc, "news/test.toml")
+                self.assertIn("news/test.toml", str(cm.exception))
                 self.assertIn(key, str(cm.exception))
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from envkit.rng import Rng
 from greenhouse.config.base import ConfigError, resolve
 from greenhouse.config.market import parse_event, parse_market
-from greenhouse.contracts import HarvestResult, Metered, RuleError, StartBatch
+from greenhouse.contracts import HarvestResult, Metered, Recorded, RuleError, StartBatch, WeatherNow
 from greenhouse.world.business import build_business
 from greenhouse.world.modules import Modules
 from greenhouse.world.sim import Greenhouse
@@ -17,7 +17,7 @@ from fakes import FakeCrop, FakeFacility
 
 ROOT = Path(__file__).resolve().parents[2]
 CROPS = ("lettuce_butterhead", "broccoli_micro")
-EQUIPMENT = ("boiler", "A.vents", "B.vents")
+EQUIPMENT = ("boiler", "A.vents", "B.vents", "A.glass", "B.glass")
 
 
 def read(rel: str):
@@ -35,9 +35,14 @@ def specs(seed: int = 1, pin_boiler_at: int | None = None):
     return market, events
 
 
+def calm(hours: int) -> Recorded:
+    return Recorded(tuple(WeatherNow(h, 2.0, 3.0, 0.0, 80.0) for h in range(hours)), tuple(0.4 for _ in range(hours)))
+
+
 def business(seed: int = 1, horizon_h: int = 240, pin_boiler_at: int | None = None):
     market, events = specs(seed, pin_boiler_at)
-    return build_business(market, events, CROPS, EQUIPMENT, horizon_h, Rng(seed).stream("business"))
+    return build_business(market, events, [], CROPS, EQUIPMENT, horizon_h, Rng(seed).stream("business"),
+                          calm(horizon_h))
 
 
 class _Facility(FakeFacility):
@@ -61,9 +66,9 @@ class AdapterTests(unittest.TestCase):
     def test_factory_checks_crops_and_equipment(self):
         market, events = specs()
         with self.assertRaisesRegex(ConfigError, "no price"):
-            build_business(market, events, ("spinach",), EQUIPMENT, 240, Rng(1))
+            build_business(market, events, [], ("spinach",), EQUIPMENT, 240, Rng(1), calm(240))
         with self.assertRaisesRegex(ConfigError, "boiler"):
-            build_business(market, events, CROPS, ("chp",), 240, Rng(1))
+            build_business(market, events, [], CROPS, ("chp",), 240, Rng(1), calm(240))
 
     def test_refusals_are_rule_errors_and_change_nothing(self):
         b = business()
@@ -112,6 +117,16 @@ class AdapterTests(unittest.TestCase):
         self.assertIn(CROPS[0], r["crop_prices_eur_per_unit"])
         self.assertEqual({e["id"] for e in r["events"]}, {"boiler_trip", "late_delivery"})
         self.assertNotIn("50", str(r["events"]))
+        self.assertEqual(set(r["contractors"]), {"glazier", "heating_installer"})
+        self.assertIn("part:glass_pane", r["items"])
+        self.assertIn("express", r["items"]["part:glass_pane"])
+        self.assertIn("news", r)
+
+    def test_crew_repairs_are_gone(self):
+        b = business()
+        with self.assertRaisesRegex(RuleError, "book_contractor"):
+            b.queue_task(0, "repair", "boiler", None, {})
+        self.assertEqual(b.ops.tasks, [])
 
 
 class InSimTests(unittest.TestCase):
@@ -126,31 +141,16 @@ class InSimTests(unittest.TestCase):
         self.run_to(s, order["expected_arrival_hour"] + 1)
         self.assertGreater(s.facility.co2_store_kg, before)
 
-    def test_repair_shortens_the_outage_then_clears_it(self):
-        s = sim(pin_boiler_at=7)              # inside the 07:00 shift on day 0
-        self.run_to(s, 8)
-        self.assertIn("boiler", s.effects)
-        self.assertEqual(s.facility.boiler_factor, 0.0)
-        cash = s.business.cash_eur()
-        task = s.repair("boiler")
-        self.assertLess(s.business.cash_eur(), cash)          # call-out charged at once
-        while task.id not in s.completed_task_ids:
-            s.run_hour()
-        done = s.hour - 1
-        eff = s.effects.get("boiler")
-        self.assertIsNotNone(eff)                              # back a few hours later, not at once
-        self.assertGreater(eff.until_hour, done + 1)
-        self.run_to(s, eff.until_hour + 1)
-        self.assertNotIn("boiler", s.effects)
-        self.assertEqual(s.facility.boiler_factor, 1.0)
-
     def test_planting_uses_stocked_seedlings_and_crew(self):
         s = sim()
+        # Seed for microgreens: lettuce plugs take 2-3 weeks (round 3), longer than this run.
+        item = f"seedlings:{CROPS[1]}"
         with self.assertRaisesRegex(RuleError, "seedlings"):
-            s.business.take_seedlings(0, CROPS[0], 10)
-        order = s.business.place_order(0, f"seedlings:{CROPS[0]}", 20000.0)
+            s.business.take_seedlings(0, CROPS[1], 10)
+        quantity = s.business.market.items[item].min_quantity
+        order = s.business.place_order(0, item, quantity)
         self.run_to(s, order["expected_arrival_hour"] + 1)
-        self.assertEqual(s.business.ops.stock[f"seedlings:{CROPS[0]}"], 20000.0)
+        self.assertEqual(s.business.ops.stock[item], quantity)
 
     def test_same_seed_same_money(self):
         def money(seed):

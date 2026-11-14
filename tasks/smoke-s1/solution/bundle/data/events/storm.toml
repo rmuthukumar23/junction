@@ -1,0 +1,23 @@
+# A storm damages the glass of every compartment (context 0.7, spec 14.2). Owner: Rowan.
+# It fires on the RECORDED wind, not on a rate: at the first hour of a spell in which the
+# hourly mean wind reaches wind_threshold_m_s, at least min_gap_h after the previous storm.
+# The recorded wind is also what the storm news follows (data/news/storm.toml).
+schema = "event/1"
+id = "storm"
+kind = "storm"
+signal = "alarm"
+# [DES] De Bilt hourly mean wind only reaches 10-12 m/s in the recorded January windows, so
+# the threshold is set at 10 m/s to give a storm or two in a 42-day window.
+wind_threshold_m_s = 10.0
+min_gap_h = 48                      # [DES] a windy spell counts once
+# [DES] Panes broken per compartment per storm, drawn per storm and compartment: a storm
+# can do nothing, a little or a lot (context 0.7). The range is published.
+panes = { min = 0, max = 12 }
+leakage_per_pane = 0.08             # [DES] leakage_factor = 1 + panes x this (12 panes: about double)
+# Regional surge after a storm (context 0.7): parts ordered later get the surge lead time and
+# contractors booked later their surge response time, for this many days. [DES] set so most
+# of the rest of a 42-day episode is affected after an early storm.
+surge_days = 10
+# Glass is replaced by a glazier, one pane (item part:glass_pane) per broken pane.
+repair = { trade = "glazier", parts = { "part:glass_pane" = 1 } }
+pinned_hours = []

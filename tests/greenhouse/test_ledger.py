@@ -15,6 +15,9 @@ def harvest(quality=0.9, sellable=True, units=1000.0):
 class LedgerTests(unittest.TestCase):
     def test_categories_match_the_contract(self):
         self.assertIn("wages", CATEGORIES)
+        for category in ("contractors", "parts", "express"):          # round 3
+            self.assertIn(category, CATEGORIES)
+            self.assertIn(category, Ledger(0).totals())
         with self.assertRaises(LedgerError):
             Ledger(0).record(LedgerEntry(0, "bribes", -1.0))     # type: ignore[arg-type]
         with self.assertRaises(LedgerError):

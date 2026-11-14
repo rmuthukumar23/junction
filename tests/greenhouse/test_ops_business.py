@@ -7,12 +7,13 @@ from pathlib import Path
 from envkit.rng import Rng
 from greenhouse.config.base import resolve
 from greenhouse.config.market import parse_event, parse_market
-from greenhouse.contracts import Metered, RuleError
+from greenhouse.contracts import Metered, Recorded, RuleError, WeatherNow
 from greenhouse.world.business import build_business
 
 ROOT = Path(__file__).resolve().parents[2]
 CROPS = ("lettuce_butterhead", "broccoli_micro")
 EQUIPMENT = ("boiler",)
+HORIZON = 240
 
 
 def business(pin_boiler_at=None):
@@ -23,25 +24,31 @@ def business(pin_boiler_at=None):
               for e in ("boiler_trip", "late_delivery")]
     if pin_boiler_at is not None:
         events[0] = dataclasses.replace(events[0], pinned_hours=(pin_boiler_at,))
-    return build_business(market, events, CROPS, EQUIPMENT, 240, Rng(1).stream("business"))
+    recorded = Recorded(tuple(WeatherNow(h, 2.0, 3.0, 0.0, 80.0) for h in range(HORIZON)), (0.4,) * HORIZON)
+    return build_business(market, events, [], CROPS, EQUIPMENT, HORIZON, Rng(1).stream("business"), recorded)
 
 
 class BusinessTests(unittest.TestCase):
-    def test_a_refused_repair_changes_nothing(self):
+    def test_a_refused_booking_changes_nothing(self):
         b = business()
-        before = (b.cash_eur(), b.events.repairs_requested, len(b.ops.tasks))
-        with self.assertRaises(RuleError):
-            b.queue_task(0, "repair", "chp", None, {})
-        self.assertEqual((b.cash_eur(), b.events.repairs_requested, len(b.ops.tasks)), before)
+        before = (b.cash_eur(), len(b.contractors.bookings), len(b.ops.tasks))
+        for call in (lambda: b.book_contractor(0, "glazier", "boiler"),          # wrong trade for the target
+                     lambda: b.book_contractor(0, "heating_installer", "boiler"),  # nothing broken
+                     lambda: b.book_contractor(0, "plumber", "boiler")):           # unknown trade
+            with self.assertRaises(RuleError):
+                call()
+        self.assertEqual((b.cash_eur(), len(b.contractors.bookings), len(b.ops.tasks)), before)
 
-    def test_a_repair_is_recorded_and_charged_once_queued(self):
+    def test_a_booking_is_free_until_the_visit(self):
         b = business(pin_boiler_at=5)
         b.start_hour(5)
         cash = b.cash_eur()
-        b.queue_task(5, "repair", "boiler", None, {})
-        self.assertEqual(b.events.repairs_requested, 1)
-        self.assertEqual(b.events.outages[0].repair_requested_hour, 5)
-        self.assertLess(b.cash_eur(), cash)
+        booking = b.book_contractor(5, "heating_installer", "boiler")
+        self.assertEqual((booking["status"], booking["parts_needed"]), ("waiting_for_parts", {"part:boiler_kit": 1}))
+        self.assertEqual(b.cash_eur(), cash)
+        self.assertEqual(b.events.outages[0].booked_hour, 5)
+        outage = b.view(5, Rng(1))["outages"][0]
+        self.assertEqual(outage["repair"]["booking_id"], booking["booking_id"])
 
     def test_a_co2_delivery_is_handed_on_and_never_held(self):
         b = business()

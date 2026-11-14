@@ -20,24 +20,24 @@
   },
   "reference": {
    "components": {
-    "acted": 0.0833
+    "acted": 0.0417
    },
    "metrics": {
-    "continuity": 0.0833
+    "continuity": 0.0417
    },
-   "reward": 0.0833
+   "reward": 0.0417
   },
   "stop-early": {
    "components": {
-    "acted": 0.0833
+    "acted": 0.0417
    },
    "metrics": {
-    "continuity": 0.0833
+    "continuity": 0.0417
    },
-   "reward": 0.0833
+   "reward": 0.0417
   }
  },
- "bundle": "d20e748fcfb1c401",
+ "bundle": "4da267147dc90b42",
  "components": {},
  "oracle": "reference",
  "seed": 1,

@@ -68,6 +68,10 @@ Tasks 1–6 are on `main`. Max wired them into the simulator with `world/busines
 5. **Tell Max** if a per-occurrence event range matters to you: the loader currently draws every `{min, max}` once per seed, so all boiler trips in one run have the same duration.
 6. **Reference planner** with Max once the real facility lands.
 
+## Round 3: built by Max's session (14 Nov 2026), please review
+
+A Sonnet subagent built your round-3 list in your files: the persistent boiler trip, the storm on the recorded wind, the surge, parts with surge and express, contractors (`world/contractors.py`), `book_contractor`, the news feed (`world/news.py`, `data/news/`), the new ledger categories and `fm_*` evidence. The policies now play a daily turn (DECISIONS, "Round 3 built"). The quick suite passes. Check the values in `data/events/storm.toml`, `data/markets/nl_winter.toml` and `data/news/` (all [DES]).
+
 ## Next steps (round 3: damage, contractors, parts, news)
 
 **Deferred (14 Nov):** storms, damage, contractors, parts and news are not in the base version. Don't start them; the day/night shift is Max's.

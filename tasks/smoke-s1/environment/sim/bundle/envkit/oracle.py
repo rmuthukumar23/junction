@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .bundle import load_bundle
 from .clients import run_over_mcp
+from .core import Episode
 from .policies import make_policy
 
 
@@ -24,9 +25,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--bundle", type=Path, default=Path(__file__).resolve().parent.parent)
     a = ap.parse_args(argv)
 
-    scenario, _, _ = load_bundle(a.bundle)
+    scenario, manifest, _ = load_bundle(a.bundle)
     policy = make_policy(a.policy, scenario)
-    header = run_over_mcp(a.url, policy)
+    # The opening is a pure function of the seed: rebuild it as the instruction shows it.
+    opening = Episode(scenario, int(manifest["seed"])).opening
+    header = run_over_mcp(a.url, policy, opening)
     print(json.dumps({"policy": policy.name, "last_header": header}))
     return 0
 

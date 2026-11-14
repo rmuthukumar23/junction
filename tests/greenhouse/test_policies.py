@@ -66,6 +66,13 @@ class _Facility(FakeFacility):
     def crop_id(self, c):
         return CROPS[0] if c == "A" else CROPS[1]
 
+    def apply_effect(self, e):
+        # A backup heater: the real boiler trip fails the boiler outright and persists until
+        # repaired (round 3), and the toy facility has no CHP or buffer to cover a night.
+        super().apply_effect(e)
+        if e.target == "boiler":
+            self.boiler_factor = max(self.boiler_factor, 0.3)
+
     def start_batches(self):
         return [StartBatch("A", CROPS[0], age, 250.0) for age in (24.0, 16.0, 8.0, 0.0)] + \
                [StartBatch("B", CROPS[1], age, 500.0) for age in (20.0, 5.0)]
@@ -83,7 +90,8 @@ def build(env, rng: Rng) -> Modules:
         events[0] = dataclasses.replace(events[0], pinned_hours=(pin,))
     facility = _Facility(rng.stream("facility"))
     horizon_h = round(float(env["horizon_days"]) * 24)
-    business = build_business(market, events, CROPS, facility.equipment_ids(), horizon_h, rng.stream("business"))
+    business = build_business(market, events, [], CROPS, facility.equipment_ids(), horizon_h, rng.stream("business"),
+                              facility.recorded())
     growth = {CROPS[0]: FakeCrop(CROPS[0]), CROPS[1]: _KgCrop(CROPS[1], repeated=True)}
     return Modules(facility, business, growth, horizon_h, int(env["substeps_per_hour"]))
 
@@ -120,18 +128,22 @@ class PolicyTests(unittest.TestCase):
                 rules = play(RuleBased(), seed).result()["profit_eur"]
                 self.assertGreater(rules, naive)
 
-    def test_rule_based_repairs_a_boiler_trip_once(self):
+    def test_rule_based_books_a_contractor_and_the_part_for_a_boiler_trip_once(self):
+        # Round 3: the trip persists until a heating installer with a boiler kit on site has
+        # done the job; the rule-based grower books once and orders the part.
         ep = play(RuleBased(), scenario=BOILER_SCENARIO)
         b = ep.env.sim.business
-        self.assertEqual((b.events.repairs_requested, b.events.repairs_wasted), (1, 0))
-        self.assertIsNotNone(b.events.outages[0].repair_requested_hour)
+        self.assertEqual(len(b.contractors.bookings), 1)
+        self.assertEqual(b.contractors.visits, 1)
+        self.assertTrue(any(o.item == "part:boiler_kit" for o in b.ops.orders))
+        self.assertNotIn("boiler", ep.env.sim.effects)
 
     def test_exploits_that_cost_money_lose_to_honest_play(self):
         for scenario in (SCENARIO, BOILER_SCENARIO):
             honest = play(RuleBased(), scenario=scenario).result()["profit_eur"]
             names = ["exploit:spam-orders", "exploit:never-harvest", "exploit:extreme-climate"]
             if scenario is BOILER_SCENARIO:
-                names.append("exploit:spam-repairs")      # repairs of working equipment are refused for free
+                names.append("exploit:spam-repairs")      # bookings for working equipment are refused for free
             for name in names:
                 with self.subTest(exploit=name, boiler_trip=scenario is BOILER_SCENARIO):
                     self.assertLess(play(EXPLOITS[name](), scenario=scenario).result()["profit_eur"], honest)
@@ -148,10 +160,11 @@ class PolicyTests(unittest.TestCase):
             with self.subTest(exploit=name):
                 self.assertLessEqual(play(cls()).result()["profit_eur"], honest + 1e-6)
 
-    def test_spamming_repairs_and_never_harvesting_lose_clearly(self):
+    def test_spamming_bookings_gains_nothing_and_never_harvesting_loses_clearly(self):
+        # Bookings for working equipment are refused for free (round 3), so spam cannot pay.
         honest = play(RuleBased(), scenario=BOILER_SCENARIO).result()["profit_eur"]
         spam = play(EXPLOITS["exploit:spam-repairs"](), scenario=BOILER_SCENARIO).result()["profit_eur"]
-        self.assertLess(spam, honest - 1000)
+        self.assertLessEqual(spam, honest + 1e-6)
         never = play(EXPLOITS["exploit:never-harvest"]()).result()
         self.assertEqual(never["eur_harvest_revenue"], 0.0)
 

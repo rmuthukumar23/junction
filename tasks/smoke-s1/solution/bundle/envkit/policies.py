@@ -47,6 +47,10 @@ class Client:
     def tools(self) -> list[dict[str, Any]]:
         raise NotImplementedError
 
+    def opening(self) -> Any:
+        """What the player was shown before its first call (Environment.opening)."""
+        return None
+
     @property
     def done(self) -> bool:
         return bool(self.last_header and self.last_header.get("done"))
@@ -86,6 +90,9 @@ class _Limited(Client):
     def tools(self) -> list[dict[str, Any]]:
         return self.inner.tools()
 
+    def opening(self) -> Any:
+        return self.inner.opening()
+
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
         h = self.inner.last_header
         if h and h["window"] > max(1, int(self.fraction * h["windows_total"])):
@@ -103,6 +110,9 @@ class _Counted(Client):
 
     def tools(self) -> list[dict[str, Any]]:
         return self.inner.tools()
+
+    def opening(self) -> Any:
+        return self.inner.opening()
 
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
         if self.count >= self.limit:

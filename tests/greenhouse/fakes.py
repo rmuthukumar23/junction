@@ -14,7 +14,7 @@ from typing import Any
 from envkit.rng import Rng
 from greenhouse.contracts import (Alarm, BatchEstimate, BatchState, ClimateSample, ClimateSetpoints, CropLoad,
                                   Delivery, EnergySettings, EquipmentEffect, HarvestResult, HourEnd, LedgerEntry,
-                                  Metered, RuleError, StartBatch, Task)
+                                  Metered, Recorded, RuleError, StartBatch, Task, WeatherNow)
 from greenhouse.world.modules import Modules
 
 
@@ -176,6 +176,11 @@ class FakeFacility:
     def forecast(self, hour, hours):
         return {"outside_temp_c": [round(self.outside_c(hour + i), 1) for i in range(hours)]}
 
+    def recorded(self):
+        hours = range(24 * 60)
+        return Recorded(tuple(WeatherNow(h, self.outside_c(h), 4.0, self.sun(h), 80.0) for h in hours),
+                        tuple(0.6 for _ in hours))
+
     def rules(self):
         return {"note": "fake facility", "fallback": asdict(self.fallback_climate()["A"])}
 
@@ -202,6 +207,7 @@ class FakeBusiness:
     entries: list[LedgerEntry] = field(default_factory=list)
     seq: int = 0
     boiler_trip_hour: int = 0
+    bookings: dict[str, int] = field(default_factory=dict)   # target -> earliest repair hour
 
     def __post_init__(self):
         self.seedlings = {c: 20_000 for c in self.crop_ids}
@@ -213,9 +219,10 @@ class FakeBusiness:
         self.cash += eur
         return e
 
-    def start_hour(self, hour):
+    def start_hour(self, hour, weather):
         if hour == self.boiler_trip_hour:
-            return [EquipmentEffect("boiler", 0.0, until_hour=hour + 12)], [Alarm(hour, "equipment", "boiler", "Boiler tripped")]
+            # persistent (round 3): until a contractor repairs it; partial, so the toy crop survives a night
+            return [EquipmentEffect("boiler", 0.3, until_hour=None)], [Alarm(hour, "equipment", "boiler", "Boiler tripped")]
         return [], []
 
     def end_hour(self, hour, metered: Metered):
@@ -236,9 +243,26 @@ class FakeBusiness:
             hours -= use
             if self.progress[t.id] >= t.worker_hours - 1e-9:
                 done.append(self.queue.pop(0))
-        return HourEnd(tuple(deliveries), tuple(done), tuple(alarms))
+        repaired = tuple(t for t, due in self.bookings.items() if due <= hour and 6 <= hour % 24 < 18)
+        for t in repaired:
+            del self.bookings[t]
+            self._charge(hour, "contractors", -300.0)
+        return HourEnd(tuple(deliveries), tuple(done), tuple(alarms), repaired=repaired)
 
-    def place_order(self, hour, item, quantity):
+    def book_contractor(self, hour, trade, target):
+        if trade != "heating_installer" or target != "boiler":
+            raise RuleError("the fake business only books a heating_installer for the boiler")
+        if hour < self.boiler_trip_hour:
+            raise RuleError("the boiler is working normally; nothing to repair")
+        if target in self.bookings:
+            raise RuleError("a visit is already booked")
+        self.bookings[target] = hour + 12
+        return {"trade": trade, "target": target, "earliest_visit_hour": hour + 12}
+
+    def news(self, hour, days):
+        return [{"hour": 0, "day": 0, "headline": "Fake news: a quiet week ahead"}]
+
+    def place_order(self, hour, item, quantity, express=False):
         if item != "co2_kg" and not (item.startswith("seedlings:") and item.split(":", 1)[1] in self.crop_ids):
             raise RuleError(f"unknown item {item!r}")
         if quantity < 100:
@@ -272,8 +296,7 @@ class FakeBusiness:
     def queue_task(self, hour, kind, target, worker_hours, detail):
         self.seq += 1
         if kind == "repair":
-            worker_hours = 2.0
-            self._charge(hour, "repairs", -300.0)
+            raise RuleError("repairs are done by contractors: book_contractor")
         t = Task(f"T{self.seq}", kind, target, float(worker_hours), hour, dict(detail))
         self.queue.append(t)
         return t

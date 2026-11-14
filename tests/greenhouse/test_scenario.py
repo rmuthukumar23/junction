@@ -60,7 +60,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(SCENARIO.shift.windows, 42 * 24)
         self.assertEqual(SCENARIO.shift.max_calls, 400)
         files = GreenhouseBench.data_files(SCENARIO.env_config)
-        self.assertEqual(len(files), 9)   # facility, climate, prices, market, 3 crops, 2 events
+        self.assertEqual(len(files), 13)  # facility, climate, prices, market, 3 crops, 3 events, 3 news
         for rel in files:
             self.assertTrue((ROOT / rel).is_file(), rel)
         registered = GreenhouseBench.policies()
@@ -97,7 +97,7 @@ class LadderTests(unittest.TestCase):
 
     def test_stopping_at_once_is_the_same_as_doing_nothing(self):
         ep = Episode(SCENARIO, SEED)
-        self.assertTrue(ep.call("finish_episode")["ok"])
+        ep.finalize()
         self.assertEqual(ep.result()["profit_eur"], profit("do-nothing"))
 
     def test_stopping_early_never_beats_playing_on(self):
@@ -152,7 +152,7 @@ class IntegrityTests(unittest.TestCase):
 
     def test_get_rules_publishes_ranges_never_the_drawn_values(self):
         ep = Episode(SCENARIO, SEED)
-        rules = ep.call("get_rules")["result"]
+        rules = ep.opening["rules"]                      # there are no read tools: the opening shows them
         published = set(numbers({k: v for k, v in rules.items() if k != "hidden_parameter_ranges"}))
         sim = ep.env.sim
         centre = sim.facility.spec.energy_centre
@@ -162,13 +162,13 @@ class IntegrityTests(unittest.TestCase):
             drawn.update({f"{c.id}.floor_m2": c.floor_m2, f"{c.id}.cover_u": c.cover_u_w_m2_k,
                           f"{c.id}.transmission": c.cover_transmission, f"{c.id}.lamps": c.lamps.w_per_m2})
         for spec in sim.business.events.specs.values():
-            drawn[f"event.{spec.id}"] = spec.duration_h if spec.kind == "equipment" else spec.delay_h
+            if spec.kind == "late_delivery":
+                drawn[f"event.{spec.id}"] = spec.delay_h
         for name, value in drawn.items():
             with self.subTest(parameter=name):
                 self.assertNotIsInstance(value, Range)           # the loader resolved it for this seed
                 self.assertNotIn(float(value), published)
         ranges = rules["hidden_parameter_ranges"]
-        self.assertIn("duration_h", ranges["events.boiler_trip"])
         self.assertIn("delay_h", ranges["events.late_delivery"])
         self.assertNotIn("duration_h", json.dumps(rules["business"]["events"]))
 

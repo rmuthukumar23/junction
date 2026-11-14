@@ -59,20 +59,17 @@ co2_sigma_ppm = 15.0
 par_sigma_umol_m2_s = 5.0
 
 [fallback]
-# A standing winter crop setting, not a frost-only safety mode. The lettuce
-# day/night range and 12-14 h supplemental photoperiod are supported by Cornell
-# CEA and UMN Extension; 800 ppm is within WUR's 600-1000 ppm practice range.
-# https://cea.cals.cornell.edu/files/2019/06/Cornell-CEA-Lettuce-Handbook-.pdf
-# https://extension.umn.edu/garden-and-home/yard-and-garden/gardening-minnesota/lighting-indoor-plants-and-starting-seeds
-# https://edepot.wur.nl/366433
-# One shared setting is a scenario simplification; the microgreens prefer slightly warmer nights.
-heat_day_c = 18.0
-heat_night_c = 15.0
+# D5 (revised in round 3): the anti-freeze baseline the facility is handed over with,
+# as day settings and as the night schedule. 5 C keeps the crop alive but it stalls
+# below sellable weight; no CO2 dosing, lamps off. An operator who never changes
+# anything keeps it for the whole episode and pays wages and gas for nothing.
+heat_day_c = 5.0
+heat_night_c = 5.0
 vent_min_pct = 0.0
 vent_max_pct = 60.0
-co2_ppm = 800.0
-lamp_hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
-lamp_intensity_pct = 50.0
+co2_ppm = 0.0
+lamp_hours = []
+lamp_intensity_pct = 0.0
 screen = "auto"
 chp_load = 0.0
 boiler = "auto"

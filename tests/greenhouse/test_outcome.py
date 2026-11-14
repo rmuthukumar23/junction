@@ -36,9 +36,7 @@ class StandIn:
             for x in self.events.due(h):
                 if isinstance(x, DeliveryDelay):
                     self.ops.delay(h, x.delay_h, x.items)
-            for task in self.ops.end_hour(h).completed:
-                if task.kind == "repair":
-                    self.events.complete_repair(h, task.target)
+            self.ops.end_hour(h)
         return self
 
 
@@ -77,14 +75,30 @@ class OutcomeTests(unittest.TestCase):
         sim = StandIn()
         sim.ops.queue(0, "harvest", "L1", 10_000.0)               # more work than the crew can ever do
         sim.ledger.price_harvest(0, HarvestResult("b", "lettuce_butterhead", 10, "head", 90, 0.9, False), 0.45, [])
-        sim.events = Events([replace(e, rate_per_day=0.0, pinned_hours=(30,)) if e.kind == "equipment" else
-                             replace(e, rate_per_day=0.0) for e in EVENTS], HORIZON, Rng(1))
+        sim.events = Events([replace(e, rate_per_day=0.0, pinned_hours=(30,)) if e.kind != "late_delivery" else
+                             replace(e, rate_per_day=0.0) for e in EVENTS], HORIZON, Rng(1), ("boiler", "A.glass"))
         sim.play(100)
         fm = outcome.failure_modes(sim)
         self.assertEqual(fm["fm_tasks_never_done"], 1.0)
         self.assertEqual(fm["fm_unsellable_harvests"], 1.0)
-        self.assertEqual((fm["fm_outages"], fm["fm_outages_never_repaired"]), (1.0, 1.0))
-        self.assertIsNone(fm["fm_mean_repair_response_h"])
+        # a boiler trip and a storm at hour 30; the storm breaks glass or not, the boiler stays out
+        self.assertEqual(fm["fm_storms"], 1.0)
+        self.assertGreaterEqual(fm["fm_outages"], 1.0)
+        self.assertEqual(fm["fm_outages_never_repaired"], fm["fm_outages"])      # nobody booked a contractor
+        self.assertIsNone(fm["fm_mean_booking_response_h"])
+        self.assertEqual(fm["fm_damage_hours"], fm["fm_outages"] * (HORIZON - 30))   # still out at the end
+        self.assertEqual((fm["fm_contractor_visits"], fm["fm_parts_unused"], fm["fm_express_orders"]), (0.0, 0.0, 0.0))
+
+    def test_parts_left_in_stock_and_express_orders_are_counted(self):
+        sim = StandIn()
+        sim.ops.place_order(0, "part:glass_pane", 4, express=True)
+        sim.play(HORIZON - 1)
+        fm = outcome.failure_modes(sim)
+        self.assertEqual((fm["fm_parts_unused"], fm["fm_express_orders"]), (4.0, 1.0))
+        result = outcome.ledger(sim)
+        self.assertLess(result["money_parts_eur"], 0)
+        self.assertLess(result["money_express_eur"], 0)
+        self.assertEqual(result["money_contractors_eur"], 0.0)
 
     def test_an_unbalanced_ledger_is_never_scored(self):
         sim = StandIn().play(10)

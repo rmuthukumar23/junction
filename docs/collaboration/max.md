@@ -37,12 +37,16 @@ Tasks 1–5 are done; Rowan's business runs inside the simulator through `world/
 4. Task 6 (scenario), 7 (reference planner), 8 (comparison), now with an Anthropic model as a second provider (spec 12).
 5. Ask the organisers about D4 (400 calls, 3 h safety timeout).
 
+## Round 3: built (14 Nov 2026)
+
+Steps 1-5 below are done, with the daily turn replacing the shift and `advance` (DECISIONS, "Round 3 built"). `bash scripts/quick.sh` passes. Open: `envkit build normal-winter` and the ladder on the new rules, then model runs; step 8.
+
 ## Next steps (round 3: day shift, damage, news)
 
 Read context section 0 and spec section 14 first. Everyone waits on step 1, so do it first and push it as a contracts-only PR.
 
 1. **Contracts (within the hour).** `NightHour`; `EnergySettings.boiler_max_fraction` and `buffer_draw_max_kw` (optional); `EquipmentEffect.until_hour = None` means "until repaired"; `LedgerCategory` gains `contractors`, `parts`, `express`; `BusinessModel.start_hour(hour, weather)`; `book_contractor` on `BusinessModel`. Tell Rowan and Lucas when it is merged.
-2. **Shift clock.** Handover night 00:00–06:00 before the first call; `advance` stops at 18:00; at 18:00 only `end_shift` and `finish_episode`; `end_shift` runs the night on the schedule inside one call (envkit `close_windows(12)`); night alarms logged, never stopping anything.
+2. **Shift clock.** Handover night 00:00–06:00 before the first call; `advance` stops at 18:00; at 18:00 only `end_shift` (`finish_episode` is removed); `end_shift` runs the night on the schedule inside one call (envkit `close_windows(12)`); night alarms logged, never stopping anything.
 3. **Tools:** `set_night_schedule`, `end_shift`, `get_night_report`, `get_news` wiring, `book_contractor` (replaces `repair`).
 4. **Facility (Emre's files, yours this round):** `[fallback]` back to 5 °C, no CO2, lamps off (D5 revised; #15 set a running baseline). Dispatch honours `boiler_max_fraction` and `buffer_draw_max_kw` in the fixed order CHP, buffer, boiler. Glass damage (`A.glass`, `B.glass`) raises leakage until repaired.
 5. **Tests from spec 14.5,** especially the planned-vs-naive frost night and off-duty.

@@ -294,7 +294,7 @@ Every tool's docstring is what the agent reads; the names below are the contract
 | `end_shift` | 1 | — | Only at 18:00. Runs 18:00 to 06:00 on the night schedule in one call; returns nothing about the night (read `get_night_report`). |
 | `get_night_report` | 0 | — | The morning report (section 14.1). |
 | `book_contractor` | 0 | `trade`, `job`, `target`, `urgent` | Section 14.2. Replaces `repair`. |
-| `finish_episode` | 0 | — | Stops deciding; the rest runs with the last day settings and night schedule, and nobody acting. |
+| ~~`finish_episode`~~ | — | — | **Removed (14 Nov 2026):** there is no tool to stop. An agent that stops calling tools has stopped; the rest runs with the last day settings and night schedule, and nobody acting (D5). |
 
 `plant`, `harvest` and `repair` are tasks: they use worker-hours from the day's pool in queue order. A task that does not get enough hours waits. A ready batch loses quality each day it waits (a crop parameter).
 
@@ -449,31 +449,31 @@ Rules that keep it zero-friction:
 
 Implements [context section 0](GREENHOUSE_BENCH_CONTEXT.md). Scope for v1 is context 0.10. Contract types named here land in `contracts.py` first (Max), and everyone builds against them.
 
-### 14.1 Day shift and night schedule
+### 14.1 The daily turn and the night schedule
 
-**Clock.** Episode hour `h` has clock time `h % 24`, as now. The duty window is 06:00–18:00. Hours 00:00–06:00 of day 1 run on the baseline before the agent's first call (the handover night), so the agent wakes at 06:00 with a morning report, like every other day. The episode still ends at hour 1,008.
+**Revised 14 Nov 2026 (built).** The day shift with `advance(hours)` described in the first version of this section was replaced, before it was used, by a daily turn: one decision point a day at 06:00, a cap on actions, and no read tools. Context 0.2's rule that the agent cannot act at night still holds; it now cannot act during the day either, except at 06:00. DECISIONS, "Round 3 built", has the reasons.
 
-**By day.** `set_climate` and `set_energy` change the standing day settings at once, as now. `advance(hours)` (1–12) runs day hours, stops early on a new alarm, and always stops at 18:00.
+**Clock.** Episode hour `h` has clock time `h % 24`. Hours 00:00-06:00 of day 1 run on the baseline before the agent's first call (the handover night, envkit `prelude_windows`), so the agent starts at 06:00 with a morning briefing, like every other day. The episode still ends at hour 1,008.
 
-**At 18:00.** Every tool except `end_shift` and `finish_episode` answers "off duty" (refused, free, nothing changes). `end_shift` (cost 1) runs 18:00 to 06:00 on the night schedule inside that call and returns only "night over"; the agent then reads `get_night_report`. Night alarms are logged with their hour and never stop anything.
+**What the agent is shown.** There are no read tools. Before its first call the agent is shown every rule (what `get_rules` used to return, plus `turn`) and the first morning's briefing, written into the task instruction (envkit `Environment.opening`, a pure function of the seed). Every later briefing comes back in the result of the call that ends the day. The briefing (`views.briefing`) holds the clock, the actions left, the status (readings, day settings, night schedule, faults and damage, contractor bookings, stock, orders, staff, task queue, money, alarms of the last 24 hours, batches), last night's summary (every alarm and event with its hour, min/max climate per compartment, per batch the change in estimated weight and quality, money over the night), news of the last 3 days, and a 72-hour forecast in columns.
 
-**Night schedule.** `set_night_schedule(hours)` replaces the whole schedule; it repeats every night until replaced. Each entry is a `NightHour` (new contract type):
+**The turn.** At 06:00 the agent takes at most `actions_per_day` actions (scenario `[env]`, 5). An action is any tool that changes something: `set_climate` (one or more compartments), `set_energy`, `set_night_schedule` (one entry), `place_orders` (several items), `cancel_order`, `hire`, `release`, `plant` (several compartments), `harvest` (several batches), `book_contractor`. A list is one action and reports what was accepted and what was refused; a call with nothing accepted is refused. A refused action is free and does not count. The day ends with `end_shift` (cost 1), or by itself with the last allowed action: the day (06:00-18:00 on the day settings, crew at work) and the night (18:00-06:00 on the night schedule) then run inside that call with nobody acting and nothing stopping it, and the result carries the next briefing. A day takes at most 6 calls, so 42 days fit well inside `max_calls = 400`.
+
+**Night schedule.** `set_night_schedule(from_hour, ...)` sets one entry; the schedule repeats every night until changed. Each entry is a `NightHour`:
 
 ```python
 @dataclass(frozen=True)
 class NightHour:
     hour: int                                  # clock hour 18..23 or 0..5
-    climate: dict[str, ClimateSetpoints]       # per compartment; omitted compartments inherit
-    energy: EnergySettings                     # chp_load, boiler, buffer, external CO2, priority, caps
+    climate: dict[str, ClimateSetpoints]       # every compartment, resolved when the entry is set
+    energy: EnergySettings                     # chp_load, boiler, buffer, external CO2, priority, caps, levels
 ```
 
-An entry applies from its hour until the next entry, so a single entry at 18:00 sets the whole night. Values are checked by the facility's `check_climate` / `check_energy`, like day settings. The schedule only holds fixed values: there is no condition or trigger field to set.
+An entry applies from its hour until the next entry, so the 18:00 entry (which always exists and cannot be removed) sets the whole night unless later entries follow. A new entry starts from what is in force at that hour, or from the day settings with `copy_day`; the fields given change it (`heat_c`, vents, CO2, screen, `lamps_on`, lamp intensity, CHP load, `boiler_max_fraction`, buffer mode and `buffer_draw_max_kw`, external CO2, priority and caps). Values are checked like day settings. The schedule only holds fixed values: there is no condition or trigger field.
 
-**Equipment behaviour (D10).** Day and night use the same rule, so there is one mechanism. `EnergySettings` gains two optional fields: `boiler_max_fraction` (0 = off, 1 = full; "auto" means 1.0) and `buffer_draw_max_kw`. The thermostat serves each compartment's setpoint from the available sources in a fixed order: CHP at its set load, then buffer draw up to its maximum, then boiler up to its maximum. Nothing starts that the settings did not make available, and a failed source simply delivers nothing. Shortfall is shared by priority and caps (4.3), which at night come from the schedule.
+**Equipment behaviour (D10).** Day and night use the same rule. `EnergySettings` has `boiler_max_fraction` (0 = off, 1 = full) and `buffer_draw_max_kw` (None = no cap). The thermostat serves each compartment's setpoint from the available sources in a fixed order: CHP at its set load, then buffer draw up to its maximum, then boiler up to its maximum. Nothing starts that the settings did not make available, and a failed source delivers nothing. Shortfall is shared by priority and caps (4.3).
 
-**Morning report** (`get_night_report`, free): for the last night, the alarm and event log with hours; hourly climate per compartment; per batch, the change in estimated weight and quality from 18:00 to 06:00 and any losses; deliveries; stock; money by category spent over the night. Built by `views.py` from the hourly history and the ledger; nothing new is needed from the subsystems except that batch estimates stay readable.
-
-**Staff.** Shift hours must lie inside 06:00–18:00 (the market loader rejects anything else). Tasks only progress in shift hours, as now.
+**Staff.** Shift hours must lie inside 06:00-18:00 (the market loader rejects anything else). Tasks only progress in shift hours.
 
 **Baseline and stop (D5).** At hour 0 the day settings and the night schedule are both the facility's `[fallback]` (5 °C, no CO2, lamps off). After a stop, the last day settings and night schedule keep running and nobody acts.
 
@@ -503,7 +503,7 @@ Seedling items become plugs from a propagator with a 2–3 week lead time (marke
 
 1. A planned frost night (charged buffer, boiler and CHP available, screens closed) loses clearly less than a naive one when the boiler fails that night (context 0.5).
 2. Context 0.7 tests 1–4 (pre-ordered glass, no-damage storm, the three conditions of a repair, storm surge).
-3. Off duty: every tool but `end_shift` and `finish_episode` is refused at 18:00 and changes nothing; `advance` never crosses 18:00.
+3. The daily turn: day 1 starts at 06:00; the last allowed action ends the day; a refused action changes nothing and does not count; there are no read tools and the opening shows the rules and the briefing (`tests/greenhouse/test_sim_env.py`).
 4. Same seed, same night: identical night report across processes; the news feed is identical whatever the agent does.
 5. The reference and every scripted policy play under the shift rules.
 

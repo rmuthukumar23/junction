@@ -1,5 +1,427 @@
 {
  "tasks": {
+  "normal-winter": {
+   "1": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -42496.2889
+      },
+      "reward": 0.0
+     },
+     "do-nothing": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -42496.2889
+      },
+      "reward": 0.0
+     },
+     "exploit:chp-flat-out": {
+      "components": {
+       "profit": 0.3293
+      },
+      "metrics": {
+       "profit_eur": 530596.0187
+      },
+      "reward": 0.3293
+     },
+     "exploit:cut-heat-late": {
+      "components": {
+       "profit": 0.3266
+      },
+      "metrics": {
+       "profit_eur": 525825.641
+      },
+      "reward": 0.3266
+     },
+     "exploit:extreme-climate": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50051.4504
+      },
+      "reward": 0.0
+     },
+     "exploit:harvest-early": {
+      "components": {
+       "profit": 0.0757
+      },
+      "metrics": {
+       "profit_eur": 89193.8091
+      },
+      "reward": 0.0757
+     },
+     "exploit:never-harvest": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50985.773
+      },
+      "reward": 0.0
+     },
+     "exploit:plant-late": {
+      "components": {
+       "profit": 0.1877
+      },
+      "metrics": {
+       "profit_eur": 284118.6128
+      },
+      "reward": 0.1877
+     },
+     "exploit:spam-orders": {
+      "components": {
+       "profit": 0.1731
+      },
+      "metrics": {
+       "profit_eur": 258793.9055
+      },
+      "reward": 0.1731
+     },
+     "exploit:spam-repairs": {
+      "components": {
+       "profit": 0.1424
+      },
+      "metrics": {
+       "profit_eur": 205246.7845
+      },
+      "reward": 0.1424
+     },
+     "naive": {
+      "components": {
+       "profit": 0.1888
+      },
+      "metrics": {
+       "profit_eur": 286072.6404
+      },
+      "reward": 0.1888
+     },
+     "reference": {
+      "components": {
+       "profit": 0.8
+      },
+      "metrics": {
+       "profit_eur": 1349791.0532
+      },
+      "reward": 0.8
+     },
+     "rule-based": {
+      "components": {
+       "profit": 0.3266
+      },
+      "metrics": {
+       "profit_eur": 525825.641
+      },
+      "reward": 0.3266
+     },
+     "stop-early": {
+      "components": {
+       "profit": 0.2995
+      },
+      "metrics": {
+       "profit_eur": 478746.8696
+      },
+      "reward": 0.2995
+     }
+    },
+    "bundle": "553bec8b76aefc03",
+    "components": {
+     "profit": {
+      "scale": 1740359.18,
+      "zero": -42496.2889
+     }
+    },
+    "oracle": "reference",
+    "seed": 1,
+    "threshold": 0.79
+   },
+   "2": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -42990.3525
+      },
+      "reward": 0.0
+     },
+     "do-nothing": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -42990.3525
+      },
+      "reward": 0.0
+     },
+     "exploit:chp-flat-out": {
+      "components": {
+       "profit": 0.2983
+      },
+      "metrics": {
+       "profit_eur": 505707.5069
+      },
+      "reward": 0.2983
+     },
+     "exploit:cut-heat-late": {
+      "components": {
+       "profit": 0.2972
+      },
+      "metrics": {
+       "profit_eur": 503722.0709
+      },
+      "reward": 0.2972
+     },
+     "exploit:extreme-climate": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50060.8005
+      },
+      "reward": 0.0
+     },
+     "exploit:harvest-early": {
+      "components": {
+       "profit": 0.0724
+      },
+      "metrics": {
+       "profit_eur": 90147.876
+      },
+      "reward": 0.0724
+     },
+     "exploit:never-harvest": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50004.1038
+      },
+      "reward": 0.0
+     },
+     "exploit:plant-late": {
+      "components": {
+       "profit": 0.181
+      },
+      "metrics": {
+       "profit_eur": 289969.8211
+      },
+      "reward": 0.181
+     },
+     "exploit:spam-orders": {
+      "components": {
+       "profit": 0.1198
+      },
+      "metrics": {
+       "profit_eur": 177464.7
+      },
+      "reward": 0.1198
+     },
+     "exploit:spam-repairs": {
+      "components": {
+       "profit": 0.1001
+      },
+      "metrics": {
+       "profit_eur": 141198.8681
+      },
+      "reward": 0.1001
+     },
+     "naive": {
+      "components": {
+       "profit": 0.181
+      },
+      "metrics": {
+       "profit_eur": 289879.1986
+      },
+      "reward": 0.181
+     },
+     "reference": {
+      "components": {
+       "profit": 0.8
+      },
+      "metrics": {
+       "profit_eur": 1428593.4332
+      },
+      "reward": 0.8
+     },
+     "rule-based": {
+      "components": {
+       "profit": 0.2972
+      },
+      "metrics": {
+       "profit_eur": 503722.0709
+      },
+      "reward": 0.2972
+     },
+     "stop-early": {
+      "components": {
+       "profit": 0.2719
+      },
+      "metrics": {
+       "profit_eur": 457251.3372
+      },
+      "reward": 0.2719
+     }
+    },
+    "bundle": "553bec8b76aefc03",
+    "components": {
+     "profit": {
+      "scale": 1839479.73,
+      "zero": -42990.3525
+     }
+    },
+    "oracle": "reference",
+    "seed": 2,
+    "threshold": 0.79
+   },
+   "3": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -45218.587
+      },
+      "reward": 0.0
+     },
+     "do-nothing": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -45218.587
+      },
+      "reward": 0.0
+     },
+     "exploit:chp-flat-out": {
+      "components": {
+       "profit": 0.3565
+      },
+      "metrics": {
+       "profit_eur": 689806.3992
+      },
+      "reward": 0.3565
+     },
+     "exploit:cut-heat-late": {
+      "components": {
+       "profit": 0.3423
+      },
+      "metrics": {
+       "profit_eur": 660514.6707
+      },
+      "reward": 0.3423
+     },
+     "exploit:extreme-climate": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50034.2344
+      },
+      "reward": 0.0
+     },
+     "exploit:harvest-early": {
+      "components": {
+       "profit": 0.0714
+      },
+      "metrics": {
+       "profit_eur": 101918.0932
+      },
+      "reward": 0.0714
+     },
+     "exploit:never-harvest": {
+      "components": {
+       "profit": 0.0
+      },
+      "metrics": {
+       "profit_eur": -50014.1562
+      },
+      "reward": 0.0
+     },
+     "exploit:plant-late": {
+      "components": {
+       "profit": 0.1779
+      },
+      "metrics": {
+       "profit_eur": 321504.4024
+      },
+      "reward": 0.1779
+     },
+     "exploit:spam-orders": {
+      "components": {
+       "profit": 0.1366
+      },
+      "metrics": {
+       "profit_eur": 236356.8546
+      },
+      "reward": 0.1366
+     },
+     "exploit:spam-repairs": {
+      "components": {
+       "profit": 0.1335
+      },
+      "metrics": {
+       "profit_eur": 229978.8909
+      },
+      "reward": 0.1335
+     },
+     "naive": {
+      "components": {
+       "profit": 0.1778
+      },
+      "metrics": {
+       "profit_eur": 321363.7863
+      },
+      "reward": 0.1778
+     },
+     "reference": {
+      "components": {
+       "profit": 0.8
+      },
+      "metrics": {
+       "profit_eur": 1604168.4296
+      },
+      "reward": 0.8
+     },
+     "rule-based": {
+      "components": {
+       "profit": 0.3423
+      },
+      "metrics": {
+       "profit_eur": 660514.6707
+      },
+      "reward": 0.3423
+     },
+     "stop-early": {
+      "components": {
+       "profit": 0.2534
+      },
+      "metrics": {
+       "profit_eur": 477263.1809
+      },
+      "reward": 0.2534
+     }
+    },
+    "bundle": "553bec8b76aefc03",
+    "components": {
+     "profit": {
+      "scale": 2061733.77,
+      "zero": -45218.587
+     }
+    },
+    "oracle": "reference",
+    "seed": 3,
+    "threshold": 0.79
+   }
+  },
   "smoke": {
    "1": {
     "anchors": {
@@ -23,24 +445,24 @@
      },
      "reference": {
       "components": {
-       "acted": 0.0833
+       "acted": 0.0417
       },
       "metrics": {
-       "continuity": 0.0833
+       "continuity": 0.0417
       },
-      "reward": 0.0833
+      "reward": 0.0417
      },
      "stop-early": {
       "components": {
-       "acted": 0.0833
+       "acted": 0.0417
       },
       "metrics": {
-       "continuity": 0.0833
+       "continuity": 0.0417
       },
-      "reward": 0.0833
+      "reward": 0.0417
      }
     },
-    "bundle": "d20e748fcfb1c401",
+    "bundle": "4da267147dc90b42",
     "components": {},
     "oracle": "reference",
     "seed": 1,
