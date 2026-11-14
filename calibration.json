@@ -95,7 +95,7 @@
       "reward": 0.2042
      }
     },
-    "bundle": "c229ee92d1e9b84c",
+    "bundle": "254d6bc2f7c90fa9",
     "components": {
      "business": {
       "scale": 34142.6,
@@ -105,6 +105,62 @@
     "oracle": "reference",
     "seed": 7,
     "threshold": 0.78
+   }
+  },
+  "root-cause": {
+   "7": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "normalized_profit": 0.0
+      },
+      "metrics": {
+       "normalized_profit": 0.0
+      },
+      "reward": 0.0
+     },
+     "do-nothing": {
+      "components": {
+       "normalized_profit": 0.0
+      },
+      "metrics": {
+       "normalized_profit": 0.0
+      },
+      "reward": 0.0
+     },
+     "reference": {
+      "components": {
+       "normalized_profit": 0.6662
+      },
+      "metrics": {
+       "normalized_profit": 0.6662
+      },
+      "reward": 0.6662
+     },
+     "rule-based": {
+      "components": {
+       "normalized_profit": 0.0355
+      },
+      "metrics": {
+       "normalized_profit": 0.0355
+      },
+      "reward": 0.0355
+     },
+     "stop-early": {
+      "components": {
+       "normalized_profit": 0.0902
+      },
+      "metrics": {
+       "normalized_profit": 0.0902
+      },
+      "reward": 0.0902
+     }
+    },
+    "bundle": "6bd5004b21948f40",
+    "components": {},
+    "oracle": "reference",
+    "seed": 7,
+    "threshold": null
    }
   },
   "shift-planner": {
@@ -156,7 +212,7 @@
       "reward": 0.0
      }
     },
-    "bundle": "5b73f3bc34fd2718",
+    "bundle": "c20f97c1b814227f",
     "components": {},
     "oracle": "reference",
     "seed": 0,

@@ -1,5 +1,98 @@
 # Experiment evidence
 
+## Root Cause: first complete run · 2026-11-14
+
+Measured on branch `feat/root-cause-greenhouse`, base commit `b1c6f9fed11948c8db9dc933b8c7683326c76930`
+with an **uncommitted working tree**; bundle `5553a702e8fa8198`. macOS (Darwin 24),
+Python 3.13.3 for the dependency-free checks and 3.12.16 in the locked
+environment, MCP SDK 2.3.0, Harbor 0.26.0, uv 0.13.8, Docker Desktop 29.6.2,
+Chrome 157. **No model and no model credentials.**
+Machine-readable record: [root-cause-evidence.json](root-cause-evidence.json).
+
+```bash
+bash scripts/check.sh                                   # Python 3.13.3, no packages
+uv sync --locked --extra eval --extra mcp --extra harbor
+uv run --no-sync bash scripts/check.sh
+uv run --no-sync python scripts/browser_smoke.py
+PYTHONPATH=src python3 -m rootcause_app.evaluate --suite all --evidence docs/root-cause-evidence.json
+ENVKIT_SCENARIO=root-cause bash scripts/judge.sh --output artifacts/rootcause/harbor-final   # run here as `python -m envkit.cli eval --scenario root-cause`
+bash scripts/harbor_boundary_probe.sh artifacts/rootcause/boundary-probe
+```
+
+**Checks that passed**
+
+- Without packages: 118 unit tests, 3 skipped (the three that need the MCP SDK or OR-Tools). 85 of them are Root Cause tests in `tests/test_rootcause_*.py`.
+- Locked environment: the same 118 with none skipped, 59 backend pytest tests, committed `tasks/` and `calibration.json` match the source for all three scenarios, and the reward audit passes for `root-cause` seed 7, `shift-planner` seed 0 and `depot-basic` seed 7.
+- Browser: a full 14-day season in headless Chrome, covering start, plan validation, a triple click on Advance (one day played), a test arriving one day later, the end screen, what-if, replay, and a second run next to the first. No JavaScript error and no failed request.
+- JavaScript: 13 modules parse. **The type check did not run** (no TypeScript compiler installed).
+
+**Comparators, in-process.** Reward (net profit). Hidden zone types are shown here for analysis; no player sees them.
+
+Development suite (seeds 1-12 were looked at while tuning; 1-6 reported):
+
+| Seed | Hidden zone types A/B/C/D | Water L | Peak °C (day) | Do nothing | Stop early | Rule-based | Reference |
+|---|---|---:|---|---:|---:|---:|---:|
+| 1 | rich / saline / salty hungry / balanced | 15,600 | 34 (9) | 0.000 (€2,127) | 0.389 (€2,465) | 0.057 (€2,176) | 0.580 (€2,631) |
+| 2 | rich / saline / lean / salty hungry | 13,900 | 32 (8) | 0.000 (€1,999) | 0.579 (€2,611) | 0.128 (€2,134) | 0.651 (€2,686) |
+| 3 | saline / balanced / rich / lean | 13,700 | 35 (5) | 0.000 (€2,309) | 0.425 (€2,637) | 0.435 (€2,645) | 0.626 (€2,791) |
+| 4 | balanced / lean / saline / rich | 15,400 | 34 (6) | 0.000 (€1,979) | 0.226 (€2,220) | 0.507 (€2,519) | 0.696 (€2,720) |
+| 5 | saline / salty hungry / rich / lean | 13,800 | 32 (9) | 0.000 (€1,789) | 0.540 (€2,453) | 0.258 (€2,106) | 0.682 (€2,629) |
+| 6 | balanced / lean / salty hungry / rich | 16,900 | 32 (6) | 0.000 (€1,806) | 0.310 (€2,119) | 0.279 (€2,088) | 0.695 (€2,507) |
+| **mean** | | | | **0.000** | **0.412** | **0.277** | **0.655** |
+
+Evaluation suite (first run after the mechanics were fixed):
+
+| Seed | Hidden zone types A/B/C/D | Water L | Peak °C (day) | Do nothing | Stop early | Rule-based | Reference |
+|---|---|---:|---|---:|---:|---:|---:|
+| 101 | salty hungry / rich / saline / lean | 13,400 | 34 (10) | 0.000 (€2,031) | 0.493 (€2,533) | 0.212 (€2,247) | 0.651 (€2,693) |
+| 102 | saline / rich / balanced / lean | 15,400 | 31 (9) | 0.000 (€2,202) | 0.558 (€2,682) | 0.622 (€2,736) | 0.676 (€2,782) |
+| 103 | rich / salty hungry / saline / balanced | 15,900 | 33 (7) | 0.000 (€2,313) | 0.409 (€2,676) | 0.051 (€2,359) | 0.573 (€2,821) |
+| 104 | rich / balanced / salty hungry / lean | 14,700 | 33 (5) | 0.000 (€2,137) | 0.373 (€2,422) | 0.187 (€2,280) | 0.618 (€2,609) |
+| 105 | salty hungry / lean / saline / balanced | 14,900 | 31 (4) | 0.000 (€1,729) | 0.600 (€2,496) | 0.160 (€1,934) | 0.683 (€2,603) |
+| 106 | balanced / saline / rich / salty hungry | 16,500 | 31 (9) | 0.000 (€2,321) | 0.347 (€2,603) | 0.000 (€2,197) | 0.518 (€2,742) |
+| 107 | rich / saline / salty hungry / lean | 15,800 | 32 (7) | 0.000 (€1,863) | 0.518 (€2,470) | 0.104 (€1,986) | 0.670 (€2,649) |
+| 108 | balanced / lean / salty hungry / saline | 16,200 | 36 (5) | 0.000 (€1,993) | 0.136 (€2,134) | 0.186 (€2,187) | 0.640 (€2,658) |
+| **mean** | | | | **0.000** | **0.429** | **0.191** | **0.629** |
+
+Demo seed 7: do-nothing 0.000, stop-early 0.308, rule-based 0.154, reference 0.607 (€2,467.78, 4 tests).
+All 60 runs finished with no internal error and with water, nutrient and salt balances closed.
+
+- The rule-based policy scores 0.43-0.62 on the three seeds with no "salty hungry" zone (3, 4, 102) and 0.00-0.28 on the other eleven.
+- Stop-early is weakest where a strong hot spell follows its last decision (4: 34 °C on day 6; 108: 36 °C on day 5).
+- On seed 106 the rule-based policy earns less than doing nothing (€2,197 against €2,321); its reward clips to 0.
+
+**What-if on a real trace** (rule-based, seed 7; method and limits in `rootcause_app/analysis.py`). The three days with the most growth lost were days 0, 1 and 2. Replacing one day's plan and replaying the rest of the recorded requests:
+
+| Day | 300 g more fertilizer in zone C | Flush 300 L more in zone B | Default plan instead |
+|---|---:|---:|---:|
+| 0 | +€156 | −€28 | +€55 |
+| 1 | +€140 | −€31 | −€24 |
+| 2 | +€123 | −€28 | −€6 |
+
+Zone C is the salty, nutrient-short zone whose EC (3.29) looked unremarkable; zone B has the highest EC and is nutrient-rich. One alternative on day 0 (150 L more irrigation everywhere) was infeasible under the daily cap and is recorded as not evaluated. No later recorded plan became infeasible. These are local, one-day substitutions: evidence that the rule's plan could be improved on those days, not a best plan.
+
+**Harbor on Docker**, `root-cause` seed 7, MCP sidecar and separate verifier:
+
+| Run | Harbor agent | Reward | Calls | Seconds | Status |
+|---|---|---:|---:|---:|---|
+| reference | oracle | 0.6066 | 48 | 47.2 | completed |
+| do-nothing | nop | 0.0000 | 0 | 42.1 | interrupted |
+| stop-early | oracle, `ENVKIT_POLICY=stop-early` | 0.3083 | 18 | 43.4 | interrupted |
+
+Each reproduced its calibrated score; batch 133 s with images cached. An earlier run on the previous bundle (before a comment-only scenario edit) gave the same three rewards.
+
+**Boundary probe through Harbor.** `scripts/boundary_probe_agent.sh` ran as root in the agent's container in place of an agent and played nothing. Observed:
+
+- No scenario, manifest, calibration, trace or engine file anywhere in the container; no Docker socket; no task or verifier mounts.
+- It wrote `/logs/verifier/reward.txt` = 1.0, a forged `/var/lib/envkit/trace.jsonl` and a `/tests/test.sh` inside its own container. None reached the verifier.
+- On the simulator, only port 8000 was open (13 common ports tried). `/healthz` answered 200; ten other paths 404; `DELETE`, `PUT`, `PATCH` on `/mcp` 405.
+- `set_state`, `reset` and `get_analysis` were rejected as unknown tools, a negative amount and an extra `profit_eur` argument were rejected, `resources/list` returned "Method not found", and `get_status` contained none of the hidden-state field names.
+- Verifier: reward 0.0000, profit equal to the floor, six calls replayed, no notes.
+
+This is a scripted probe of specific attacks. It is not an adversarial session by a model, and it does not cover a Harbor provider other than local Docker.
+
+**Not run:** OpenCode with any model, on any seed; the event kit; Modal; Podman; Harbor on seeds other than 7; GitHub CI on this branch; the JavaScript type check. There is therefore no agent result, no human/agent gap and no failure analysis for Root Cause.
+
 ## Backend merge check · 2026-11-14
 
 Measured code: `b5bdf44033127d2bf7696cda3120da35cde07f9f`, clean working tree,

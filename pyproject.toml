@@ -1,7 +1,7 @@
 [project]
 name = "junction-agent-environment"
 version = "0.3.0"
-description = "AfterQuery Shift Planner and its evaluation backend for Junction 2026"
+description = "AfterQuery environments (Root Cause, Shift Planner) and their evaluation backend for Junction 2026"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -23,6 +23,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+rootcause_app = ["static/*", "static/js/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

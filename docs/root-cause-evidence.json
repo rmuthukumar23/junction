@@ -1,0 +1,2684 @@
+{
+ "scenario": "root-cause",
+ "bundle": "1447dec5e855e3b5",
+ "code_sha": "b1c6f9fed11948c8db9dc933b8c7683326c76930",
+ "working_tree_dirty": true,
+ "python": "3.13.3",
+ "suites": {
+  "demo": {
+   "suite": "demo",
+   "seeds": [
+    7
+   ],
+   "rows": [
+    {
+     "suite": "demo",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 7,
+     "reward": 0.0,
+     "profit_eur": 1607.85,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2005.55,
+     "harvest_kg": 1002.77,
+     "cost_total_eur": 397.69,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 5.69,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1607.85,
+     "profit_ceiling_eur": 2588.75,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 258.2,
+      "B": 343.4,
+      "C": 123.9,
+      "D": 277.3
+     }
+    },
+    {
+     "suite": "demo",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 7,
+     "reward": 0.0902,
+     "profit_eur": 1696.32,
+     "normalized_profit": 0.090184,
+     "revenue_eur": 2223.73,
+     "harvest_kg": 1111.87,
+     "cost_total_eur": 527.42,
+     "cost_water_eur": 268.07,
+     "cost_fertilizer_eur": 151.84,
+     "cost_discharge_eur": 7.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13403.7,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1607.85,
+     "profit_ceiling_eur": 2588.75,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 261.9,
+      "B": 317.6,
+      "C": 245.8,
+      "D": 286.5
+     }
+    },
+    {
+     "suite": "demo",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 7,
+     "reward": 0.0355,
+     "profit_eur": 1642.72,
+     "normalized_profit": 0.035548,
+     "revenue_eur": 2081.94,
+     "harvest_kg": 1040.97,
+     "cost_total_eur": 439.22,
+     "cost_water_eur": 265.65,
+     "cost_fertilizer_eur": 170.0,
+     "cost_discharge_eur": 3.57,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13282.5,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1607.85,
+     "profit_ceiling_eur": 2588.75,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 232.4,
+      "B": 370.9,
+      "C": 129.5,
+      "D": 308.2
+     }
+    },
+    {
+     "suite": "demo",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 7,
+     "reward": 0.6662,
+     "profit_eur": 2261.31,
+     "normalized_profit": 0.666177,
+     "revenue_eur": 2921.56,
+     "harvest_kg": 1460.78,
+     "cost_total_eur": 660.25,
+     "cost_water_eur": 262.5,
+     "cost_fertilizer_eur": 288.75,
+     "cost_discharge_eur": 9.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13124.9,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1607.85,
+     "profit_ceiling_eur": 2588.75,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 334.1,
+      "B": 391.4,
+      "C": 356.9,
+      "D": 378.4
+     }
+    }
+   ],
+   "means": {
+    "do-nothing": {
+     "label": "Do nothing",
+     "runs": 1,
+     "mean_reward": 0.0,
+     "min_reward": 0.0,
+     "max_reward": 0.0,
+     "mean_profit_eur": 1607.85
+    },
+    "stop-early": {
+     "label": "Stop early",
+     "runs": 1,
+     "mean_reward": 0.0902,
+     "min_reward": 0.0902,
+     "max_reward": 0.0902,
+     "mean_profit_eur": 1696.32
+    },
+    "rule-based": {
+     "label": "Rule-based (EC rules, no tests)",
+     "runs": 1,
+     "mean_reward": 0.0355,
+     "min_reward": 0.0355,
+     "max_reward": 0.0355,
+     "mean_profit_eur": 1642.72
+    },
+    "reference": {
+     "label": "Reference planner",
+     "runs": 1,
+     "mean_reward": 0.6662,
+     "min_reward": 0.6662,
+     "max_reward": 0.6662,
+     "mean_profit_eur": 2261.31
+    }
+   },
+   "instances": [
+    {
+     "seed": 7,
+     "fresh_water_l": 15600.0,
+     "zones": {
+      "A": "saline",
+      "B": "rich",
+      "C": "salty_hungry",
+      "D": "balanced"
+     },
+     "hottest_day": 7,
+     "peak_temp_c": 35.8,
+     "mean_temp_c": 26.3
+    }
+   ]
+  },
+  "development": {
+   "suite": "development",
+   "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "rows": [
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 1,
+     "reward": 0.0,
+     "profit_eur": 1656.87,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2054.19,
+     "harvest_kg": 1027.09,
+     "cost_total_eur": 397.31,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 5.31,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1656.87,
+     "profit_ceiling_eur": 2740.24,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 335.7,
+      "B": 281.7,
+      "C": 151.0,
+      "D": 258.6
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 1,
+     "reward": 0.0587,
+     "profit_eur": 1720.5,
+     "normalized_profit": 0.058729,
+     "revenue_eur": 2273.06,
+     "harvest_kg": 1136.53,
+     "cost_total_eur": 552.56,
+     "cost_water_eur": 276.82,
+     "cost_fertilizer_eur": 165.24,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13841.1,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1656.87,
+     "profit_ceiling_eur": 2740.24,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 316.5,
+      "B": 275.0,
+      "C": 266.1,
+      "D": 278.9
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 1,
+     "reward": 0.0695,
+     "profit_eur": 1732.17,
+     "normalized_profit": 0.069505,
+     "revenue_eur": 2186.91,
+     "harvest_kg": 1093.45,
+     "cost_total_eur": 454.73,
+     "cost_water_eur": 273.73,
+     "cost_fertilizer_eur": 178.0,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13686.7,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1656.87,
+     "profit_ceiling_eur": 2740.24,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 392.7,
+      "B": 233.8,
+      "C": 159.4,
+      "D": 307.5
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 1,
+     "reward": 0.6918,
+     "profit_eur": 2406.35,
+     "normalized_profit": 0.691805,
+     "revenue_eur": 3120.97,
+     "harvest_kg": 1560.49,
+     "cost_total_eur": 714.62,
+     "cost_water_eur": 277.22,
+     "cost_fertilizer_eur": 325.4,
+     "cost_discharge_eur": 12.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13861.1,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1656.87,
+     "profit_ceiling_eur": 2740.24,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 421.5,
+      "B": 399.4,
+      "C": 375.0,
+      "D": 364.6
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 2,
+     "reward": 0.0,
+     "profit_eur": 1386.08,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1792.85,
+     "harvest_kg": 896.43,
+     "cost_total_eur": 406.78,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 14.78,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1386.08,
+     "profit_ceiling_eur": 2795.88,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 337.4,
+      "B": 278.8,
+      "C": 149.1,
+      "D": 131.1
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 2,
+     "reward": 0.1958,
+     "profit_eur": 1662.13,
+     "normalized_profit": 0.19581,
+     "revenue_eur": 2212.54,
+     "harvest_kg": 1106.27,
+     "cost_total_eur": 550.41,
+     "cost_water_eur": 264.17,
+     "cost_fertilizer_eur": 173.3,
+     "cost_discharge_eur": 12.94,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13208.5,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1386.08,
+     "profit_ceiling_eur": 2795.88,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 309.5,
+      "B": 265.8,
+      "C": 282.9,
+      "D": 248.1
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 2,
+     "reward": 0.2033,
+     "profit_eur": 1672.64,
+     "normalized_profit": 0.203263,
+     "revenue_eur": 2085.3,
+     "harvest_kg": 1042.65,
+     "cost_total_eur": 412.66,
+     "cost_water_eur": 233.66,
+     "cost_fertilizer_eur": 176.0,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 11683.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1386.08,
+     "profit_ceiling_eur": 2795.88,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 396.9,
+      "B": 238.6,
+      "C": 304.3,
+      "D": 102.8
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 2,
+     "reward": 0.7612,
+     "profit_eur": 2459.23,
+     "normalized_profit": 0.761208,
+     "revenue_eur": 3142.96,
+     "harvest_kg": 1571.48,
+     "cost_total_eur": 683.73,
+     "cost_water_eur": 235.82,
+     "cost_fertilizer_eur": 337.41,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 11790.8,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1386.08,
+     "profit_ceiling_eur": 2795.88,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 433.1,
+      "B": 398.5,
+      "C": 375.7,
+      "D": 364.2
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 3,
+     "reward": 0.0,
+     "profit_eur": 1718.78,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2114.72,
+     "harvest_kg": 1057.36,
+     "cost_total_eur": 395.94,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 3.94,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1718.78,
+     "profit_ceiling_eur": 2826.82,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 284.8,
+      "B": 292.2,
+      "C": 321.4,
+      "D": 159.0
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 3,
+     "reward": 0.1071,
+     "profit_eur": 1837.48,
+     "normalized_profit": 0.107125,
+     "revenue_eur": 2354.58,
+     "harvest_kg": 1177.29,
+     "cost_total_eur": 517.1,
+     "cost_water_eur": 257.67,
+     "cost_fertilizer_eur": 154.93,
+     "cost_discharge_eur": 4.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12883.6,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1718.78,
+     "profit_ceiling_eur": 2826.82,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 274.0,
+      "B": 302.2,
+      "C": 301.0,
+      "D": 300.1
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 3,
+     "reward": 0.3013,
+     "profit_eur": 2052.69,
+     "normalized_profit": 0.301347,
+     "revenue_eur": 2540.5,
+     "harvest_kg": 1270.25,
+     "cost_total_eur": 487.81,
+     "cost_water_eur": 272.81,
+     "cost_fertilizer_eur": 212.0,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13640.6,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1718.78,
+     "profit_ceiling_eur": 2826.82,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 236.5,
+      "B": 355.7,
+      "C": 345.5,
+      "D": 332.4
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 3,
+     "reward": 0.7612,
+     "profit_eur": 2562.23,
+     "normalized_profit": 0.761206,
+     "revenue_eur": 3229.2,
+     "harvest_kg": 1614.6,
+     "cost_total_eur": 666.98,
+     "cost_water_eur": 247.19,
+     "cost_fertilizer_eur": 315.28,
+     "cost_discharge_eur": 4.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12359.6,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1718.78,
+     "profit_ceiling_eur": 2826.82,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 381.3,
+      "B": 442.4,
+      "C": 351.0,
+      "D": 439.9
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 4,
+     "reward": 0.0,
+     "profit_eur": 1780.52,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2175.44,
+     "harvest_kg": 1087.72,
+     "cost_total_eur": 394.92,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 2.92,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1780.52,
+     "profit_ceiling_eur": 2792.44,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 295.5,
+      "B": 178.4,
+      "C": 260.9,
+      "D": 352.9
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 4,
+     "reward": 0.0747,
+     "profit_eur": 1856.15,
+     "normalized_profit": 0.074734,
+     "revenue_eur": 2372.94,
+     "harvest_kg": 1186.47,
+     "cost_total_eur": 516.79,
+     "cost_water_eur": 261.89,
+     "cost_fertilizer_eur": 148.9,
+     "cost_discharge_eur": 6.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13094.6,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1780.52,
+     "profit_ceiling_eur": 2792.44,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 290.3,
+      "B": 294.5,
+      "C": 276.0,
+      "D": 325.7
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 4,
+     "reward": 0.2282,
+     "profit_eur": 2011.45,
+     "normalized_profit": 0.228211,
+     "revenue_eur": 2495.36,
+     "harvest_kg": 1247.68,
+     "cost_total_eur": 483.9,
+     "cost_water_eur": 287.3,
+     "cost_fertilizer_eur": 193.6,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 14365.1,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1780.52,
+     "profit_ceiling_eur": 2792.44,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 329.1,
+      "B": 336.0,
+      "C": 209.9,
+      "D": 372.6
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 4,
+     "reward": 0.7084,
+     "profit_eur": 2497.41,
+     "normalized_profit": 0.708444,
+     "revenue_eur": 3192.14,
+     "harvest_kg": 1596.07,
+     "cost_total_eur": 694.73,
+     "cost_water_eur": 275.09,
+     "cost_fertilizer_eur": 310.64,
+     "cost_discharge_eur": 9.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13754.4,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1780.52,
+     "profit_ceiling_eur": 2792.44,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 387.7,
+      "B": 413.6,
+      "C": 401.5,
+      "D": 393.2
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 5,
+     "reward": 0.0,
+     "profit_eur": 1468.58,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1875.25,
+     "harvest_kg": 937.62,
+     "cost_total_eur": 406.67,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 14.67,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1468.58,
+     "profit_ceiling_eur": 2770.18,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 265.0,
+      "B": 125.3,
+      "C": 371.6,
+      "D": 175.6
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 5,
+     "reward": 0.1927,
+     "profit_eur": 1719.41,
+     "normalized_profit": 0.192714,
+     "revenue_eur": 2264.8,
+     "harvest_kg": 1132.4,
+     "cost_total_eur": 545.38,
+     "cost_water_eur": 264.27,
+     "cost_fertilizer_eur": 169.43,
+     "cost_discharge_eur": 11.69,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13213.3,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1468.58,
+     "profit_ceiling_eur": 2770.18,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 256.6,
+      "B": 245.8,
+      "C": 344.3,
+      "D": 285.7
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 5,
+     "reward": 0.1906,
+     "profit_eur": 1716.67,
+     "normalized_profit": 0.190605,
+     "revenue_eur": 2135.6,
+     "harvest_kg": 1067.8,
+     "cost_total_eur": 418.93,
+     "cost_water_eur": 243.13,
+     "cost_fertilizer_eur": 172.8,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12156.6,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1468.58,
+     "profit_ceiling_eur": 2770.18,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 212.0,
+      "B": 126.1,
+      "C": 399.5,
+      "D": 330.3
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 5,
+     "reward": 0.7223,
+     "profit_eur": 2408.78,
+     "normalized_profit": 0.722342,
+     "revenue_eur": 3075.97,
+     "harvest_kg": 1537.98,
+     "cost_total_eur": 667.19,
+     "cost_water_eur": 241.62,
+     "cost_fertilizer_eur": 315.06,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12081.1,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1468.58,
+     "profit_ceiling_eur": 2770.18,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 343.8,
+      "B": 398.3,
+      "C": 436.4,
+      "D": 359.5
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 6,
+     "reward": 0.0,
+     "profit_eur": 1365.95,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1764.93,
+     "harvest_kg": 882.47,
+     "cost_total_eur": 398.98,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 6.98,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1365.95,
+     "profit_ceiling_eur": 2571.18,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 265.1,
+      "B": 134.3,
+      "C": 121.2,
+      "D": 361.8
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 6,
+     "reward": 0.2651,
+     "profit_eur": 1685.41,
+     "normalized_profit": 0.265061,
+     "revenue_eur": 2224.25,
+     "harvest_kg": 1112.13,
+     "cost_total_eur": 538.84,
+     "cost_water_eur": 265.03,
+     "cost_fertilizer_eur": 167.82,
+     "cost_discharge_eur": 6.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13251.3,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1365.95,
+     "profit_ceiling_eur": 2571.18,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 276.2,
+      "B": 271.1,
+      "C": 234.0,
+      "D": 330.7
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 6,
+     "reward": 0.2848,
+     "profit_eur": 1709.14,
+     "normalized_profit": 0.284754,
+     "revenue_eur": 2172.08,
+     "harvest_kg": 1086.04,
+     "cost_total_eur": 462.94,
+     "cost_water_eur": 265.74,
+     "cost_fertilizer_eur": 197.2,
+     "cost_discharge_eur": 0.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13286.8,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1365.95,
+     "profit_ceiling_eur": 2571.18,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 318.1,
+      "B": 276.7,
+      "C": 80.8,
+      "D": 410.5
+     }
+    },
+    {
+     "suite": "development",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 6,
+     "reward": 0.7647,
+     "profit_eur": 2287.63,
+     "normalized_profit": 0.764732,
+     "revenue_eur": 2965.3,
+     "harvest_kg": 1482.65,
+     "cost_total_eur": 677.67,
+     "cost_water_eur": 260.8,
+     "cost_fertilizer_eur": 310.87,
+     "cost_discharge_eur": 6.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13039.9,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1365.95,
+     "profit_ceiling_eur": 2571.18,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 345.7,
+      "B": 359.0,
+      "C": 321.3,
+      "D": 456.7
+     }
+    }
+   ],
+   "means": {
+    "do-nothing": {
+     "label": "Do nothing",
+     "runs": 6,
+     "mean_reward": 0.0,
+     "min_reward": 0.0,
+     "max_reward": 0.0,
+     "mean_profit_eur": 1562.8
+    },
+    "stop-early": {
+     "label": "Stop early",
+     "runs": 6,
+     "mean_reward": 0.149,
+     "min_reward": 0.0587,
+     "max_reward": 0.2651,
+     "mean_profit_eur": 1746.85
+    },
+    "rule-based": {
+     "label": "Rule-based (EC rules, no tests)",
+     "runs": 6,
+     "mean_reward": 0.213,
+     "min_reward": 0.0695,
+     "max_reward": 0.3013,
+     "mean_profit_eur": 1815.79
+    },
+    "reference": {
+     "label": "Reference planner",
+     "runs": 6,
+     "mean_reward": 0.7349,
+     "min_reward": 0.6918,
+     "max_reward": 0.7647,
+     "mean_profit_eur": 2436.94
+    }
+   },
+   "instances": [
+    {
+     "seed": 1,
+     "fresh_water_l": 15600.0,
+     "zones": {
+      "A": "rich",
+      "B": "saline",
+      "C": "salty_hungry",
+      "D": "balanced"
+     },
+     "hottest_day": 9,
+     "peak_temp_c": 34.1,
+     "mean_temp_c": 27.7
+    },
+    {
+     "seed": 2,
+     "fresh_water_l": 13900.0,
+     "zones": {
+      "A": "rich",
+      "B": "saline",
+      "C": "lean",
+      "D": "salty_hungry"
+     },
+     "hottest_day": 8,
+     "peak_temp_c": 32.4,
+     "mean_temp_c": 25.9
+    },
+    {
+     "seed": 3,
+     "fresh_water_l": 13700.0,
+     "zones": {
+      "A": "saline",
+      "B": "balanced",
+      "C": "rich",
+      "D": "lean"
+     },
+     "hottest_day": 5,
+     "peak_temp_c": 34.6,
+     "mean_temp_c": 27.2
+    },
+    {
+     "seed": 4,
+     "fresh_water_l": 15400.0,
+     "zones": {
+      "A": "balanced",
+      "B": "lean",
+      "C": "saline",
+      "D": "rich"
+     },
+     "hottest_day": 6,
+     "peak_temp_c": 33.8,
+     "mean_temp_c": 28.0
+    },
+    {
+     "seed": 5,
+     "fresh_water_l": 13800.0,
+     "zones": {
+      "A": "saline",
+      "B": "salty_hungry",
+      "C": "rich",
+      "D": "lean"
+     },
+     "hottest_day": 9,
+     "peak_temp_c": 32.0,
+     "mean_temp_c": 26.6
+    },
+    {
+     "seed": 6,
+     "fresh_water_l": 16900.0,
+     "zones": {
+      "A": "balanced",
+      "B": "lean",
+      "C": "salty_hungry",
+      "D": "rich"
+     },
+     "hottest_day": 6,
+     "peak_temp_c": 32.1,
+     "mean_temp_c": 26.8
+    }
+   ]
+  },
+  "evaluation": {
+   "suite": "evaluation",
+   "seeds": [
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108
+   ],
+   "rows": [
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 101,
+     "reward": 0.0,
+     "profit_eur": 1331.65,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1731.66,
+     "harvest_kg": 865.83,
+     "cost_total_eur": 400.01,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 8.01,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1331.65,
+     "profit_ceiling_eur": 2788.27,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 119.7,
+      "B": 330.3,
+      "C": 248.1,
+      "D": 167.8
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.09,
+     "policy": "stop-early",
+     "seed": 101,
+     "reward": 0.1988,
+     "profit_eur": 1621.29,
+     "normalized_profit": 0.198842,
+     "revenue_eur": 2171.04,
+     "harvest_kg": 1085.52,
+     "cost_total_eur": 549.75,
+     "cost_water_eur": 268.0,
+     "cost_fertilizer_eur": 172.61,
+     "cost_discharge_eur": 9.15,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13400.0,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1331.65,
+     "profit_ceiling_eur": 2788.27,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 231.1,
+      "B": 300.1,
+      "C": 257.2,
+      "D": 297.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 101,
+     "reward": 0.3217,
+     "profit_eur": 1800.21,
+     "normalized_profit": 0.32168,
+     "revenue_eur": 2282.49,
+     "harvest_kg": 1141.25,
+     "cost_total_eur": 482.28,
+     "cost_water_eur": 260.08,
+     "cost_fertilizer_eur": 219.2,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13003.9,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1331.65,
+     "profit_ceiling_eur": 2788.27,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 116.8,
+      "B": 392.6,
+      "C": 267.9,
+      "D": 364.0
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.23,
+     "policy": "reference",
+     "seed": 101,
+     "reward": 0.7768,
+     "profit_eur": 2463.16,
+     "normalized_profit": 0.776807,
+     "revenue_eur": 3175.76,
+     "harvest_kg": 1587.88,
+     "cost_total_eur": 712.6,
+     "cost_water_eur": 258.71,
+     "cost_fertilizer_eur": 346.39,
+     "cost_discharge_eur": 7.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12935.4,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1331.65,
+     "profit_ceiling_eur": 2788.27,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 335.6,
+      "B": 428.0,
+      "C": 366.4,
+      "D": 457.8
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 102,
+     "reward": 0.0,
+     "profit_eur": 1605.22,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2007.15,
+     "harvest_kg": 1003.58,
+     "cost_total_eur": 401.93,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 9.93,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1605.22,
+     "profit_ceiling_eur": 2801.92,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 264.5,
+      "B": 333.1,
+      "C": 266.5,
+      "D": 139.6
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 102,
+     "reward": 0.1252,
+     "profit_eur": 1755.03,
+     "normalized_profit": 0.125186,
+     "revenue_eur": 2261.66,
+     "harvest_kg": 1130.83,
+     "cost_total_eur": 506.63,
+     "cost_water_eur": 254.21,
+     "cost_fertilizer_eur": 150.11,
+     "cost_discharge_eur": 2.31,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12710.7,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1605.22,
+     "profit_ceiling_eur": 2801.92,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 258.3,
+      "B": 305.5,
+      "C": 279.9,
+      "D": 287.2
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 102,
+     "reward": 0.4427,
+     "profit_eur": 2135.01,
+     "normalized_profit": 0.442706,
+     "revenue_eur": 2643.5,
+     "harvest_kg": 1321.75,
+     "cost_total_eur": 508.49,
+     "cost_water_eur": 265.49,
+     "cost_fertilizer_eur": 240.0,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 13274.7,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1605.22,
+     "profit_ceiling_eur": 2801.92,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 264.8,
+      "B": 383.2,
+      "C": 347.4,
+      "D": 326.4
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 102,
+     "reward": 0.7932,
+     "profit_eur": 2554.44,
+     "normalized_profit": 0.793195,
+     "revenue_eur": 3200.86,
+     "harvest_kg": 1600.43,
+     "cost_total_eur": 646.42,
+     "cost_water_eur": 230.92,
+     "cost_fertilizer_eur": 314.01,
+     "cost_discharge_eur": 1.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 11545.8,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1605.22,
+     "profit_ceiling_eur": 2801.92,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 345.0,
+      "B": 403.9,
+      "C": 426.5,
+      "D": 425.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 103,
+     "reward": 0.0,
+     "profit_eur": 1705.43,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2099.46,
+     "harvest_kg": 1049.73,
+     "cost_total_eur": 394.03,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 2.03,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1705.43,
+     "profit_ceiling_eur": 2935.55,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 350.4,
+      "B": 158.2,
+      "C": 283.4,
+      "D": 257.7
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.09,
+     "policy": "stop-early",
+     "seed": 103,
+     "reward": 0.0817,
+     "profit_eur": 1805.89,
+     "normalized_profit": 0.081671,
+     "revenue_eur": 2359.64,
+     "harvest_kg": 1179.82,
+     "cost_total_eur": 553.74,
+     "cost_water_eur": 277.73,
+     "cost_fertilizer_eur": 165.52,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13886.3,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1705.43,
+     "profit_ceiling_eur": 2935.55,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 329.3,
+      "B": 269.5,
+      "C": 282.8,
+      "D": 298.3
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 103,
+     "reward": 0.0985,
+     "profit_eur": 1826.59,
+     "normalized_profit": 0.098497,
+     "revenue_eur": 2264.72,
+     "harvest_kg": 1132.36,
+     "cost_total_eur": 438.12,
+     "cost_water_eur": 257.52,
+     "cost_fertilizer_eur": 177.6,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12876.2,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1705.43,
+     "profit_ceiling_eur": 2935.55,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 381.3,
+      "B": 148.6,
+      "C": 241.8,
+      "D": 360.7
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 103,
+     "reward": 0.7155,
+     "profit_eur": 2585.56,
+     "normalized_profit": 0.715488,
+     "revenue_eur": 3316.52,
+     "harvest_kg": 1658.26,
+     "cost_total_eur": 730.95,
+     "cost_water_eur": 272.2,
+     "cost_fertilizer_eur": 346.75,
+     "cost_discharge_eur": 12.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13610.0,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1705.43,
+     "profit_ceiling_eur": 2935.55,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 409.7,
+      "B": 371.0,
+      "C": 427.1,
+      "D": 450.5
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 104,
+     "reward": 0.0,
+     "profit_eur": 1410.27,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1811.02,
+     "harvest_kg": 905.51,
+     "cost_total_eur": 400.74,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 8.74,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1410.27,
+     "profit_ceiling_eur": 2653.34,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 320.2,
+      "B": 246.5,
+      "C": 161.4,
+      "D": 177.4
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 104,
+     "reward": 0.2393,
+     "profit_eur": 1707.72,
+     "normalized_profit": 0.239283,
+     "revenue_eur": 2236.18,
+     "harvest_kg": 1118.09,
+     "cost_total_eur": 528.47,
+     "cost_water_eur": 252.84,
+     "cost_fertilizer_eur": 169.62,
+     "cost_discharge_eur": 6.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12642.2,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1410.27,
+     "profit_ceiling_eur": 2653.34,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 296.1,
+      "B": 261.3,
+      "C": 265.1,
+      "D": 295.6
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 104,
+     "reward": 0.3964,
+     "profit_eur": 1903.05,
+     "normalized_profit": 0.396424,
+     "revenue_eur": 2369.33,
+     "harvest_kg": 1184.66,
+     "cost_total_eur": 466.27,
+     "cost_water_eur": 243.47,
+     "cost_fertilizer_eur": 222.8,
+     "cost_discharge_eur": 0.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12173.6,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1410.27,
+     "profit_ceiling_eur": 2653.34,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 375.0,
+      "B": 324.0,
+      "C": 147.1,
+      "D": 338.5
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 104,
+     "reward": 0.7915,
+     "profit_eur": 2394.18,
+     "normalized_profit": 0.791514,
+     "revenue_eur": 3057.03,
+     "harvest_kg": 1528.52,
+     "cost_total_eur": 662.86,
+     "cost_water_eur": 234.63,
+     "cost_fertilizer_eur": 322.23,
+     "cost_discharge_eur": 6.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 11731.4,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1410.27,
+     "profit_ceiling_eur": 2653.34,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 398.9,
+      "B": 354.7,
+      "C": 366.5,
+      "D": 408.4
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 105,
+     "reward": 0.0,
+     "profit_eur": 1267.97,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1670.05,
+     "harvest_kg": 835.02,
+     "cost_total_eur": 402.08,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 10.08,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1267.97,
+     "profit_ceiling_eur": 2749.73,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 140.3,
+      "B": 149.8,
+      "C": 276.9,
+      "D": 268.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 105,
+     "reward": 0.2442,
+     "profit_eur": 1629.84,
+     "normalized_profit": 0.244218,
+     "revenue_eur": 2209.93,
+     "harvest_kg": 1104.96,
+     "cost_total_eur": 580.08,
+     "cost_water_eur": 280.24,
+     "cost_fertilizer_eur": 189.35,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 14011.8,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1267.97,
+     "profit_ceiling_eur": 2749.73,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 261.8,
+      "B": 281.4,
+      "C": 273.3,
+      "D": 288.5
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 105,
+     "reward": 0.1117,
+     "profit_eur": 1433.43,
+     "normalized_profit": 0.111663,
+     "revenue_eur": 1841.72,
+     "harvest_kg": 920.86,
+     "cost_total_eur": 408.3,
+     "cost_water_eur": 248.5,
+     "cost_fertilizer_eur": 156.8,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12424.9,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1267.97,
+     "profit_ceiling_eur": 2749.73,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 69.3,
+      "B": 301.0,
+      "C": 229.4,
+      "D": 321.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.23,
+     "policy": "reference",
+     "seed": 105,
+     "reward": 0.7406,
+     "profit_eur": 2365.37,
+     "normalized_profit": 0.740605,
+     "revenue_eur": 3095.06,
+     "harvest_kg": 1547.53,
+     "cost_total_eur": 729.69,
+     "cost_water_eur": 264.06,
+     "cost_fertilizer_eur": 353.63,
+     "cost_discharge_eur": 12.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13203.1,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1267.97,
+     "profit_ceiling_eur": 2749.73,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 388.2,
+      "B": 390.1,
+      "C": 381.2,
+      "D": 388.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 106,
+     "reward": 0.0,
+     "profit_eur": 1744.83,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2142.11,
+     "harvest_kg": 1071.05,
+     "cost_total_eur": 397.28,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 5.28,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1744.83,
+     "profit_ceiling_eur": 2878.42,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 257.3,
+      "B": 298.6,
+      "C": 363.6,
+      "D": 151.6
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 106,
+     "reward": 0.0113,
+     "profit_eur": 1757.66,
+     "normalized_profit": 0.01132,
+     "revenue_eur": 2290.45,
+     "harvest_kg": 1145.23,
+     "cost_total_eur": 532.79,
+     "cost_water_eur": 270.99,
+     "cost_fertilizer_eur": 151.9,
+     "cost_discharge_eur": 9.9,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13549.4,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1744.83,
+     "profit_ceiling_eur": 2878.42,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 275.6,
+      "B": 274.5,
+      "C": 338.1,
+      "D": 257.1
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 106,
+     "reward": 0.0,
+     "profit_eur": 1706.96,
+     "normalized_profit": 0.0,
+     "revenue_eur": 2103.61,
+     "harvest_kg": 1051.81,
+     "cost_total_eur": 396.65,
+     "cost_water_eur": 247.25,
+     "cost_fertilizer_eur": 146.4,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12362.7,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1744.83,
+     "profit_ceiling_eur": 2878.42,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 310.1,
+      "B": 273.8,
+      "C": 374.7,
+      "D": 93.3
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.23,
+     "policy": "reference",
+     "seed": 106,
+     "reward": 0.6789,
+     "profit_eur": 2514.39,
+     "normalized_profit": 0.678867,
+     "revenue_eur": 3199.0,
+     "harvest_kg": 1599.5,
+     "cost_total_eur": 684.61,
+     "cost_water_eur": 257.08,
+     "cost_fertilizer_eur": 317.04,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12853.9,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1744.83,
+     "profit_ceiling_eur": 2878.42,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 366.0,
+      "B": 420.2,
+      "C": 412.6,
+      "D": 400.6
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 107,
+     "reward": 0.0,
+     "profit_eur": 1347.21,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1748.47,
+     "harvest_kg": 874.23,
+     "cost_total_eur": 401.26,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 9.26,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1347.21,
+     "profit_ceiling_eur": 2780.25,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 337.1,
+      "B": 255.5,
+      "C": 145.2,
+      "D": 136.5
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 107,
+     "reward": 0.2264,
+     "profit_eur": 1671.67,
+     "normalized_profit": 0.226417,
+     "revenue_eur": 2239.12,
+     "harvest_kg": 1119.56,
+     "cost_total_eur": 567.45,
+     "cost_water_eur": 275.99,
+     "cost_fertilizer_eur": 179.71,
+     "cost_discharge_eur": 11.75,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 13799.3,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1347.21,
+     "profit_ceiling_eur": 2780.25,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 313.8,
+      "B": 260.8,
+      "C": 253.9,
+      "D": 291.0
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 107,
+     "reward": 0.1518,
+     "profit_eur": 1564.71,
+     "normalized_profit": 0.151779,
+     "revenue_eur": 1981.59,
+     "harvest_kg": 990.8,
+     "cost_total_eur": 416.88,
+     "cost_water_eur": 242.28,
+     "cost_fertilizer_eur": 171.6,
+     "cost_discharge_eur": 3.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12113.9,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1347.21,
+     "profit_ceiling_eur": 2780.25,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 372.3,
+      "B": 212.8,
+      "C": 115.7,
+      "D": 290.0
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 107,
+     "reward": 0.7392,
+     "profit_eur": 2406.56,
+     "normalized_profit": 0.739231,
+     "revenue_eur": 3119.54,
+     "harvest_kg": 1559.77,
+     "cost_total_eur": 712.98,
+     "cost_water_eur": 258.64,
+     "cost_fertilizer_eur": 343.84,
+     "cost_discharge_eur": 10.5,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 12932.0,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1347.21,
+     "profit_ceiling_eur": 2780.25,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 394.0,
+      "B": 375.7,
+      "C": 392.8,
+      "D": 397.2
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Do nothing",
+     "seconds": 0.01,
+     "policy": "do-nothing",
+     "seed": 108,
+     "reward": 0.0,
+     "profit_eur": 1408.77,
+     "normalized_profit": 0.0,
+     "revenue_eur": 1800.77,
+     "harvest_kg": 900.38,
+     "cost_total_eur": 392.0,
+     "cost_water_eur": 257.6,
+     "cost_fertilizer_eur": 134.4,
+     "cost_discharge_eur": 0.0,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 12880.0,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 0,
+     "profit_floor_eur": 1408.77,
+     "profit_ceiling_eur": 2768.36,
+     "conservation_ok": 1.0,
+     "calls": 0,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 287.3,
+      "B": 203.3,
+      "C": 174.9,
+      "D": 234.9
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Stop early",
+     "seconds": 0.1,
+     "policy": "stop-early",
+     "seed": 108,
+     "reward": 0.223,
+     "profit_eur": 1711.96,
+     "normalized_profit": 0.223001,
+     "revenue_eur": 2287.25,
+     "harvest_kg": 1143.62,
+     "cost_total_eur": 575.29,
+     "cost_water_eur": 284.05,
+     "cost_fertilizer_eur": 182.23,
+     "cost_discharge_eur": 9.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 14202.7,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 4,
+     "profit_floor_eur": 1408.77,
+     "profit_ceiling_eur": 2768.36,
+     "conservation_ok": 1.0,
+     "calls": 18,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 308.9,
+      "B": 273.9,
+      "C": 278.0,
+      "D": 282.8
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Rule-based (EC rules, no tests)",
+     "seconds": 0.02,
+     "policy": "rule-based",
+     "seed": 108,
+     "reward": 0.1904,
+     "profit_eur": 1667.69,
+     "normalized_profit": 0.190442,
+     "revenue_eur": 2151.98,
+     "harvest_kg": 1075.99,
+     "cost_total_eur": 484.29,
+     "cost_water_eur": 284.58,
+     "cost_fertilizer_eur": 196.4,
+     "cost_discharge_eur": 3.31,
+     "cost_tests_eur": 0.0,
+     "fresh_water_used_l": 14229.2,
+     "tests_ordered": 0,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1408.77,
+     "profit_ceiling_eur": 2768.36,
+     "conservation_ok": 1.0,
+     "calls": 30,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 374.8,
+      "B": 291.4,
+      "C": 146.2,
+      "D": 263.6
+     }
+    },
+    {
+     "suite": "evaluation",
+     "label": "Reference planner",
+     "seconds": 0.22,
+     "policy": "reference",
+     "seed": 108,
+     "reward": 0.7481,
+     "profit_eur": 2425.92,
+     "normalized_profit": 0.748133,
+     "revenue_eur": 3182.07,
+     "harvest_kg": 1591.03,
+     "cost_total_eur": 756.15,
+     "cost_water_eur": 291.64,
+     "cost_fertilizer_eur": 355.5,
+     "cost_discharge_eur": 9.0,
+     "cost_tests_eur": 100.0,
+     "fresh_water_used_l": 14582.0,
+     "tests_ordered": 4,
+     "days_with_a_submitted_plan": 14,
+     "profit_floor_eur": 1408.77,
+     "profit_ceiling_eur": 2768.36,
+     "conservation_ok": 1.0,
+     "calls": 48,
+     "faults": 0,
+     "zone_harvest_kg": {
+      "A": 442.9,
+      "B": 364.5,
+      "C": 396.3,
+      "D": 387.4
+     }
+    }
+   ],
+   "means": {
+    "do-nothing": {
+     "label": "Do nothing",
+     "runs": 8,
+     "mean_reward": 0.0,
+     "min_reward": 0.0,
+     "max_reward": 0.0,
+     "mean_profit_eur": 1477.67
+    },
+    "stop-early": {
+     "label": "Stop early",
+     "runs": 8,
+     "mean_reward": 0.1687,
+     "min_reward": 0.0113,
+     "max_reward": 0.2442,
+     "mean_profit_eur": 1707.63
+    },
+    "rule-based": {
+     "label": "Rule-based (EC rules, no tests)",
+     "runs": 8,
+     "mean_reward": 0.2142,
+     "min_reward": 0.0,
+     "max_reward": 0.4427,
+     "mean_profit_eur": 1754.71
+    },
+    "reference": {
+     "label": "Reference planner",
+     "runs": 8,
+     "mean_reward": 0.748,
+     "min_reward": 0.6789,
+     "max_reward": 0.7932,
+     "mean_profit_eur": 2463.7
+    }
+   },
+   "instances": [
+    {
+     "seed": 101,
+     "fresh_water_l": 13400.0,
+     "zones": {
+      "A": "salty_hungry",
+      "B": "rich",
+      "C": "saline",
+      "D": "lean"
+     },
+     "hottest_day": 10,
+     "peak_temp_c": 33.5,
+     "mean_temp_c": 27.4
+    },
+    {
+     "seed": 102,
+     "fresh_water_l": 15400.0,
+     "zones": {
+      "A": "saline",
+      "B": "rich",
+      "C": "balanced",
+      "D": "lean"
+     },
+     "hottest_day": 9,
+     "peak_temp_c": 30.6,
+     "mean_temp_c": 25.5
+    },
+    {
+     "seed": 103,
+     "fresh_water_l": 15900.0,
+     "zones": {
+      "A": "rich",
+      "B": "salty_hungry",
+      "C": "saline",
+      "D": "balanced"
+     },
+     "hottest_day": 7,
+     "peak_temp_c": 33.3,
+     "mean_temp_c": 27.6
+    },
+    {
+     "seed": 104,
+     "fresh_water_l": 14700.0,
+     "zones": {
+      "A": "rich",
+      "B": "balanced",
+      "C": "salty_hungry",
+      "D": "lean"
+     },
+     "hottest_day": 5,
+     "peak_temp_c": 32.7,
+     "mean_temp_c": 25.9
+    },
+    {
+     "seed": 105,
+     "fresh_water_l": 14900.0,
+     "zones": {
+      "A": "salty_hungry",
+      "B": "lean",
+      "C": "saline",
+      "D": "balanced"
+     },
+     "hottest_day": 4,
+     "peak_temp_c": 31.2,
+     "mean_temp_c": 26.4
+    },
+    {
+     "seed": 106,
+     "fresh_water_l": 16500.0,
+     "zones": {
+      "A": "balanced",
+      "B": "saline",
+      "C": "rich",
+      "D": "salty_hungry"
+     },
+     "hottest_day": 9,
+     "peak_temp_c": 30.7,
+     "mean_temp_c": 25.7
+    },
+    {
+     "seed": 107,
+     "fresh_water_l": 15800.0,
+     "zones": {
+      "A": "rich",
+      "B": "saline",
+      "C": "salty_hungry",
+      "D": "lean"
+     },
+     "hottest_day": 7,
+     "peak_temp_c": 32.4,
+     "mean_temp_c": 27.4
+    },
+    {
+     "seed": 108,
+     "fresh_water_l": 16200.0,
+     "zones": {
+      "A": "balanced",
+      "B": "lean",
+      "C": "salty_hungry",
+      "D": "saline"
+     },
+     "hottest_day": 5,
+     "peak_temp_c": 36.0,
+     "mean_temp_c": 29.0
+    }
+   ]
+  }
+ },
+ "whatif_rule_based_demo": {
+  "method": "One day's plan is replaced by an alternative; every other recorded request is replayed unchanged. A later recorded plan that becomes infeasible is rejected by the engine and that day runs the default plan. A gain is evidence of a local improvement, not of an optimal plan.",
+  "actual_profit_eur": 1642.72,
+  "days_played_by_player": 14,
+  "points": [
+   {
+    "day": 11,
+    "applied_plan": {
+     "A": {
+      "irrigation_l": 216.6,
+      "fertilizer_g": 200.0,
+      "flush_l": 0.0
+     },
+     "B": {
+      "irrigation_l": 251.7,
+      "fertilizer_g": 300.0,
+      "flush_l": 0.0
+     },
+     "C": {
+      "irrigation_l": 132.9,
+      "fertilizer_g": 0.0,
+      "flush_l": 0.0
+     },
+     "D": {
+      "irrigation_l": 232.2,
+      "fertilizer_g": 200.0,
+      "flush_l": 0.0
+     }
+    },
+    "plan_source": "submitted",
+    "alternatives": [
+     {
+      "alternative": "Default plan for every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1618.08,
+      "delta_eur": -24.64,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "Flush 300 L more in zone C (highest mid-day EC that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 216.6,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 251.7,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 132.9,
+        "fertilizer_g": 0.0,
+        "flush_l": 300.0
+       },
+       "D": {
+        "irrigation_l": 232.2,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1629.75,
+      "delta_eur": -12.97,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "300 g more fertilizer in zone D (lowest nutrient factor that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 216.6,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 251.7,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 132.9,
+        "fertilizer_g": 0.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 232.2,
+        "fertilizer_g": 500.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1662.78,
+      "delta_eur": 20.06,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "150 L more irrigation in every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 366.6,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 401.7,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 282.9,
+        "fertilizer_g": 0.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 382.2,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1610.74,
+      "delta_eur": -31.98,
+      "later_plans_rejected": 0
+     }
+    ]
+   },
+   {
+    "day": 12,
+    "applied_plan": {
+     "A": {
+      "irrigation_l": 206.9,
+      "fertilizer_g": 200.0,
+      "flush_l": 0.0
+     },
+     "B": {
+      "irrigation_l": 253.2,
+      "fertilizer_g": 300.0,
+      "flush_l": 0.0
+     },
+     "C": {
+      "irrigation_l": 120.5,
+      "fertilizer_g": 120.0,
+      "flush_l": 0.0
+     },
+     "D": {
+      "irrigation_l": 223.9,
+      "fertilizer_g": 200.0,
+      "flush_l": 0.0
+     }
+    },
+    "plan_source": "submitted",
+    "alternatives": [
+     {
+      "alternative": "Default plan for every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1624.73,
+      "delta_eur": -17.99,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "Flush 300 L more in zone C (highest mid-day EC that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 206.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 253.2,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 120.5,
+        "fertilizer_g": 120.0,
+        "flush_l": 300.0
+       },
+       "D": {
+        "irrigation_l": 223.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1631.33,
+      "delta_eur": -11.39,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "300 g more fertilizer in zone D (lowest nutrient factor that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 206.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 253.2,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 120.5,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 223.9,
+        "fertilizer_g": 500.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1654.26,
+      "delta_eur": 11.54,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "No fertilizer in zone C",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 206.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 253.2,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 120.5,
+        "fertilizer_g": 0.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 223.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1643.06,
+      "delta_eur": 0.34,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "150 L more irrigation in every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 356.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 403.2,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 270.5,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 373.9,
+        "fertilizer_g": 200.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1617.05,
+      "delta_eur": -25.67,
+      "later_plans_rejected": 0
+     }
+    ]
+   },
+   {
+    "day": 13,
+    "applied_plan": {
+     "A": {
+      "irrigation_l": 177.2,
+      "fertilizer_g": 120.0,
+      "flush_l": 0.0
+     },
+     "B": {
+      "irrigation_l": 231.0,
+      "fertilizer_g": 300.0,
+      "flush_l": 0.0
+     },
+     "C": {
+      "irrigation_l": 101.4,
+      "fertilizer_g": 0.0,
+      "flush_l": 0.0
+     },
+     "D": {
+      "irrigation_l": 193.0,
+      "fertilizer_g": 300.0,
+      "flush_l": 0.0
+     }
+    },
+    "plan_source": "submitted",
+    "alternatives": [
+     {
+      "alternative": "Default plan for every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 230.0,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1628.97,
+      "delta_eur": -13.75,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "Flush 300 L more in zone C (highest mid-day EC that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 177.2,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 231.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 101.4,
+        "fertilizer_g": 0.0,
+        "flush_l": 300.0
+       },
+       "D": {
+        "irrigation_l": 193.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1632.31,
+      "delta_eur": -10.41,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "300 g more fertilizer in zone A (lowest nutrient factor that day)",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 177.2,
+        "fertilizer_g": 420.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 231.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 101.4,
+        "fertilizer_g": 0.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 193.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1642.74,
+      "delta_eur": 0.02,
+      "later_plans_rejected": 0
+     },
+     {
+      "alternative": "150 L more irrigation in every zone",
+      "feasible": true,
+      "plan": {
+       "A": {
+        "irrigation_l": 327.2,
+        "fertilizer_g": 120.0,
+        "flush_l": 0.0
+       },
+       "B": {
+        "irrigation_l": 381.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       },
+       "C": {
+        "irrigation_l": 251.4,
+        "fertilizer_g": 0.0,
+        "flush_l": 0.0
+       },
+       "D": {
+        "irrigation_l": 343.0,
+        "fertilizer_g": 300.0,
+        "flush_l": 0.0
+       }
+      },
+      "profit_eur": 1623.69,
+      "delta_eur": -19.03,
+      "later_plans_rejected": 0
+     }
+    ]
+   }
+  ]
+ },
+ "llm_runs": [],
+ "llm_status": "not_run",
+ "llm_missing_prerequisites": [
+  "a running Docker (or Podman) daemon for Harbor's Compose sidecar",
+  "a provider credential in the environment (for example OPENAI_API_KEY or ANTHROPIC_API_KEY)",
+  "an event-approved model identifier"
+ ],
+ "llm_command": "harbor run -p tasks/root-cause-s7 -a opencode -m <provider/model>"
+}
