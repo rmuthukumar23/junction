@@ -92,9 +92,9 @@ def write_bundle(dest: Path, scenario: Scenario, seed: int, calibration: dict[st
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     manifest = {"scenario": scenario.id, "seed": int(seed), "bundle": h, "engine": __version__}
-    (dest / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
+    (dest / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n", newline="\n")
     if calibration is not None:
-        (dest / "calibration.json").write_text(json.dumps(calibration, indent=1, sort_keys=True) + "\n")
+        (dest / "calibration.json").write_text(json.dumps(calibration, indent=1, sort_keys=True) + "\n", newline="\n")
     return h
 
 

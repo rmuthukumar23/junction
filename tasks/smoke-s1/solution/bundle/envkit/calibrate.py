@@ -89,7 +89,7 @@ def load_calibration(root: Path) -> dict[str, Any]:
 
 
 def save_calibration(root: Path, data: dict[str, Any]) -> None:
-    (root / CALIBRATION_FILE).write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
+    (root / CALIBRATION_FILE).write_text(json.dumps(data, indent=1, sort_keys=True) + "\n", newline="\n")
 
 
 def entry_for(data: dict[str, Any], scenario_id: str, seed: int) -> dict[str, Any] | None:
