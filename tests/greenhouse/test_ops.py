@@ -1,6 +1,7 @@
 """Operations: orders with lead times, stock, staff, wages and the worker-hour task queue."""
 import tomllib
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from envkit.rng import Rng
@@ -33,14 +34,23 @@ class OrderTests(unittest.TestCase):
         o, book = ops()
         order = o.place_order(10, "co2_kg", 2000)
         self.assertEqual(order.eta_hour, 82)
-        start = o.stock["co2_kg"]
-        run(o, 10, 81)
-        self.assertEqual(o.stock["co2_kg"], start)
+        delivered = []
+        for h in range(10, 82):
+            delivered += o.end_hour(h).delivered
+        self.assertEqual(delivered, [])
         self.assertEqual(book.totals()["co2"], 0.0)               # charged on arrival, not before
-        alarms, _ = run(o, 82, 82)
-        self.assertEqual(o.stock["co2_kg"], start + 2000)
+        r = o.end_hour(82)
+        self.assertEqual([d.id for d in r.delivered], [order.id])
         self.assertAlmostEqual(book.totals()["co2"], -2000 * MARKET.items["co2_kg"].price_eur_per_unit)
-        self.assertTrue(any(a.kind == "delivery" for a in alarms))
+        self.assertTrue(any(a.kind == "delivery" for a in r.alarms))
+
+    def test_co2_goes_to_the_facility_and_never_into_business_stock(self):
+        o, _ = ops()
+        self.assertNotIn("co2_kg", o.stock)
+        o.place_order(0, "co2_kg", 2000)
+        run(o, 0, 80)
+        self.assertNotIn("co2_kg", o.stock)
+        self.assertNotIn("co2_kg", o.view()["stock"])
 
     def test_minimum_quantities_and_unknown_items_are_refused_without_change(self):
         o, book = ops()
@@ -61,8 +71,10 @@ class OrderTests(unittest.TestCase):
             o.cancel_order(b.dispatch_hour, b.id)
         with self.assertRaises(OpsError):
             o.cancel_order(6, a.id)                               # already cancelled
-        run(o, 0, 80)
-        self.assertEqual(o.stock["co2_kg"], MARKET.start_stock["co2_kg"] + 2000)
+        delivered = []
+        for h in range(0, 81):
+            delivered += o.end_hour(h).delivered
+        self.assertEqual([d.id for d in delivered], [b.id])         # only the order not cancelled
 
     def test_a_late_delivery_pushes_back_the_order_due_soonest(self):
         o, _ = ops()
@@ -75,20 +87,15 @@ class OrderTests(unittest.TestCase):
 
 
 class StockTests(unittest.TestCase):
-    def test_co2_is_drawn_from_stock_and_shortfalls_are_counted(self):
-        o, _ = ops()
-        start = o.stock["co2_kg"]
-        self.assertEqual(o.use_co2(0, 100.0), 100.0)
-        self.assertEqual(o.use_co2(0, start), start - 100.0)
-        self.assertEqual(o.stock["co2_kg"], 0.0)
-        self.assertAlmostEqual(o.co2_short_kg, 100.0)
-
     def test_a_stock_low_alarm_fires_once_when_crossing_the_warning_level(self):
-        o, _ = ops()
-        o.use_co2(0, o.stock["co2_kg"] - 100.0)
+        item = "seedlings:lettuce_butterhead"
+        market = replace(MARKET, items={**MARKET.items, item: replace(MARKET.items[item], warn_below=1000.0)},
+                         start_stock={**MARKET.start_stock, item: 1500.0})
+        o = Operations(market, Ledger(0.0), Rng(1))
+        o.take_seedlings("lettuce_butterhead", 600)
         a1, _ = run(o, 0, 0)
         a2, _ = run(o, 1, 1)
-        self.assertEqual([a.kind for a in a1].count("stock_low"), 1)
+        self.assertEqual([a.target for a in a1 if a.kind == "stock_low"], [item])
         self.assertEqual([a.kind for a in a2].count("stock_low"), 0)
 
     def test_planting_needs_seedlings_in_stock(self):

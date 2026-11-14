@@ -123,21 +123,36 @@ class Events:
                              f"back within {spec.repair.shortens_to_h:g} h of the repair."))
         return out
 
+    def outage_effect(self, target: str, hour: int) -> EquipmentEffect | None:
+        """The effect of the outage on `target` in force at `hour`, if any."""
+        outage = self._active(target, hour)
+        return outage.effect() if outage is not None else None
+
     def effects_in_force(self, hour: int) -> list[EquipmentEffect]:
         return [o.effect() for o in self.outages if o.start_hour <= hour < o.until_hour]
 
     # -- repairs -----------------------------------------------------------------------
 
-    def request_repair(self, hour: int, equipment_id: str) -> RepairRequest:
-        """Cost and worker-hours of a repair. The caller charges and queues it."""
+    def repair_quote(self, hour: int, equipment_id: str) -> RepairRequest:
+        """Cost and worker-hours of a repair. Pure: changes nothing (refusals stay free)."""
         spec = self._repair_spec(equipment_id)
+        broken = self._active(equipment_id, hour) is not None
+        return RepairRequest(equipment_id, spec.repair.cost_eur, spec.repair.worker_hours, broken)
+
+    def record_repair(self, hour: int, equipment_id: str) -> RepairRequest:
+        """Note that a repair was requested and queued. Call only once the work is queued."""
+        quote = self.repair_quote(hour, equipment_id)
         outage = self._active(equipment_id, hour)
         self.repairs_requested += 1
         if outage is None:
             self.repairs_wasted += 1
         elif outage.repair_requested_hour is None:
             outage.repair_requested_hour = hour
-        return RepairRequest(equipment_id, spec.repair.cost_eur, spec.repair.worker_hours, outage is not None)
+        return quote
+
+    def request_repair(self, hour: int, equipment_id: str) -> RepairRequest:
+        """Quote and record in one step (for callers that cannot fail in between)."""
+        return self.record_repair(hour, equipment_id)
 
     def complete_repair(self, hour: int, equipment_id: str) -> list[Alarm]:
         """The repair task finished at the end of `hour`."""

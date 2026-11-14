@@ -42,13 +42,19 @@ class LedgerTests(unittest.TestCase):
         book = Ledger(0.0)
         m = Metered(hour=3, gas_m3=10.0, electricity_import_kwh=100.0, electricity_export_kwh=40.0,
                     external_co2_kg=20.0, co2_from_store_kg=50.0)
-        book.price_metered(m, EnergyPrices(0.5, 0.2, 0.1, peak=True), external_co2_eur_per_kg=0.3)
+        book.price_metered(m, EnergyPrices(0.5, 0.2, 0.1), external_co2_eur_per_kg=0.3)
         t = book.totals()
         self.assertAlmostEqual(t["gas"], -5.0)
         self.assertAlmostEqual(t["electricity_bought"], -20.0)
         self.assertAlmostEqual(t["electricity_sold"], 4.0)
         self.assertAlmostEqual(t["co2"], -6.0)                   # store CO2 was paid on delivery, not here
-        self.assertEqual((book.peak_import_kwh, book.import_kwh), (100.0, 100.0))
+
+    def test_buying_at_peaks_shows_as_paying_more_than_the_average_price(self):
+        book = Ledger(0.0)
+        book.price_metered(Metered(hour=0, electricity_import_kwh=0.0), EnergyPrices(0.5, 0.10, 0.05), 0.3)
+        book.price_metered(Metered(hour=1, electricity_import_kwh=100.0), EnergyPrices(0.5, 0.30, 0.05), 0.3)
+        self.assertAlmostEqual(book.import_cost_eur / book.import_kwh, 0.30)
+        self.assertAlmostEqual(book.sum_import_price / book.hours_priced, 0.20)
 
     def test_harvests_are_priced_by_grade_and_unsellable_earns_nothing(self):
         book = Ledger(0.0)
