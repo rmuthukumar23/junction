@@ -31,7 +31,7 @@ What it does that the rule-based grower does not:
     out when the last harvests must start to finish inside the episode, and hires for
     that in advance (hiring has a notice period).
   * The shift rules (spec 14.1): one planning round each morning at 06:00, the night
-    schedule set to the day settings, then end_shift. Damage is always repaired: the
+    schedule set to the day settings, then submit the day. Damage is always repaired: the
     contractor is booked and the parts ordered the morning it is seen.
   * Nothing for an empty house: once a compartment holds no crop and none can be
     planted any more, its lamps, CO2 and heating are turned down.

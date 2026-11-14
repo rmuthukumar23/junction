@@ -51,7 +51,7 @@ class Absentee(Policy):
         guard = 0
         while not client.done and guard < 5000:
             guard += 1
-            if not client.call("end_shift").get("ok"):
+            if not client.call("submit_day", actions=[]).get("ok"):
                 return
 
 
@@ -189,14 +189,7 @@ class ToolPolicy(Policy):
         if night is not None and len(chosen) < self.limit:
             chosen.append(("set_night_schedule", night))
         self.plan = carry
-        for tool, args in chosen:
-            r = self.real_call(tool, **args)
-            ended = result(r).get("day_ended")
-            if ended is not None:
-                return ended.get("briefing")
-            if self.client.done:
-                return None
-        r = self.real_call("end_shift")
+        r = self.real_call("submit_day", actions=[{"tool": tool, **args} for tool, args in chosen])
         return result(r).get("briefing") if r.get("ok") else None
 
     # -- hooks -------------------------------------------------------------------------

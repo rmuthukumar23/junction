@@ -15,10 +15,11 @@ reference = "reference"
 prompt = """
 Smoke test of a greenhouse simulator. You run a three-compartment winter greenhouse
 for ${horizon_days} day (${windows} one-hour windows) with ${max_calls} tool calls.
-You take one turn a day at 06:00, with up to ${actions_per_day} actions. Below is the
-morning briefing. Call harvest once with the ids of every batch whose status is
-"ready", call set_night_schedule with from_hour=18 and copy_day=true, then call
-end_shift until the episode is done.
+You take one turn a day at 06:00: one submit_day call with up to ${actions_per_day}
+actions. Below is the morning briefing. Call submit_day with two actions: a harvest
+with the ids of every batch whose status is "ready", and a set_night_schedule with
+from_hour=18 and copy_day=true. Then call submit_day with no actions until the
+episode is done.
 """
 
 [shift]

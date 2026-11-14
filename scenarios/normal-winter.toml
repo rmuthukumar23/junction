@@ -32,13 +32,13 @@ How it works:
   first call: every rule (mechanisms, formulas, prices, lead times, crop rules, event
   rates, news signals, the published ranges of hidden facility parameters) and this
   morning's briefing. There are no tools to read anything.
-- Each day you may take up to ${actions_per_day} actions, then the day ends. An action is
-  any tool call that changes something; a list of harvests, plantings or orders is one
-  action. A refused action does not count. `end_shift` ends the day early.
-- When the day ends, the day (06:00-18:00, the crew at work) runs on your day settings and
-  the night (18:00-06:00) on your night schedule (`set_night_schedule`), with nobody
-  acting. The result of the call that ended the day is the next morning's briefing:
-  what happened overnight, the status now, news and the forecast.
+- Each day you make exactly one call, `submit_day`, with up to ${actions_per_day} actions
+  (`rules.turn.actions` lists them); a list of harvests, plantings or orders is one
+  action. A refused action changes nothing and the others still apply.
+- The call then runs the day (06:00-18:00, the crew at work) on your day settings and the
+  night (18:00-06:00) on your night schedule (`set_night_schedule`), with nobody acting.
+  Its result is the next morning's briefing: what happened overnight, the status now,
+  news and the forecast.
 - Settings stand until you change them. The facility starts on an anti-freeze baseline
   (5 C, no CO2, lamps off) by day and by night.
 - Damage (a failed boiler, glass broken by a storm) stays until a contractor repairs it
@@ -53,7 +53,7 @@ How it works:
 [shift]
 windows = 1008            # 42 days x 24 hours
 window_hours = 1
-ops_per_window = 1        # only `end_shift` costs an operation; actions are capped per day
+ops_per_window = 1        # `submit_day` is the only tool: one call is one day
 max_calls = 400           # spec D4: the same budget for every model; a day takes at most 6 calls
 
 [env]
@@ -89,7 +89,7 @@ anchors = [
 [audit]
 # Reads and the clock decide nothing: a reference run cut off before only these calls
 # may tie the full run.
-clock_tools = ["end_shift"]
+clock_tools = []
 
 [harbor]
 agent_timeout_sec = 10800   # a safety net, not a rule (spec 4.1)

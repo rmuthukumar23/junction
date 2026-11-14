@@ -62,7 +62,7 @@ def test_every_greenhouse_tool_schema_is_gemini_compatible():
     from envkit.core import Episode
     from envkit.scenario import load_scenario
     tools = Episode(load_scenario(ROOT / "scenarios" / "smoke.toml"), 1).describe_tools()
-    assert any(t["name"] == "set_climate" for t in tools)
+    assert any(t["name"] == "submit_day" for t in tools)
     for t in tools:
         for node in _walk(t["input_schema"]):
             assert not isinstance(node.get("type"), list), (t["name"], node)

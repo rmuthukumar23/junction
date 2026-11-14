@@ -64,7 +64,7 @@ def rules(sim: Greenhouse) -> dict[str, Any]:
             "staff": "The crew works its shift inside the day; planting and harvesting progress only then.",
         },
         "clock": {"hours_total": sim.horizon_h, "substeps_per_hour": sim.substeps,
-                  "end_shift": "end_shift runs until 06:00 the next day (or the end of the episode)."},
+                  "submit_day": "submit_day runs until 06:00 the next day (or the end of the episode)."},
         "repairs": ("Damage (a failed boiler, broken glass) persists until repaired. A repair needs three things "
                     "at once: the right contractor booked (book_contractor), the parts on site (place_orders "
                     "'part:<id>'), and a day-shift hour. After a regional storm, parts ordered get the surge "
