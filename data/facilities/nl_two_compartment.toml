@@ -5,6 +5,7 @@ schema = "facility/1"
 id = "nl_two_compartment"
 
 [energy_centre.chp]
+# CHP exhaust is assumed to pass a clean CO2 capture line at this site.
 electric_kw = {min = 300, max = 500}
 heat_per_electric = 1.2
 co2_kg_per_m3_gas = 1.8
@@ -14,7 +15,10 @@ min_load = 0.5
 [energy_centre.boiler]
 heat_kw = {min = 600, max = 900}
 gas_m3_per_kwh_heat = 0.105
-co2_usable = true
+# This site has no boiler flue-gas purification; liquid CO2 is the baseline supply.
+# Cornell CEA warns that heater flue gas may carry growth-inhibiting contaminants:
+# https://cea.cals.cornell.edu/files/2019/06/Cornell-CEA-Lettuce-Handbook-.pdf
+co2_usable = false
 
 [energy_centre.buffer]
 capacity_kwh = {min = 2000, max = 4000}
@@ -32,13 +36,17 @@ max_kg_per_h = {min = 20, max = 40}
 import_kw = {min = 400, max = 700}
 export_kw = {min = 300, max = 500}
 
-# Controller gains and sensor uncertainty are v1 calibration assumptions.
+# WUR reports 25-250 kg CO2/ha/h dosing and 600-1000 ppm targets; the gain below
+# yields about 38 kg/ha/h at a 380 ppm deficit, before ventilation pauses dosing.
+# It is an actuator calibration, not a measured crop-uptake constant.
+# https://edepot.wur.nl/708510 ; https://edepot.wur.nl/366433
+# Other controller gains and sensor uncertainty are v1 calibration assumptions.
 [controller]
 heat_kw_per_c_m2 = 0.025
 vent_pct_per_c = 15.0
 vent_pct_per_rh = 2.0
 vent_target_rh_pct = 75.0
-co2_kg_h_per_ppm_m2 = 0.000006
+co2_kg_h_per_ppm_m2 = 0.000010
 vent_co2_pause_pct = 30.0
 heat_deadband_c = 0.2
 
@@ -49,11 +57,21 @@ co2_sigma_ppm = 15.0
 par_sigma_umol_m2_s = 5.0
 
 [fallback]
-heat_c = 5.0
-vents = "closed"
-co2_ppm = 0
-lamps = "off"
-screen = "closed"
+# A standing winter crop setting, not a frost-only safety mode. The lettuce
+# day/night range and 12-14 h supplemental photoperiod are supported by Cornell
+# CEA and UMN Extension; 800 ppm is within WUR's 600-1000 ppm practice range.
+# https://cea.cals.cornell.edu/files/2019/06/Cornell-CEA-Lettuce-Handbook-.pdf
+# https://extension.umn.edu/garden-and-home/yard-and-garden/gardening-minnesota/lighting-indoor-plants-and-starting-seeds
+# https://edepot.wur.nl/366433
+# One shared setting is a scenario simplification; basil would prefer warmer nights.
+heat_day_c = 18.0
+heat_night_c = 15.0
+vent_min_pct = 0.0
+vent_max_pct = 60.0
+co2_ppm = 800.0
+lamp_hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+lamp_intensity_pct = 50.0
+screen = "auto"
 chp_load = 0.0
 boiler = "auto"
 buffer = "auto"

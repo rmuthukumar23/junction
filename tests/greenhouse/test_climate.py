@@ -66,6 +66,19 @@ class AdditionalClimateTests(unittest.TestCase):
                                    10, 70, 420, False, 0, settings)
         self.assertAlmostEqual(twice.heat_request_kw, 2 * one.heat_request_kw)
 
+    def test_co2_dosing_needs_daylight_or_scheduled_lamps(self):
+        from greenhouse.world.controller import ClimateController, ClimateSetpoints
+        facility = parse_facility(tomllib.loads((DATA / 'facilities/nl_two_compartment.toml').read_text()), 'facility')
+        controller = ClimateController(facility.controller)
+        setting = ClimateSetpoints(18, 15, 0, 20, 800, 'auto', (), 0)
+        night = controller.actuate(self.comp, 15, 70, 420, False, 2, setting)
+        day = controller.actuate(self.comp, 18, 70, 420, True, 12, setting)
+        lit = controller.actuate(self.comp, 15, 70, 420, False, 2,
+                                dataclasses.replace(setting, lamp_hours=(2,), lamp_intensity_pct=50))
+        self.assertEqual(night.co2_request_kg_h, 0)
+        self.assertGreater(day.co2_request_kg_h, 0)
+        self.assertGreater(lit.co2_request_kg_h, 0)
+
     def test_broken_cover_increases_cooling_and_dli_resets_each_day(self):
         act = Actuators(0, False, 0, 0, 0)
         intact = CompartmentClimate(self.comp, initial_temp_c=20)
