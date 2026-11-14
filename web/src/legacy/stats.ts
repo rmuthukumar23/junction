@@ -5,8 +5,8 @@
    fetchJson('/api/stats') -> analytics.compute_stats output, or {"error": "..."}.
    Vanilla JS, inline SVG, no dependencies. Pixel look: crisp edges, stepped bars, no gradients. */
 
-  var PALETTE = ["#f2b134", "#4fb0c6", "#e8604c", "#7bc950", "#b48ead", "#ff8fa3", "#9fa8da", "#d4a373", "#59d8b0", "#c0c0c0"];
-  var TOOL_PALETTE = ["#4fb0c6", "#f2b134", "#7bc950", "#b48ead", "#ff8fa3", "#d4a373", "#9fa8da", "#59d8b0", "#e0e0e0"];
+  var PALETTE = ["#d9531e", "#1f6fb5", "#c62828", "#2f7d32", "#7b4fa0", "#d1337a", "#4a5ab0", "#8a5a2b", "#0f8a7a", "#6b6b5a"];
+  var TOOL_PALETTE = ["#1f6fb5", "#e0a010", "#2f7d32", "#7b4fa0", "#d1337a", "#8a5a2b", "#4a5ab0", "#0f8a7a", "#8d8d7a"];
   var NS = "http://www.w3.org/2000/svg";
 
   function esc(s) {
@@ -26,7 +26,7 @@
     var f = isNum(frac) ? Math.max(0, Math.min(1, frac)) : 0, on = Math.round(f * cells), cw = w / cells, out = "";
     for (var i = 0; i < cells; i++) {
       out += '<rect x="' + (i * cw + 0.5).toFixed(1) + '" y="0" width="' + (cw - 1.5).toFixed(1) + '" height="' + h +
-        '" fill="' + (i < on ? color : "var(--px-ink, #e8e1cf)") + '" opacity="' + (i < on ? 1 : 0.14) + '"/>';
+        '" fill="' + (i < on ? color : "var(--px-ink, #1f3a24)") + '" opacity="' + (i < on ? 1 : 0.14) + '"/>';
     }
     return '<svg class="st-blocks" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + " " + h +
       '" shape-rendering="crispEdges" role="img" aria-label="' + Math.round(f * 100) + ' percent">' + out + "</svg>";
@@ -63,7 +63,7 @@
     lb.forEach(function (g) { if (isNum(g.mean_score)) maxScore = Math.max(maxScore, g.mean_score, g.best_score || 0); });
     if (maxScore <= 0) maxScore = 1;
     var rows = lb.map(function (g, i) {
-      var f = g.failures || {}, col = g.kind === "policy" ? "var(--px-co2, #4fb0c6)" : "var(--px-accent, #f2b134)";
+      var f = g.failures || {}, col = g.kind === "policy" ? "var(--px-co2, #0f8a7a)" : "var(--px-accent, #d9531e)";
       return "<tr><td>" + g.rank + "</td><td><b>" + esc(g.name) + "</b> " + tag(g.kind, g.kind === "policy" ? "st-tag-policy" : "") + "</td>" +
         "<td>" + g.n_complete + "/" + g.n_runs + "</td>" +
         '<td class="st-barcell">' + blockBar(isNum(g.mean_score) ? g.mean_score / maxScore : 0, col) + " " + score(g.mean_score) + "</td>" +
@@ -108,14 +108,14 @@
     var g = "";
     for (var i = 0; i <= 4; i++) {
       var v = lo + (hi - lo) * i / 4, y = Y(v).toFixed(1);
-      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="var(--px-ink,#e8e1cf)" opacity=".15"/>' +
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="var(--px-ink,#1f3a24)" opacity=".15"/>' +
         '<text x="' + (L - 6) + '" y="' + (+y + 4) + '" text-anchor="end">' + esc(eur(v)) + "</text>";
     }
     var step = maxDay > 28 ? 7 : maxDay > 12 ? 4 : 2;
     for (var d = 0; d <= maxDay; d += step) {
       g += '<text x="' + X(d).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">d' + d + "</text>";
     }
-    g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '" stroke="var(--px-ink,#e8e1cf)" stroke-width="2"/>';
+    g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '" stroke="var(--px-ink,#1f3a24)" stroke-width="2"/>';
     cs.forEach(function (c) {
       if (state.hidden[c.run]) return;
       var pts = c.points.filter(function (p) { return isNum(p.profit) || isNum(p.cash); });
@@ -151,12 +151,12 @@
     rows.forEach(function (r, i) {
       var y = 14 + i * rh;
       g += '<text x="' + (L - 8) + '" y="' + (y + 16) + '" text-anchor="end">' + esc(r.name.length > 22 ? r.name.slice(0, 21) + "…" : r.name) + "</text>" +
-        bar(r.mean_baseline_profit_eur, y, "var(--px-ink,#8a8575)") + bar(r.mean_profit_eur, y + 13, r.mean_profit_eur >= r.mean_baseline_profit_eur ? "var(--px-good,#7bc950)" : "var(--px-bad,#e8604c)") +
+        bar(r.mean_baseline_profit_eur, y, "var(--px-ink,#8a8f70)") + bar(r.mean_profit_eur, y + 13, r.mean_profit_eur >= r.mean_baseline_profit_eur ? "var(--px-good,#2f7d32)" : "var(--px-bad,#c62828)") +
         '<text x="' + (W - R + 6) + '" y="' + (y + 22) + '">' + esc(sgn(r.mean_profit_eur - r.mean_baseline_profit_eur)) + "</text>";
     });
-    g += '<line x1="' + zero + '" x2="' + zero + '" y1="4" y2="' + (H - 8) + '" stroke="var(--px-ink,#e8e1cf)" stroke-width="2"/>';
+    g += '<line x1="' + zero + '" x2="' + zero + '" y1="4" y2="' + (H - 8) + '" stroke="var(--px-ink,#1f3a24)" stroke-width="2"/>';
     return '<svg class="st-chart" viewBox="0 0 ' + W + " " + H + '" shape-rendering="crispEdges" role="img" aria-label="Profit against do-nothing baseline">' + g + "</svg>" +
-      '<p class="st-note"><i class="st-key" style="background:var(--px-ink,#8a8575)"></i> do-nothing baseline (same seed) &nbsp; <i class="st-key" style="background:var(--px-good,#7bc950)"></i> model/policy mean profit. Right: gap.</p>';
+      '<p class="st-note"><i class="st-key" style="background:var(--px-ink,#8a8f70)"></i> do-nothing baseline (same seed) &nbsp; <i class="st-key" style="background:var(--px-good,#2f7d32)"></i> model/policy mean profit. Right: gap.</p>';
   }
 
   function toolChart(s) {
@@ -176,10 +176,10 @@
       tools.forEach(function (t) {
         var n = (r.by_tool[t] || {}).calls || 0; if (!n) return;
         var w = Math.max(2, Math.round(n * scale / 2) * 2);
-        g += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="16" fill="' + tc[t] + '" stroke="var(--px-bg,#1b1a17)" stroke-width="1"><title>' + esc(t) + ": " + n + "</title></rect>";
+        g += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="16" fill="' + tc[t] + '" stroke="var(--px-bg,#f4efd6)" stroke-width="1"><title>' + esc(t) + ": " + n + "</title></rect>";
         x += w;
       });
-      g += '<text x="' + (x + 6) + '" y="' + (y + 13) + '">' + r.calls + " calls" + (r.invalid ? ' <tspan fill="var(--px-bad,#e8604c)">' + r.invalid + " invalid</tspan>" : "") +
+      g += '<text x="' + (x + 6) + '" y="' + (y + 13) + '">' + r.calls + " calls" + (r.invalid ? ' <tspan fill="var(--px-bad,#c62828)">' + r.invalid + " invalid</tspan>" : "") +
         (isNum(r.apd) ? " · " + r.apd.toFixed(1) + "/day" : "") + "</text>";
     });
     var leg = '<div class="st-legend">' + tools.map(function (t) {
@@ -238,7 +238,7 @@
     out += '<div class="st-scroll"><table class="st-table"><thead><tr><th>Run</th><th>Heat produced / lost</th><th>Gas cost</th><th>Electricity</th><th>CHP h</th><th>Boiler h</th></tr></thead><tbody>' +
       per.map(function (r) {
         var lostFrac = r.heat_produced_kwh > 0 ? r.heat_lost_kwh / r.heat_produced_kwh : 0;
-        return "<tr><td>" + esc(r.label || r.run) + '</td><td class="st-barcell">' + blockBar((r.heat_produced_kwh || 0) / maxHeat, "var(--px-heat,#e8604c)", 16, 96) + " " + num(r.heat_produced_kwh) +
+        return "<tr><td>" + esc(r.label || r.run) + '</td><td class="st-barcell">' + blockBar((r.heat_produced_kwh || 0) / maxHeat, "var(--px-heat,#c62828)", 16, 96) + " " + num(r.heat_produced_kwh) +
           " / " + '<span class="st-warn">' + num(r.heat_lost_kwh) + " (" + (lostFrac * 100).toFixed(0) + "%)</span></td><td>" + eur(r.gas_cost_eur) +
           "</td><td>" + eur(r.import_cost_eur - r.export_revenue_eur) + "</td><td>" + num(r.chp_hours) + "</td><td>" + num(r.boiler_hours) + "</td></tr>";
       }).join("") + "</tbody></table></div>";

@@ -5,8 +5,8 @@ import { rafLoop } from "../lib/loop";
 import { query } from "../lib/route";
 import { BigText } from "./common";
 
-/** Integer scale for the 320x180 scene so it fills the content width without blurring. */
-function sceneScale(): number { return Math.max(1, Math.min(4, Math.floor(Math.min(innerWidth - 28, 1100) / W))); }
+/** Integer scale for the 320x180 scene: as large as fits the viewport without blurring (at least 2: on narrow phones the sides are cropped, fighters stay centred). */
+function sceneScale(): number { return Math.max(2, Math.floor(Math.min(innerWidth / W, innerHeight / H))); }
 
 export function Intro() {
   const cv = useRef<HTMLCanvasElement>(null);
@@ -26,18 +26,21 @@ export function Intro() {
   }, []);
   return (
     <div className="intro">
+      <div className="sky" />
+      <canvas ref={cv} className="scene" aria-label="Two fighters with icon heads clash a shovel and a pitchfork in a greenhouse" />
       <div className="content">
-        <BigText text="GREENHOUSE BENCH" scale={6} width={400} />
-        <canvas ref={cv} className="scene" aria-label="Two fighters with icon heads clash a shovel and a pitchfork in a greenhouse" />
-        <div className="px-panel lines">
-          <div>An AI agent runs a 3-compartment winter greenhouse and its energy centre for 42 simulated days.</div>
-          <div>It reads sensors, sets heating, light and CO2, orders stock, plants, harvests and fixes breakdowns through tools.</div>
-          <div>It is scored on net profit against doing nothing. Watch any recorded run as a living pixel greenhouse.</div>
-        </div>
-        <div className="btns">
-          <a className="px-btn primary" href="#/runs">Watch a run</a>
-          <a className="px-btn" href="#/stats">Stats</a>
-          <a className="px-btn" href="#/how">How it works</a>
+        <div className="title"><BigText text="GREENHOUSE BENCH" scale={6} width={400} /></div>
+        <div className="bottom">
+          <div className="px-panel lines">
+            <div>An AI agent runs a 3-compartment winter greenhouse and its energy centre for 42 simulated days.</div>
+            <div>It reads sensors, sets heating, light and CO2, orders stock, plants, harvests and fixes breakdowns through tools.</div>
+            <div>It is scored on net profit against doing nothing. Watch any recorded run as a living pixel greenhouse.</div>
+          </div>
+          <div className="btns">
+            <a className="px-btn primary" href="#/runs">Watch a run</a>
+            <a className="px-btn" href="#/stats">Stats</a>
+            <a className="px-btn" href="#/how">How it works</a>
+          </div>
         </div>
       </div>
     </div>
