@@ -1,0 +1,101 @@
+# Scenario values are engineering assumptions for a Dutch winter glasshouse,
+# informed by WUR greenhouse control and CHP studies (not measured at one site):
+# https://edepot.wur.nl/520084 ; https://edepot.wur.nl/526773
+schema = "facility/1"
+id = "nl_two_compartment"
+
+[energy_centre.chp]
+electric_kw = {min = 300, max = 500}
+heat_per_electric = 1.2
+co2_kg_per_m3_gas = 1.8
+gas_m3_per_kwh_e = 0.25
+min_load = 0.5
+
+[energy_centre.boiler]
+heat_kw = {min = 600, max = 900}
+gas_m3_per_kwh_heat = 0.105
+co2_usable = true
+
+[energy_centre.buffer]
+capacity_kwh = {min = 2000, max = 4000}
+loss_per_h = 0.005
+start_fraction = 0.5
+
+[energy_centre.co2_store]
+capacity_kg = 8000
+start_kg = 3000
+
+[energy_centre.external_co2]
+max_kg_per_h = {min = 20, max = 40}
+
+[energy_centre.grid]
+import_kw = {min = 400, max = 700}
+export_kw = {min = 300, max = 500}
+
+# Controller gains and sensor uncertainty are v1 calibration assumptions.
+[controller]
+heat_kw_per_c_m2 = 0.025
+vent_pct_per_c = 15.0
+vent_pct_per_rh = 2.0
+vent_target_rh_pct = 75.0
+co2_kg_h_per_ppm_m2 = 0.000006
+vent_co2_pause_pct = 30.0
+heat_deadband_c = 0.2
+
+[sensor]
+temp_sigma_c = 0.2
+rh_sigma_pct = 2.0
+co2_sigma_ppm = 15.0
+par_sigma_umol_m2_s = 5.0
+
+[fallback]
+heat_c = 5.0
+vents = "closed"
+co2_ppm = 0
+lamps = "off"
+
+[staff]
+start_workers = 3
+hours_per_worker_day = 8
+
+# Cover U ranges and screens are simplified from WUR greenhouse heat-balance
+# modelling; thermal mass includes the structure, water pipes and crop benches.
+[[compartments]]
+id = "A"
+crop = "lettuce_butterhead"
+floor_m2 = {min = 2500, max = 3500}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 24, area_fraction = 0.25}, {age_days = 16, area_fraction = 0.25}, {age_days = 8, area_fraction = 0.25}, {age_days = 0, area_fraction = 0.25}]
+
+[[compartments]]
+id = "B"
+crop = "basil_genovese"
+floor_m2 = {min = 1800, max = 2400}
+height_m = {min = 4.5, max = 6.0}
+cover_u_w_m2_k = {min = 4.5, max = 6.5}
+cover_transmission = {min = 0.65, max = 0.78}
+solar_umol_per_j = 2.0 # broad-spectrum sunlight approximation; scenario calibration assumption
+leakage_ach = {min = 0.3, max = 0.8}
+wind_leakage_per_m_s = 0.05 # calibrated scenario assumption
+thermal_mass_kwh_m2_k = {min = 0.10, max = 0.15}
+max_vent_ach = 8.0
+cover_surface_temp_fraction = 0.7 # simplified cover temperature gradient; calibration assumption
+initial_temp_c = 15.0
+initial_rh_pct = 75.0
+initial_co2_ppm = 420.0
+screen = {insulation = {min = 0.3, max = 0.5}}
+lamps = {w_per_m2 = {min = 80, max = 140}, umol_per_j = 2.7, heat_fraction = 0.7}
+start_batches = [{age_days = 20, area_fraction = 0.5}, {age_days = 10, area_fraction = 0.5}]

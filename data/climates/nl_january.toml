@@ -1,0 +1,31 @@
+# January mean 3.6 C and 66.6 sunshine hours: KNMI De Bilt 1991-2020 normal.
+# https://www.knmi.nl/nederland-nu/klimatologie/lijsten/maandextremen/januari
+# Other variability and forecast-error values are v1 synthetic scenario assumptions.
+schema = "climate/1"
+id = "nl_january"
+
+[weather]
+daily_mean_c = 3.6
+diurnal_amplitude_c = 2.5
+diurnal_peak_hour = 15
+ar1_persistence = 0.92
+innovation_sigma_c = 0.4
+sunrise_hour = 8
+sunset_hour = 16
+solar_peak_w_m2 = 220.0
+cloud_persistence = 0.8
+cloud_innovation_sigma = 0.14
+clear_sky_fraction = 0.55
+min_solar_fraction = 0.05
+wind_mean_m_s = 3.5
+wind_sigma_m_s = 1.0
+rh_mean_pct = 82.0
+rh_sigma_pct = 5.0
+outside_co2_ppm = 420.0
+
+[forecast]
+temp_sigma_at_24h_c = 1.4
+solar_fraction_sigma_at_24h = 0.25
+wind_sigma_at_24h_m_s = 0.8
+rh_sigma_at_24h_pct = 5.0
+price_fraction_sigma_at_24h = 0.15

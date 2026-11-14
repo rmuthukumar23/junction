@@ -1,0 +1,15 @@
+# Synthetic scenario tariff assumptions; calibrate against Dutch day-ahead and
+# grower contract data before claiming these represent actual 2026 prices.
+# Context on greenhouse energy/CHP: https://edepot.wur.nl/526773
+schema = "energy_prices/1"
+id = "nl_winter"
+gas_eur_m3 = 0.80
+
+[electricity]
+base_eur_kwh = 0.22
+daily_peak_multiplier = 0.45
+daily_peak_hour = 18
+noise_sigma_eur_kwh = 0.02
+spike_probability_per_day = 0.05
+spike_multiplier = 2.0
+export_fraction = 0.50
