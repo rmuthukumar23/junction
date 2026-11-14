@@ -145,7 +145,10 @@ recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
   is rebuilt and re-measured. No model has played the current rules. The viewer
   (`uv run python scripts/viz/server.py`, then http://localhost:8765) plays six growers side
   by side on the current rules: scripted ones live, model runs replayed from their trace
-  under `artifacts/`, each decision shown and outlined at the hour it was made.
+  under `artifacts/`, each decision shown and outlined at the hour it was made with the
+  change it measured in the simulator, storm damage and contractor repairs animated from the
+  simulator's records, and ⚙ Controls to run a model of your choice into a panel.
+  `uv run python scripts/viz/check_viewer.py` checks the viewer shows the real game exactly.
 - **Lettuce sells per head at any weight above the minimum.** Cutting at the minimum
   sellable weight earns as much per head as waiting, and the reference does it. Weight
   grades would change that; it is an open question for the crop and market files.

@@ -23,9 +23,11 @@ import argparse
 import gzip
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
+from dataclasses import asdict
 from concurrent.futures import Future, ProcessPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -108,6 +110,129 @@ class TracePolicy(Policy):
             client.call(str(rec.get("tool")), **(rec.get("args") or {}))
 
 
+# ---------------------------------------------------------------- what an action changed
+
+DISCRETE = {"harvest_revenue", "repairs", "seedlings", "orders", "fines", "contractors", "parts", "express", "hiring", "co2"}
+CLIMATE_FIELDS = {"heat_day_c": ("day heating", "°C"), "heat_night_c": ("night heating", "°C"), "co2_ppm": ("CO2 target", " ppm"),
+                  "vent_min_pct": ("vents min", "%"), "vent_max_pct": ("vents max", "%"), "screen": ("screen", ""),
+                  "lamp_intensity_pct": ("lamp intensity", "%"), "lamp_hours": ("lamp hours", "")}
+
+
+def state(sim) -> dict[str, Any]:
+    """The simulator state an action can change, read without touching any random stream."""
+    biz, ops = sim.business, sim.business.ops.view()
+    return {
+        "climate": {c: asdict(sp) for c, sp in sim.climate.items()},
+        "energy": asdict(sim.energy),
+        "night": {e.hour: {"climate": {c: asdict(sp) for c, sp in e.climate.items()}, "energy": asdict(e.energy)} for e in sim.night},
+        "orders": {o["order_id"]: o for o in ops["open_orders"]},
+        "staff": {"crew": ops["staff"]["crew"], "leaving": ops["staff"]["leaving"],
+                  "arriving": [(a["start_hour"], a["workers"]) for a in ops["staff"]["arriving"]]},
+        "tasks": {t["task_id"]: t for t in ops["task_queue"]},
+        "bookings": {b.id: {"trade": b.trade, "target": b.target, "earliest": b.earliest_visit_hour, "parts": dict(b.parts_needed)}
+                     for b in biz.contractors.bookings},
+        "stock": {k: round(v, 3) for k, v in biz.ops.stock.items()},
+        "cash": round(biz.ledger.cash_eur, 2),
+    }
+
+
+def _fmt(k: str, v: Any) -> str:
+    if k == "lamp_hours":
+        return f"{len(v)} h" if v else "off"
+    name, unit = CLIMATE_FIELDS.get(k, (k.replace("_", " "), ""))
+    return f"{v:g}{unit}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+
+
+def _when(h: int) -> str:
+    return f"day {h // 24 + 1} {h % 24:02d}:00"
+
+
+def _grouped(per_comp: dict[str, dict[str, Any]], before: dict[str, dict[str, Any]]) -> list[str]:
+    """'A,B,C day heating 20°C→18°C': one line per field and change, compartments grouped."""
+    groups: dict[tuple, list[str]] = {}
+    for c in sorted(per_comp):
+        for k, v in per_comp[c].items():
+            old = before.get(c, {}).get(k)
+            if old != v:
+                groups.setdefault((k, json.dumps(old), json.dumps(v)), []).append(c)
+    out = []
+    for (k, old, new), comps in groups.items():
+        name = CLIMATE_FIELDS.get(k, (k.replace("_", " "), ""))[0]
+        out.append(f"{''.join(comps)} {name} {_fmt(k, json.loads(old))}→{_fmt(k, json.loads(new))}")
+    return out
+
+
+def diff(a: dict[str, Any], b: dict[str, Any]) -> list[str]:
+    """Every difference between two states, in plain words."""
+    out = _grouped(b["climate"], a["climate"])
+    for k, v in b["energy"].items():
+        if a["energy"].get(k) != v:
+            out.append(f"energy {k.replace('_', ' ')} {json.dumps(a['energy'].get(k))}→{json.dumps(v)}")
+    for hour in sorted(set(a["night"]) | set(b["night"]), key=lambda h: (h - 18) % 24):
+        old, new = a["night"].get(hour), b["night"].get(hour)
+        if old == new:
+            continue
+        if new is None:
+            out.append(f"night entry {hour:02d}:00 removed")
+            continue
+        base = old or a["night"][max((h for h in a["night"] if (h - 18) % 24 <= (hour - 18) % 24), key=lambda h: (h - 18) % 24)]
+        lines = _grouped(new["climate"], base["climate"])
+        lines += [f"{k.replace('_', ' ')} {json.dumps(base['energy'].get(k))}→{json.dumps(v)}" for k, v in new["energy"].items() if base["energy"].get(k) != v]
+        out.append(f"night {hour:02d}:00{'' if old else ' (new entry)'}: " + ("; ".join(lines) if lines else "same values"))
+    for oid, o in b["orders"].items():
+        if oid not in a["orders"]:
+            out.append(f"order {oid}: {o['quantity']:,.0f} {o['item']}, arrives {_when(o['expected_arrival_hour'])}"
+                       f"{' (express)' if o.get('express') else ''}, paid on delivery")
+    for oid in a["orders"]:
+        if oid not in b["orders"]:
+            out.append(f"order {oid} cancelled")
+    if a["staff"] != b["staff"]:
+        sa, sb = a["staff"], b["staff"]
+        new_arr = [x for x in sb["arriving"] if x not in sa["arriving"]]
+        out += [f"{n} worker(s) start {_when(h)}" for h, n in new_arr]
+        if sb["leaving"] != sa["leaving"]:
+            out.append(f"workers leaving {sa['leaving']}→{sb['leaving']}")
+        if sb["crew"] != sa["crew"]:
+            out.append(f"crew {sa['crew']}→{sb['crew']}")
+    for tid, t in b["tasks"].items():
+        if tid not in a["tasks"]:
+            out.append(f"task {tid}: {t['kind']} {t['target']} queued, {t['worker_hours_needed']:g} worker-h")
+    for bid, bk in b["bookings"].items():
+        if bid not in a["bookings"]:
+            have = {i: b["stock"].get(i, 0) for i in bk["parts"]}
+            parts = ", ".join(f"{n} {i.split(':')[-1].replace('_', ' ')} (in stock {have[i]:g})" for i, n in bk["parts"].items())
+            out.append(f"{bk['trade'].replace('_', ' ')} {bid} booked for {bk['target']}: visit from {_when(bk['earliest'])}"
+                       + (f", needs {parts}" if parts else ""))
+    for item in sorted(set(a["stock"]) | set(b["stock"])):
+        d = b["stock"].get(item, 0) - a["stock"].get(item, 0)
+        if abs(d) > 1e-6:
+            out.append(f"stock {item} {d:+,.0f}")
+    if abs(b["cash"] - a["cash"]) > 0.005:
+        out.append(f"cash {b['cash'] - a['cash']:+,.2f} €")
+    return out
+
+
+def instrument(env, log: list) -> None:
+    """Wrap each daily action so the state just before and just after it is compared.
+    submit_day calls the action on the instance, so this sees every action that passed
+    argument checks, accepted or refused, in order."""
+    from greenhouse.env import ACTION_NAMES
+    for name in ACTION_NAMES:
+        inner = getattr(env, name)
+
+        def wrapped(*args, _inner=inner, _name=name, **kwargs):
+            before = state(env.sim)
+            try:
+                out = _inner(*args, **kwargs)
+            except Exception:
+                log.append({"tool": _name, "kwargs": kwargs, "raised": True, "changes": diff(before, state(env.sim))})
+                raise
+            log.append({"tool": _name, "kwargs": kwargs, "raised": False, "changes": diff(before, state(env.sim))})
+            return out
+
+        setattr(env, name, wrapped)
+
+
 # ---------------------------------------------------------------- recording one game
 
 def frame(sim) -> dict[str, Any]:
@@ -146,6 +271,7 @@ def frame(sim) -> dict[str, Any]:
                "exp": r(m.get("electricity_export_kwh", 0.0)), "heat": r(m.get("heat_produced_kwh", 0.0)),
                "lost": r(m.get("heat_lost_kwh", 0.0)), "p_gas": m.get("gas_eur_per_m3"),
                "p_imp": m.get("import_eur_per_kwh"), "p_exp": m.get("export_eur_per_kwh")},
+        "hd": {c: r(v, 1) for c, v in (m.get("heat_delivered_kwh") or {}).items()},
         "faults": sorted(sim.effects),
         "money": {k: r(v) for k, v in biz["money"].items()},
         "staff": biz["staff"]["crew"],
@@ -155,6 +281,11 @@ def frame(sim) -> dict[str, Any]:
                     "st": o["status"]} for o in biz["open_orders"]],
         "stock": {k: r(v, 0) for k, v in biz["stock"].items()},
         "b": batches,
+        "dmg": [{"eq": o["equipment"], "panes": o.get("panes_broken", 0), "since": o["since_hour"],
+                 "rep": (o.get("repair") or {}).get("status")} for o in biz["outages"]],
+        "crew_on": [{"id": b.id, "trade": b.trade, "target": b.target, "st": b.status, "done": r(b.hours_done, 1),
+                     "need": r(b.job_hours, 1)} for b in sim.business.contractors.bookings
+                    if b.status == "on_site" or (b.done_hour is not None and b.done_hour >= sim.hour - 1)],
     }
 
 
@@ -166,10 +297,14 @@ class Recorder(InProcessClient):
         super().__init__(episode)
         self.log, self.sim, self.turn = log, episode.env.sim, 0
         self.expected, self.matched = expected, 0
+        self.effects: list[dict[str, Any]] = []
+        instrument(episode.env, self.effects)
 
     def call(self, tool: str, **args: Any) -> dict[str, Any]:
         hour = self.sim.hour
+        self.effects.clear()
         resp = super().call(tool, **args)
+        effects = list(self.effects)
         if self.expected is not None and self.turn < len(self.expected) and digest(resp) == self.expected[self.turn]:
             self.matched += 1
         self.turn += 1
@@ -181,10 +316,16 @@ class Recorder(InProcessClient):
             results = (resp.get("result") or {}).get("results", []) if resp.get("ok") else []
             for i, action in enumerate(actions):
                 res = results[i] if i < len(results) else {}
+                ok = bool(res.get("ok"))
+                # The state change this action made, measured on the simulator. An action refused by
+                # its argument check never reached the simulator, so it has no record.
+                rec = None
+                if effects and effects[0]["tool"] == action.get("tool") and effects[0]["raised"] == (not ok):
+                    rec = effects.pop(0)
                 self.log.append({"h": hour, "turn": self.turn, "i": i, "tool": action.get("tool", "?"),
                                  "args": {k: v for k, v in action.items() if k != "tool"},
-                                 "ok": bool(res.get("ok")),
-                                 "err": None if res.get("ok") else str(res.get("error", err or ""))[:200]})
+                                 "ok": ok, "err": None if ok else str(res.get("error", err or ""))[:200],
+                                 "fx": rec["changes"] if rec else [], "reached": rec is not None})
         else:
             self.log.append({"h": hour, "turn": self.turn, "tool": tool, "args": args, "ok": bool(resp.get("ok")), "err": err})
         return resp
@@ -247,7 +388,21 @@ def play(spec: str, seed: int, scenario_path: str) -> dict[str, Any]:
         crop = next((b.crop_id for b in sim.batches.values() if b.compartment_id == cid), "")
         compartments[cid] = {"crop": crop}
     shift = sim.business.view(sim.hour, sim.rng.stream("viz/shift"))["staff"].get("shift", "07:00-15:00")
-    out = {"policy": spec, "seed": seed, "scenario": sc.id, "hours": sim.horizon_h, "frames": frames, "alarms": alarms,
+    led = sim.business.ledger
+    money = frames[-1]["money"]
+    parts = sum(v for k, v in money.items() if k not in ("cash_eur", "profit_so_far_eur"))
+    checks = {
+        "ledger_profit_eur": round(led.profit_eur, 2),
+        "last_frame_profit_eur": money["profit_so_far_eur"],
+        "categories_sum_eur": round(parts, 2),
+        "conservation_error_eur": round(led.conservation_error(), 6),
+    }
+    checks["ok"] = (abs(checks["ledger_profit_eur"] - checks["last_frame_profit_eur"]) < 0.05
+                    and abs(checks["categories_sum_eur"] - checks["ledger_profit_eur"]) < 0.5
+                    and checks["conservation_error_eur"] < 0.01)
+    entries = [{"h": e.hour, "cat": e.category, "eur": round(e.eur, 2), "note": e.note} for e in led.entries if e.category in DISCRETE]
+    out = {"policy": spec, "seed": seed, "scenario": sc.id, "checks": checks, "entries": entries,
+           "substeps": sim.substeps, "hours": sim.horizon_h, "frames": frames, "alarms": alarms,
            "shift": shift, "max_calls": sc.shift.max_calls, "turns": rec.turn,
            "calls": calls_log, "compartments": compartments, "crops": crops,
            "objective": rl["objective"], "profit": round(float(ledger.get("profit_eur", sim.business.profit_eur())), 2),
@@ -274,6 +429,57 @@ def official_score(sc, profit: float, anchors: dict[str, float]) -> float | None
     scale = round((max(anchors[n] for n in comp.top_anchors) - zero) / comp.target, 2)
     return None if scale <= 0 else round(max(0.0, min(1.0, (profit - zero) / scale)), 4)
 
+
+
+# ---------------------------------------------------------------- launching a model run
+
+JOBS: dict[str, dict[str, Any]] = {}
+
+
+def env_model() -> str | None:
+    """AFTERQUERY_MODEL from the environment or .env (the key itself is never read here)."""
+    if os.environ.get("AFTERQUERY_MODEL"):
+        return os.environ["AFTERQUERY_MODEL"]
+    try:
+        for line in (ROOT / ".env").read_text().splitlines():
+            if line.strip().startswith("AFTERQUERY_MODEL="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'") or None
+    except OSError:
+        pass
+    return None
+
+
+def default_backend() -> str:
+    return "modal" if (Path.home() / ".modal.toml").exists() or os.environ.get("MODAL_TOKEN_ID") else "docker"
+
+
+def launch(model: str, seed: int, scenario: str, backend: str) -> dict[str, Any]:
+    """Start the official benchmark run for one model (scripts/judge.sh: Harbor + OpenCode, the
+    same path the judges use) in the background. Its trace lands under artifacts/viewer-runs/."""
+    job_id = time.strftime("%Y%m%d-%H%M%S")
+    out = ARTIFACTS / "viewer-runs" / job_id
+    out.mkdir(parents=True, exist_ok=True)
+    cmd = ["bash", "scripts/judge.sh", "--agent-only", "--runs", "1", "--seeds", str(seed),
+           "--model", model, "--backend", backend, "--output", str(out.relative_to(ROOT))]
+    log = open(out / "launch.log", "w")
+    proc = subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                            env={**os.environ, "ENVKIT_SCENARIO": scenario})
+    JOBS[job_id] = {"id": job_id, "model": model, "seed": seed, "scenario": scenario, "backend": backend,
+                    "started": time.time(), "proc": proc, "dir": out, "cmd": " ".join(cmd)}
+    return job_view(JOBS[job_id])
+
+
+def job_view(j: dict[str, Any]) -> dict[str, Any]:
+    code = j["proc"].poll()
+    traces = sorted("trace:" + p.relative_to(ROOT).as_posix() for p in j["dir"].glob("**/var/lib/envkit/trace.jsonl"))
+    try:
+        tail = (j["dir"] / "launch.log").read_text(errors="replace").splitlines()[-6:]
+    except OSError:
+        tail = []
+    status = "running" if code is None else ("finished" if traces else "failed")
+    return {"id": j["id"], "model": j["model"], "seed": j["seed"], "scenario": j["scenario"], "backend": j["backend"],
+            "status": status, "exit": code, "elapsed_s": round(time.time() - j["started"]), "traces": traces,
+            "log": tail, "cmd": j["cmd"]}
 
 # ---------------------------------------------------------------- serving
 
@@ -344,6 +550,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"scenario": sc.id, "title": sc.title, "builtin": builtin, "traces": traces,
                              "slots": ["reference", model, "rule-based", "naive", half, "do-nothing"]})
             return
+        if u.path == "/api/jobs":
+            self._json(200, {"jobs": [job_view(j) for j in sorted(JOBS.values(), key=lambda j: -j["started"])],
+                             "env_model": env_model(), "backend": default_backend()})
+            return
         if u.path == "/api/run":
             spec = q.get("player", ["naive"])[0]
             try:
@@ -361,6 +571,23 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
         self._send(404, b"not found", "text/plain")
+
+    def do_POST(self) -> None:  # noqa: N802
+        if urlparse(self.path).path != "/api/launch":
+            self._send(404, b"not found", "text/plain")
+            return
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
+            model = str(body.get("model", "")).strip()
+            seed = int(body.get("seed", 1))
+            scenario = str(body.get("scenario") or SCENARIO.stem)
+            backend = str(body.get("backend") or default_backend())
+            if not model or any(ch.isspace() for ch in model) or not 1 <= seed <= 9999 \
+                    or not (ROOT / "scenarios" / f"{scenario}.toml").exists() or backend not in ("modal", "docker"):
+                raise ValueError("give a model id like provider/model, a seed 1-9999, a scenario and modal or docker")
+            self._json(200, launch(model, seed, scenario, backend))
+        except Exception as exc:
+            self._json(400, {"error": str(exc)})
 
     def log_message(self, fmt: str, *args: Any) -> None:
         if "/api/" in (args[0] if args else ""):

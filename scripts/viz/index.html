@@ -26,6 +26,7 @@
     <label>Seed <input id="seed" type="number" min="1" max="9999" value="1"></label>
     <button type="submit" class="btn primary">Run all six</button>
     <button type="button" class="btn" id="rescan" title="Look for new model runs under artifacts/">↻ Model runs</button>
+    <button type="button" class="btn" id="toggle-win" title="Performance, view settings and running a model (G)">⚙ Controls</button>
   </form>
 </header>
 
@@ -68,6 +69,49 @@
   </aside>
 </main>
 
+<div class="wins" id="wins" hidden>
+  <section class="win" id="win-perf">
+    <h3 class="win-title"><span>▾ Performance</span></h3>
+    <div class="win-body">
+      <div class="wrow"><span>Frame</span><b id="pf-fps">–</b></div>
+      <div class="wrow"><span>Games on screen</span><b id="pf-games">–</b></div>
+      <div class="wrow"><span>Simulated hours</span><b id="pf-hours">–</b></div>
+      <div class="wrow"><span>Physics sub-steps</span><b id="pf-steps">–</b></div>
+      <div class="wrow"><span>Decisions measured</span><b id="pf-dec">–</b></div>
+      <div class="wrow"><span>Server simulation time</span><b id="pf-sim">–</b></div>
+      <div class="wrow"><span>Ledger checks</span><b id="pf-ledger">–</b></div>
+      <p class="wnote">Every number is computed by the simulator in <code>src/greenhouse</code>: one game is the whole 42-day episode at hourly resolution with the energy model's sub-steps.</p>
+    </div>
+  </section>
+  <section class="win" id="win-view">
+    <h3 class="win-title"><span>▾ View</span></h3>
+    <div class="win-body">
+      <label class="wrow">Field inside the houses
+        <select id="v-field"><option value="temp">Temperature vs crop range</option><option value="rhx">Humidity vs crop range</option><option value="heat">Heat delivered</option><option value="co2">CO2</option><option value="rh">Humidity</option><option value="par">Light at the plants</option><option value="none">Off</option></select></label>
+      <div class="cbar" id="v-cbar"></div>
+      <label class="wrow">Field strength <input type="range" id="v-op" min="0" max="1" step="0.05" value="0.35"></label>
+      <label class="wrow">Pixel size <input type="range" id="v-pix" min="1" max="3" step="1" value="2"></label>
+      <label class="wrow"><span>Fog</span><input type="checkbox" id="v-fog" checked></label>
+      <label class="wrow"><span>Decision outlines</span><input type="checkbox" id="v-outline" checked></label>
+      <p class="wnote">The simulator models each house as one air volume, so the field has one value per house; its shimmer is only texture. Ranges come from each crop's data file.</p>
+    </div>
+  </section>
+  <section class="win" id="win-run">
+    <h3 class="win-title"><span>▾ Run a model</span></h3>
+    <div class="win-body">
+      <label class="wrow">Model <input id="m-model" list="m-models" placeholder="google/gemini-…"></label>
+      <datalist id="m-models"></datalist>
+      <label class="wrow">Seed <input id="m-seed" type="number" min="1" max="9999" value="1"></label>
+      <label class="wrow">Scenario <select id="m-scn"><option value="normal-winter">normal-winter (42 days)</option><option value="quick-winter">quick-winter (14 days)</option><option value="smoke">smoke (1 day, a check)</option></select></label>
+      <label class="wrow">Backend <select id="m-backend"><option value="modal">Modal</option><option value="docker">Docker</option></select></label>
+      <label class="wrow">Show it in panel <select id="m-panel"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+      <button class="btn primary" id="m-go">Run the official benchmark</button>
+      <p class="wnote">Runs <code>scripts/judge.sh</code>: Harbor + OpenCode with the key in <code>.env</code>, the path the judges use. When it finishes, its trace is replayed in the chosen panel.</p>
+      <ol class="jobs" id="m-jobs"></ol>
+    </div>
+  </section>
+</div>
+
 <div class="done" id="done" hidden>
   <div class="done-card">
     <h2 id="done-title">42 days done</h2>
@@ -83,7 +127,7 @@
     <div class="drawer-title" id="drawer-title"></div>
     <nav class="tabs" id="tabs">
       <button data-tab="energy">Energy</button><button data-tab="weather">Weather</button>
-      <button data-tab="money">Money</button><button data-tab="log">Grower log</button>
+      <button data-tab="money">Money</button><button data-tab="incidents">Damage & repairs</button><button data-tab="log">Grower log</button>
       <button data-tab="raw">Raw data</button><button data-tab="about">How it works</button>
     </nav>
     <div class="drawer-tools">

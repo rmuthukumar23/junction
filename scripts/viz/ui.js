@@ -95,6 +95,9 @@
             maxLamp: Object.fromEntries(p.IDS.map((id) => [id, max((f) => f.c[id].lamp)])),
             maxHeat: Object.fromEntries(p.IDS.map((id) => [id, max((f) => f.c[id].heat)])),
             maxBuffer: max((f) => f.ec.buffer), maxCO2: max((f) => f.ec.co2), maxHeatAll: max((f) => f.ec.heat),
+            maxHD: max((f) => Math.max(0, ...Object.values(f.hd || {}))),
+            targets: Object.fromEntries(p.IDS.map((id) => { const ct = (p.D.crops[p.D.compartments[id].crop] || {}).climate_targets || {};
+              return [id, { day: ct.day_temp_c, night: ct.night_temp_c || ct.day_temp_c, rh: ct.rh_pct }]; })),
             deliveries: p.D.alarms.filter((a) => a.kind === "delivery").map((a) => a.h) };
     p.scene.setData(p.M);
     use(p); p.events = buildEvents(); p.turns = buildTurns(p.events);
@@ -130,7 +133,7 @@
     for (const c of D.calls) {
       const a = c.args, fail = c.ok ? "" : ` (refused${c.err ? `: ${c.err}` : ""})`;
       const push = (o) => ev.push({ h: c.h, type: c.ok ? "grower" : "refused", dec: true, turn: c.turn, ok: c.ok, err: c.err, tool: c.tool,
-                                    wheres: o.wheres || [o.where], ...o });
+                                    fx: c.fx || [], wheres: o.wheres || [o.where], ...o });
       if (c.tool === "advance") continue;
       if (c.tool === "submit_day") { ev.push({ h: c.h, type: "turn", turn: c.turn, ok: c.ok, err: c.err, n: a.actions }); continue; }
       if (c.tool === "set_climate") {
@@ -186,12 +189,15 @@
     const head = `<b>Turn ${t.turn}</b> · ${when(t.h)}` + (t.ok ? "" : ` · <span class="bad">turn refused${t.err ? `: ${esc(t.err)}` : ""}</span>`);
     p.q(".p-when").innerHTML = head;
     const shown = t.acts.slice(0, 3), more = t.acts.length - shown.length;
-    p.q(".p-acts").innerHTML = t.acts.length ? shown.map((a) => `<li class="${a.ok ? "" : "bad"}"><i>${a.ok ? "✓" : "✗"}</i>${esc(a.short || a.text)}${a.ok ? "" : esc(a.err ? ` — ${a.err}` : "")}</li>`).join("") +
+    p.q(".p-acts").innerHTML = t.acts.length ? shown.map((a) => `<li class="${a.ok ? "" : "bad"}" title="${esc([a.text, ...a.fx].join("\n"))}"><i>${a.ok ? "✓" : "✗"}</i>` +
+        (a.ok ? (a.fx.length ? `<span class="fx">${esc(a.fx[0])}</span>${a.fx.length > 1 ? `<span class="more"> +${a.fx.length - 1}</span>` : ""}`
+                             : `${esc(a.short || a.text)} <span class="muted">· no change, already in force</span>`)
+              : `${esc(a.short || a.text)}${esc(a.err ? ` — ${a.err}` : "")}`) + `</li>`).join("") +
         (more ? `<li class="muted"><i>+</i>${more} more action(s) this turn (Full log)</li>` : "")
       : `<li class="muted"><i>·</i>No changes: kept the current plan</li>`;
     if (animate) {
       p.el.classList.remove("decided"); void p.el.offsetWidth; p.el.classList.add("decided");
-      for (const a of t.acts) p.scene.flash(a.wheres.filter(Boolean), a.ok ? 0xc9a8ff : 0xff6b5e);
+      if (outlines) for (const a of t.acts) p.scene.flash(a.wheres.filter(Boolean), a.ok ? 0xc9a8ff : 0xff6b5e);
     }
   }
   function syncPanel(p) {          // after a seek or a reload: show the state at the current hour
@@ -202,7 +208,7 @@
   // ---------------- playback ----------------
   const frameAt = (p, h) => p.D.frames[Math.max(0, Math.min(p.D.frames.length - 1, Math.floor(h)))];
   function loop(now) {
-    const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+    const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; perf(dt);
     const live = panels.filter((p) => p.D);
     if (live.length) {
       if (playing) { hf = Math.min(hours, hf + dt * HOURS_PER_SEC * speed); if (hf >= hours) { playing = false; setPlayIcon(); showDone(); } }
@@ -231,7 +237,8 @@
   }
   function addFeed(list, animate) {
     const ol = $("feed"), html = list.map((e) => `<li class="${animate ? "new" : ""}${e.dec ? " dec" : ""}" data-h="${e.h}"><span class="dot" style="background:${COLORS[e.type]}"></span>` +
-      `<span><span class="when">${when(e.h)}${e.dec ? ` · turn ${e.turn}` : ""}</span>${esc(e.dec ? `Grower: ${e.text}` : e.text)}</span></li>`).reverse().join("");
+      `<span><span class="when">${when(e.h)}${e.dec ? ` · turn ${e.turn}` : ""}</span>${esc(e.dec ? `Grower: ${e.text}` : e.text)}` +
+      (e.dec && e.ok ? `<span class="fxs">${e.fx.length ? e.fx.map((x) => `→ ${esc(x)}`).join("<br>") : "→ no change: already in force"}</span>` : "") + `</span></li>`).reverse().join("");
     ol.insertAdjacentHTML("afterbegin", html);
     while (ol.children.length > 120) ol.lastElementChild.remove();
   }
@@ -471,18 +478,45 @@
     update: (f) => {
       const now = Math.floor(hf), turns = panels[focus].turns.filter((t) => t.h <= now), raw = D.calls.filter((c) => c.h <= now && c.tool !== "submit_day");
       const byTurn = new Map(); for (const c of raw) { if (!byTurn.has(c.turn)) byTurn.set(c.turn, []); byTurn.get(c.turn).push(c); }
-      const html = `<p class="note">Turns used: ${turns.length} of ${D.max_calls}</p><table><tr><th>When</th><th>Turn</th><th>Action</th><th>Arguments</th><th>Result</th></tr>${turns.slice(-120).reverse().map((t) =>
+      const html = `<p class="note">Turns used: ${turns.length} of ${D.max_calls}</p><table><tr><th>When</th><th>Turn</th><th>Action</th><th>Arguments</th><th>Result</th><th>Measured change in the simulator</th></tr>${turns.slice(-120).reverse().map((t) =>
         (byTurn.get(t.turn) || [null]).map((c, j) => `<tr class="jump" data-h="${t.h}"><td>${j ? "" : when(t.h)}</td><td>${j ? "" : t.turn}</td><td>${c ? c.tool : "<i>no changes</i>"}</td><td><code>${c ? esc(JSON.stringify(c.args)) : ""}</code></td>` +
-          `<td>${c ? (c.ok ? "✓" : `<span class="err">${esc(c.err || "refused")}</span>`) : (t.ok ? "✓" : `<span class="err">${esc(t.err || "refused")}</span>`)}</td></tr>`).join("")).join("")}</table>`;
+          `<td>${c ? (c.ok ? "✓" : `<span class="err">${esc(c.err || "refused")}</span>`) : (t.ok ? "✓" : `<span class="err">${esc(t.err || "refused")}</span>`)}</td>` +
+          `<td class="fxcell">${c ? (c.fx && c.fx.length ? c.fx.map(esc).join("<br>") : c.ok ? '<span class="muted">none: already in force</span>' : '<span class="muted">none</span>') : ""}</td></tr>`).join("")).join("")}</table>`;
       if ($("log").dataset.n !== String(turns.length)) { $("log").innerHTML = html; $("log").dataset.n = String(turns.length);
         $("log").querySelectorAll("tr.jump").forEach((tr) => tr.onclick = () => { seek(+tr.dataset.h); playing = false; setPlayIcon(); }); }
       $("evlog").innerHTML = `<table>${events.filter((e) => e.h <= now && e.type !== "turn" && !e.dec).reverse().map((e) => `<tr><td>${when(e.h)}</td><td><span class="pill" style="color:${COLORS[e.type]}">${e.type}</span></td><td>${esc(e.text)}</td></tr>`).join("")}</table>`;
+    },
+  };
+  TABS.incidents = {
+    html: () => sec("Damage and repairs", "Every breakdown in this game, from the simulator's own records: when it happened, the grower's response, when the repair crew was on site, and what it cost. Costs are the ledger's entries, not estimates.", `<div id="inc"></div>`),
+    update: (f) => {
+      const now = Math.floor(hf), map = new Map();
+      for (const fr of D.frames) { if (fr.h > now) break;
+        for (const d of fr.dmg || []) { const key = `${d.eq}@${d.since}`;
+          if (!map.has(key)) map.set(key, { eq: d.eq, since: d.since, panes: d.panes, maxPanes: d.panes, last: fr.h, rep: d.rep, onsite: null });
+          const x = map.get(key); x.last = fr.h; x.maxPanes = Math.max(x.maxPanes, d.panes || 0); x.rep = d.rep; }
+        for (const b of fr.crew_on || []) for (const x of map.values()) if (b.target === x.eq && b.st === "on_site" && x.onsite == null && fr.h >= x.since) x.onsite = fr.h; }
+      const rows = [...map.values()].map((x) => {
+        const fixed = x.last < Math.min(now, D.hours) - 1, books = D.calls.filter((c) => c.tool === "book_contractor" && c.ok && c.args.target === x.eq && c.h >= x.since && c.h <= x.last + 1);
+        const cost = D.entries.filter((e) => e.h >= x.since && e.h <= x.last + 1 && e.note.includes(x.eq)).reduce((a, e) => a + e.eur, 0);
+        const pane = x.eq.endsWith("glass") ? ` · ${x.maxPanes} pane(s) broken` : "";
+        const resp = books.length ? `booked ${when(books[0].h)} (turn ${books[0].turn}, ${Math.round((books[0].h - x.since))} h after)` : '<span class="bad">never booked</span>';
+        return `<tr><td><b>${esc(x.eq)}</b>${pane}</td><td>${when(x.since)}</td><td>${resp}</td><td>${x.onsite != null ? when(x.onsite) : x.rep ? esc(x.rep.replace(/_/g, " ")) : "–"}</td>` +
+          `<td>${fixed ? `<span class="good">${when(x.last + 1)}</span> (${Math.round((x.last + 1 - x.since) / 24 * 10) / 10} d down)` : '<span class="bad">still broken</span>'}</td><td class="num">${eur(cost)}</td></tr>`;
+      }).join("");
+      const parts = D.entries.filter((e) => e.h <= now && (e.cat === "parts" || e.cat === "contractors"));
+      const byCat = (c) => parts.filter((e) => e.cat === c).reduce((a, e) => a + e.eur, 0);
+      $("inc").innerHTML = rows ? `<table><tr><th>Equipment</th><th>Broke</th><th>Grower's response</th><th>Crew on site</th><th>Working again</th><th class="num">Contractor cost</th></tr>${rows}</table>` +
+        `<p class="note" style="margin-top:10px">Totals so far: contractors ${eur(byCat("contractors"))}, parts ${eur(byCat("parts"))}. Broken glass leaks heat (more gas and power to hold temperature) until it is repaired; the Energy tab shows the heat bill.</p>` +
+        `<table style="margin-top:6px"><tr><th>When</th><th>Ledger entry</th><th class="num">€</th></tr>${parts.slice(-40).reverse().map((e) => `<tr><td>${when(e.h)}</td><td>${esc(e.cat)}: ${esc(e.note)}</td><td class="num bad">${eur(e.eur)}</td></tr>`).join("")}</table>`
+        : '<p class="note">No damage so far.</p>';
     },
   };
   TABS.raw = { html: () => sec("This hour, exactly as the simulator reports it", "", `<pre id="raw"></pre>`), update: (f) => { $("raw").textContent = JSON.stringify(f, null, 1); } };
   TABS.about = {
     html: () => sec("What you're watching", "", `<p class="note">Six real games of the Greenhouse Bench simulator (<code>src/greenhouse</code>), not animations, on one shared clock. Each grower plays through the same tool an AI agent gets: each morning one turn (<code>submit_day</code>) holding that day's actions. Every simulated hour is recorded and drawn from the numbers: lamps glow when lamp power is on, smoke follows gas burnt, plants grow with their real weight, the red light flashes when equipment is broken.</p>`) +
       sec("How a decision is linked", "", `<p class="note">When a grower's turn happens, its panel's strip lists that turn's actions with the simulator's verdict (✓ accepted, ✗ refused, with the reason), the buildings each action acts on are outlined (purple, or red if refused), and from that hour on the picture shows the result. A model run is not re-generated: its recorded calls are sent to a fresh simulator in order and every response is checked against the recording ("replay verified 42/42").</p>`) +
+      sec("Damage, repairs and the field", "", `<p class="note">Storms break roof panes (the count is the simulator's): they shatter, stay dark and leak heat while the house is warmer than outside, until a contractor the grower booked is on site; the crew, its trade and its hours worked come from the booking, and the Damage & repairs tab lists the ledger's charges. The coloured field inside each house shows one real reading per house (pick it under ⚙ Controls → View).</p>`) +
       sec("The goal", "", `<p class="note">${esc(D.objective)}</p>`) +
       sec("Score", "", `<p class="note">The benchmark's own score: 0 is the profit of doing nothing, 0.80 is the reference solution, on the same seed. Shown on each panel when its game ends.</p>`),
     update: () => {},
@@ -497,6 +531,57 @@
   }
   function closeDrawer() { drawerOpen = false; $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true"); $("scrim").hidden = true; }
 
+
+  // ---------------- control windows ----------------
+  let fps = 0, frames = 0, fpsT = 0, outlines = true, jobPanel = {}, assigned = new Set();
+  function applyView() {
+    const kind = $("v-field").value, op = +$("v-op").value;
+    for (const p of panels) p.scene.settings({ field: { kind, opacity: kind === "none" ? 0 : op }, fog: $("v-fog").checked, pix: +$("v-pix").value });
+    outlines = $("v-outline").checked;
+    const F = panels[0] && panels[0].scene.FIELDS[kind];
+    $("v-cbar").innerHTML = ""; if (!F) { $("v-cbar").style.background = "none"; return; }
+    $("v-cbar").style.background = F.div ? "linear-gradient(90deg,#2673ff,#000 50%,#ff3f1a)" : "linear-gradient(90deg,#000004,#280b54,#65156e,#9f2a63,#d44842,#f57d15,#fac127,#fcffa4)";
+    const hi = F.hi ?? (panels.find((x) => x.M) || { M: {} }).M.maxHD;
+    $("v-cbar").innerHTML = F.div ? `<span style="left:0">${F.lo}${F.unit}</span><span style="left:42%">in range</span><span style="right:0">+${F.hi}${F.unit}</span>`
+      : `<span style="left:0">${F.lo}${F.unit}</span><span style="right:0">${Math.round(hi || 0)}${F.unit}</span>`;
+  }
+  function perf(dt) {
+    frames++; fpsT += dt; if (fpsT < 0.5) return;
+    fps = frames / fpsT; frames = 0; fpsT = 0;
+    if ($("wins").hidden) return;
+    const live = panels.filter((p) => p.D), h = Math.min(Math.floor(hf), hours);
+    $("pf-fps").textContent = `${fps.toFixed(0)} fps · ${(1000 / Math.max(1, fps)).toFixed(1)} ms`;
+    $("pf-games").textContent = `${live.length} of 6`;
+    $("pf-hours").textContent = `${(h * live.length).toLocaleString("en-US")} / ${live.reduce((a, p) => a + p.D.hours, 0).toLocaleString("en-US")}`;
+    $("pf-steps").textContent = live.reduce((a, p) => a + p.D.hours * (p.D.substeps || 1), 0).toLocaleString("en-US");
+    $("pf-dec").textContent = live.reduce((a, p) => a + p.events.filter((e) => e.dec).length, 0).toLocaleString("en-US");
+    $("pf-sim").textContent = `${live.reduce((a, p) => a + p.D.elapsed_s, 0).toFixed(1)} s of compute`;
+    const ok = live.filter((p) => p.D.checks && p.D.checks.ok).length;
+    $("pf-ledger").innerHTML = `<span class="${ok === live.length ? "good" : "bad"}">${ok}/${live.length} exact</span>`;
+  }
+  async function pollJobs() {
+    try {
+      const j = await (await fetch("/api/jobs")).json();
+      const dl = $("m-models"); if (j.env_model && !dl.children.length) { dl.innerHTML = `<option value="${esc(j.env_model)}">`; if (!$("m-model").value) $("m-model").value = j.env_model; }
+      if (!pollJobs.backendSet) { $("m-backend").value = j.backend; pollJobs.backendSet = true; }
+      $("m-jobs").innerHTML = j.jobs.map((x) => `<li><b>${esc(x.model)}</b> · seed ${x.seed} · ${esc(x.scenario)} · <span class="${x.status === "failed" ? "bad" : x.status === "finished" ? "good" : "warn"}">${x.status}</span> · ${Math.floor(x.elapsed_s / 60)}m${x.elapsed_s % 60}s` +
+        (x.log.length ? `<pre>${esc(x.log.join("\n"))}</pre>` : "") + `</li>`).join("");
+      for (const x of j.jobs) if (x.status === "finished" && x.traces.length && !assigned.has(x.id)) {
+        assigned.add(x.id); await loadPlayers(); const p = panels[(jobPanel[x.id] || 2) - 1];
+        p.spec = x.traces[0]; p.q(".p-pick").innerHTML = options(p.spec); loadPanel(p);
+      }
+    } catch (e) { /* server restarting */ }
+  }
+  $("toggle-win").onclick = () => { $("wins").hidden = !$("wins").hidden; };
+  document.querySelectorAll(".win-title").forEach((t) => t.onclick = () => t.parentElement.classList.toggle("closed"));
+  ["v-field", "v-op", "v-pix", "v-fog", "v-outline"].forEach((id) => $(id).oninput = applyView);
+  $("m-go").onclick = async () => {
+    const body = { model: $("m-model").value.trim(), seed: +$("m-seed").value, scenario: $("m-scn").value, backend: $("m-backend").value };
+    const r = await fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json(); if (!r.ok) { alert(j.error); return; }
+    jobPanel[j.id] = +$("m-panel").value; pollJobs();
+  };
+  setInterval(pollJobs, 5000);
   // ---------------- wiring ----------------
   $("play").onclick = () => { if (!panels.some((p) => p.D)) return; if (hf >= hours) seek(0); playing = !playing; setPlayIcon(); };
   $("next").onclick = nextDecision;
@@ -523,9 +608,10 @@
     if (e.key === " ") { e.preventDefault(); $("play").click(); }
     else if (e.key === "Escape") closeDrawer();
     else if (e.key === "n" || e.key === "N") nextDecision();
+    else if (e.key === "g" || e.key === "G") $("toggle-win").click();
     else if (e.key >= "1" && e.key <= "6") select(+e.key - 1);
     else if (e.key === "ArrowRight") seek(hf + 24); else if (e.key === "ArrowLeft") seek(hf - 24);
   });
-  (async () => { await loadPlayers(); buildPanels(); select(0); await loadAll(); })();
+  (async () => { await loadPlayers(); buildPanels(); applyView(); select(0); pollJobs(); await loadAll(); applyView(); })();
   requestAnimationFrame(loop);
 })();
