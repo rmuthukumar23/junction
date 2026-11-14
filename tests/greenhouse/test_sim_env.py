@@ -136,29 +136,34 @@ class OperationTests(unittest.TestCase):
 
 
 class EndingTests(unittest.TestCase):
-    def test_doing_nothing_runs_every_hour_on_fallback_and_loses_money(self):
+    def test_doing_nothing_runs_every_hour_on_the_baseline_and_loses_money(self):
         ep = episode()
         led = ep.result()
         self.assertEqual(ep.env.sim.hour, 240)
         self.assertTrue(ep.env.sim.unattended)
+        self.assertEqual(ep.env.sim.climate["A"].heat_day_c, 5.0)    # the fake facility's baseline
         self.assertLess(led["profit_eur"], 0)
         self.assertEqual(led["harvests"], 0)
 
-    def test_finish_runs_the_rest_on_fallback(self):
+    def test_finish_keeps_the_standing_settings(self):
         ep = episode()
         ok(ep, "set_climate", {"compartment": "A", **WARM})
         ok(ep, "advance", {"hours": 3})
         ok(ep, "finish_episode")
         self.assertTrue(ep.done)
         self.assertEqual(ep.env.sim.hour, 240)
-        self.assertEqual(ep.env.sim.climate["A"].heat_day_c, 5.0)
+        self.assertEqual(ep.env.sim.climate["A"].heat_day_c, WARM["heat_day_c"])
 
-    def test_stopping_early_reverts_to_fallback(self):
-        ep = episode()
-        ok(ep, "set_climate", {"compartment": "A", **WARM})
-        ok(ep, "advance", {"hours": 2})
-        ep.finalize()
-        self.assertTrue(ep.env.sim.unattended and ep.env.sim.done)
+    def test_stopping_equals_advancing_without_acting(self):
+        stopped, idle = episode(), episode()
+        for ep in (stopped, idle):
+            ok(ep, "set_climate", {"compartment": "A", **WARM})
+            ok(ep, "advance", {"hours": 2})
+        stopped.finalize()
+        while not idle.done:
+            ok(idle, "advance", {"hours": 24})
+        self.assertTrue(stopped.env.sim.unattended and stopped.env.sim.done)
+        self.assertEqual(stopped.env.ledger(), idle.env.ledger())
 
     def test_playing_beats_doing_nothing(self):
         played, idle = episode(), episode()

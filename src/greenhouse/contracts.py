@@ -279,7 +279,9 @@ class FacilityModel(Protocol):
         """Every id an EquipmentEffect or a repair may target."""
 
     def fallback_climate(self) -> dict[str, ClimateSetpoints]:
-        """The facility file's [fallback]: in effect at the start and after a stop."""
+        """The facility file's [fallback]: the baseline the facility is handed over
+        with at hour 0, and so what a player who never changes anything runs on (D5).
+        Settings stand until changed, also after a stop."""
 
     def fallback_energy(self) -> EnergySettings: ...
 
@@ -344,12 +346,16 @@ class HourEnd:
     deliveries: tuple[Delivery, ...] = ()
     completed: tuple[Task, ...] = ()
     alarms: tuple[Alarm, ...] = ()
+    # Equipment effects that changed this hour, e.g. a finished repair that ends an
+    # outage a few hours later instead of at once. sim.py applies them after the
+    # completed tasks; a completed repair whose target is not listed here is cleared.
+    effects: tuple[EquipmentEffect, ...] = ()
 
 
 class BusinessModel(Protocol):
     """Market, orders, stock, staff, tasks, events and the ledger (Rowan).
 
-    Built by `greenhouse.world.operations.build_business(market, events,
+    Built by `greenhouse.world.business.build_business(market, events,
     crop_ids, equipment_ids, horizon_h, rng)` from the resolved specs. sim.py calls, every
     hour: `start_hour` (events due), the facility's sub-steps, then `end_hour`.
     sim.py routes CO2 deliveries to the facility and runs completed tasks."""

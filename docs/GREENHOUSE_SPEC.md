@@ -175,24 +175,28 @@ id = "B"
 crop = "basil_genovese"
 # ...
 
-[fallback]                     # climate computer's built-in safety settings
-heat_c = 5.0                   # frost protection
-vents = "closed"
-co2_ppm = 0                    # no dosing
+[fallback]                     # the baseline the facility is handed over with at hour 0 (D5)
+heat_day_c = 18.0              # a typical standing setting, researched (Emre); never changed by itself
+heat_night_c = 15.0
+co2_ppm = 800                  # doses until the CO2 store runs dry
 lamps = "off"
 ```
+
+`[fallback]` is the do-nothing baseline (D5): it runs from hour 0 and stays until the agent changes it, also after a stop. Its values are researched as a typical standing setting, not as a safety mode.
 
 Staff (`start_workers`, `hours_per_worker_day`), start cash and starting seedling stock are in the market file (3.4), because the business owns them. Which crop grows where, and how many compartments there are, is facility data. Going to three compartments is a third `[[compartments]]` table.
 
 ### 3.3 Climate (`data/climates/*.toml`)
 
-A weather profile, not a recorded series: daily mean temperature, diurnal amplitude, AR(1) persistence, global radiation by hour, wind, humidity. The generator draws the series per seed and issues forecasts with error that grows with lead time (error sizes are in this file too). **DECIDE (D3):** generated series, or real KNMI De Bilt hourly data sampled by seed. Generated is faster to build and cannot be looked up online.
+**Decided (D3): researched historical data, fixed in data files.** Weather (outdoor temperature, global radiation, wind, humidity) and energy prices (gas, hourly electricity import, export) are real recorded hourly series, researched once and committed under `data/` with their source. Nothing is fetched live. Every agent on the same seed gets exactly the same series, so a run's profit or loss is fully explained by the decided prices. Forecasts are the true series plus error that grows with lead time, drawn from a named stream per seed (error sizes are in this file), so they too are identical for every agent on a seed.
+
+Each seed picks one recorded window (for example one January week range from a given year) from a list in the file. Dev seeds 1–6 and eval seeds 101–108 use different windows, so nothing is tuned on the evaluation weather. Candidate sources: KNMI hourly station data (De Bilt), EPEX/ENTSO-E day-ahead prices for the Netherlands, TTF gas. The prompt does not name the year or the dates.
 
 ### 3.4 Market (`data/markets/*.toml`)
 
 Base price per crop and unit, CO2 price, seedling and repair prices, wage per hour, hiring fee, notice days, order lead times and minimum quantities per item.
 
-Energy prices are their own file, `data/energy_prices/*.toml` (owned with the weather code): gas price, the electricity price model (daily shape + noise + spike rate) and grid export price as a fraction of import.
+Energy prices are their own file, `data/energy_prices/*.toml` (owned with the weather code): recorded hourly gas and electricity prices and the export price, per seed window (D3).
 
 ### 3.5 Events (`data/events/*.toml`)
 
@@ -243,6 +247,7 @@ Every model gets the same simulated world and the same decision budget. Thinking
 
 - **Simulated time moves only with `advance`.** A model that thinks for 10 minutes before one call faces exactly the same world as one that answers in 2 seconds.
 - **The call budget is the same for everyone and generous:** `max_calls = 400` (D4), at least 2.5x what the reference uses. It exists only so that a looping agent ends. Reaching it is a legitimate agent outcome (`end_reason = "call_limit"`) and is reported as such.
+- **400 calls against 1,008 hours is by design.** The agent can act in any hour, day or night, but cannot afford to act in every hour. Choosing how far to `advance` is part of the skill: alarms wake it early, so a quiet night can be one call and a boiler trip at 03:00 gets a response at 03:00. Daytime realism lives in the staff, not the agent: planting, harvesting and repairs only progress during the crew's shift hours (market file). Limiting the agent itself to a 10-hour day was considered and rejected: an always-on operator is exactly what an agent can be, and it would make night-time events (frost, trips, price spikes) unanswerable by construction.
 - **The wall-clock timeout is a safety net, not a rule.** `agent_timeout_sec` is set to several times the slowest model's measured full run (start: 3 hours; tune after the first Pro/Hydrogen run). A run that hits it is labelled `interrupted` in the report, kept out of model-comparison means, and rerun. It still gets the stop-early score in the judges' protocol, because reward integrity requires that.
 - **Provider failures are not agent results.** Rate limits, auth errors and API outages are infrastructure failures (no reward), as envkit does today. Concurrent attempts per model are capped so that rate limits do not slow one model more than another.
 - **The report states, per run:** calls used, `advance` calls, simulated hours reached, wall time, end reason. So "ran out of time" and "chose to stop" can never be confused.
@@ -260,7 +265,7 @@ At the end of each hour: deliveries arrive, staff tasks progress, sensor reading
 
 ### 4.3 Allocation when supply is short
 
-Each compartment has a `priority` (integer, default 1) and optional `heat_cap_kw`, `co2_cap_kg_h`. Supply goes to the highest priority first. Within a priority level it is shared in proportion to demand, capped by each cap. With the defaults this is plain proportional sharing. **DECIDE (D2).**
+**Decided (D2): the agent decides the trade-off.** When heat or CO2 cannot cover every compartment, who gets what is the agent's call, and it can sacrifice a crop to save another. Through `set_energy` it sets, per compartment, a `priority` (integer, default 1) and an exact allocation `heat_cap_kw` and `co2_cap_kg_h`: a compartment never gets more than its cap. Supply goes to the highest priority first; within a level it is shared in proportion to demand, up to each cap. Setting caps that add up to the supply gives an exact split. An agent that sets nothing gets plain proportional sharing, which is the do-nothing behaviour, not a smart default.
 
 ---
 
@@ -284,7 +289,7 @@ Every tool's docstring is what the agent reads; the names below are the contract
 | `harvest` | 0 | `batch_id` | Queues harvest; uses worker-hours. Underweight produce sells for 0. |
 | `repair` | 0 | `equipment_id` | Costs money and worker-hours; shortens an outage. |
 | `advance` | 1 | `hours` (1–24) | Runs time; stops early on a new alarm. Returns what happened, alarms and the new status. |
-| `finish_episode` | 0 | — | Stops deciding; the rest runs under the fallback settings. |
+| `finish_episode` | 0 | — | Stops deciding; the rest runs with the standing settings and nobody acting. |
 
 `plant`, `harvest` and `repair` are tasks: they use worker-hours from the day's pool in queue order. A task that does not get enough hours waits. A ready batch loses quality each day it waits (a crop parameter).
 
@@ -320,7 +325,14 @@ Standing crop at the end is worth 0. The fixed crew's wages are charged from hou
 
 **Score:** an `anchored` envkit component on `profit_eur` with `zero_anchors = ["do-nothing", "absentee"]`, `top_anchors = ["reference"]`, `target = 0.8`. That gives `score = clip(0.8 × (P − P_zero) / (P_ref − P_zero), 0, 1)`, as in the context doc.
 
-**Do-nothing, stop-early.** The episode starts on the facility's `[fallback]` settings (frost protection, no CO2, lamps off, CHP off, boiler auto). A player who never changes them grows almost nothing in January, never harvests, and pays wages and frost-protection gas. Stopping for any reason resets the settings to `[fallback]` for the remaining hours. Harvests need explicit calls, so no crop is sold after a stop. **DECIDE (D5):** the context doc has do-nothing start with heating fully off. Frost protection is what a real climate computer does by default and keeps the do-nothing run from being "everything freezes on night 1", which judges might call artificial. The score stays at 0 in both cases.
+**Do-nothing and stopping (D5, decided).** The facility is handed over running its `[fallback]` baseline: a typical standing heating setting, CO2 dosing, crops in the ground and some stock. Doing nothing means that baseline is never adjusted, and nobody looks after the business:
+- the heating stays on the same setpoints while the weather swings, so it overheats on mild days and falls short on cold nights;
+- consumables run out and are not reordered (the CO2 store empties in days, then nutrients when they are modelled);
+- ready batches are never harvested, so nothing is sold, and they lose quality;
+- lost or harvested areas are never replanted, and broken equipment is never repaired;
+- wages and energy keep being paid.
+
+So doing nothing loses money steadily rather than collapsing on night 1. Stopping for any reason (finish, call limit, timeout) is the same as doing nothing from then on: the standing settings stay and nobody acts. Stopping early is therefore identical to advancing without acting, so it can never score more (tested). The consumption rates (how often a real greenhouse refills its CO2 tank, nutrient use per m² per day, how fast an unharvested crop degrades) are researched, not guessed, and live in the data files.
 
 ---
 
@@ -362,7 +374,7 @@ Merge order and owners. Each workstream gets its own branch and worktree and mer
 | 0 | envkit changes (2.1), `contracts.py`, `config/base.py`, `curves.py`, `loader.py` | Max | `src/envkit/`, `src/greenhouse/contracts.py`, `src/greenhouse/config/{base,curves,loader}.py` |
 | 1 | Crop schema, growth models, crop data (lettuce, basil) | Lucas | `config/crop.py`, `world/crop.py`, `data/crops/`, `tests/greenhouse/test_crop*.py` |
 | 2 | Facility and climate schema, climate, controller, energy centre, weather, energy prices | Emre | `config/facility.py`, `world/{climate,controller,energy,weather}.py`, `data/{facilities,climates,energy_prices}/`, `tests/greenhouse/test_{climate,energy,weather}*.py` |
-| 3 | Market and event schema, operations, events, ledger, outcome, naive/rule-based/exploiter policies | Rowan | `config/market.py`, `world/{operations,events,ledger}.py`, `outcome.py`, `policies/{naive,rule_based,exploiter}.py`, `data/{markets,events}/`, `tests/greenhouse/test_{ops,events,ledger,policies}*.py` |
+| 3 | Market and event schema, operations, events, ledger, outcome, naive/rule-based/exploiter policies | Rowan | `config/market.py`, `world/{operations,events,ledger,business}.py`, `outcome.py`, `policies/{naive,rule_based,exploiter}.py`, `data/{markets,events}/`, `tests/greenhouse/test_{ops,events,ledger,policies}*.py` |
 | 4 | `sim.py`, `views.py`, `env.py`, scenario, reference planner, integration | Max (+ Rowan for the reference) | `world/sim.py`, `views.py`, `env.py`, `policies/reference.py`, `scenarios/` |
 
 Workstream 0 is short and everything depends on `contracts.py`, which is already on `main`. Workstreams 1, 2 and 3 start at once against it. Workstream 4 wires stubs first and swaps in the real modules as they land. Day-to-day instructions per person: `docs/collaboration/`.
@@ -374,10 +386,11 @@ Workstream 0 is short and everything depends on `contracts.py`, which is already
 | ID | Question | Proposal |
 |---|---|---|
 | D1 | Episode length | **Decided:** try 42 days (1,008 hourly windows); shorten if evals take too long |
-| D2 | Allocation when short (4.3) | Priority levels, proportional within a level, optional caps; defaults = proportional |
-| D3 | Weather and prices | Generated from profile files per seed |
-| D4 | Call and time budget | `max_calls = 400` for every model; agent timeout 3 h as a safety net (4.1); confirm with organisers |
-| D5 | Do-nothing start state | Frost protection at 5 °C, not heating fully off |
+| D2 | Allocation when short (4.3) | **Decided:** the agent decides; priority plus exact per-compartment caps; nothing set = proportional |
+| D3 | Weather and prices | **Decided:** researched historical hourly series in data files, one window per seed, identical for every agent; no live data |
+| D4 | Call and time budget | `max_calls = 400` for every model, agent may act any hour (4.1); agent timeout 3 h as a safety net; confirm with organisers |
+| D5 | Do-nothing start state | **Decided:** handed over on a typical running baseline that is never adjusted; consumables run out, nothing is harvested or replanted; stopping = doing nothing from then on |
+| D8 | Nutrients (fertiliser) as a consumable | Open: research uptake per crop and stock/order rules; add after v1 runs end to end |
 | D6 | Compartments in v1 | **Decided:** 2 (A lettuce, B basil); it is facility data, so 1 or 3 is a config change |
 | D7 | Package name | **Decided:** `src/greenhouse`; Root Cause already removed |
 
@@ -392,16 +405,20 @@ One small comparison before anything bigger: is there a gap at all, and does a s
 | do-nothing | 1 per seed | Zero anchor (scripted, Harbor `nop` agent) |
 | reference | 1 per seed | 0.8 anchor; must reproduce calibration exactly |
 | Gemini Flash | 3 per seed | Fast, cheap model |
-| Gemini Pro or Hydrogen | 3 per seed | Strongest available model |
+| Gemini Pro or Hydrogen | 3 per seed | Strongest Gemini model |
+| Claude (Anthropic) | 3 per seed | A second provider, so the gap is not one vendor's quirk |
+| OpenAI (optional) | 3 per seed | Only if an `OPENAI_API_KEY` is available |
 
-Start with dev seed 1 only. Add seeds once the four rows separate.
+Start with dev seed 1 only. Add seeds once the rows separate.
 
 ```bash
-bash scripts/judge.sh --model google/<flash-id> --runs 3 --seeds 1 --output artifacts/cmp-flash
-bash scripts/judge.sh --model google/<pro-id>   --runs 3 --seeds 1 --agent-only --output artifacts/cmp-pro
+bash scripts/judge.sh --model google/<flash-id>  --runs 3 --seeds 1 --output artifacts/cmp-flash
+bash scripts/judge.sh --model google/<pro-id>    --runs 3 --seeds 1 --agent-only --output artifacts/cmp-pro
+bash scripts/judge.sh --model anthropic/<id>     --runs 3 --seeds 1 --agent-only --output artifacts/cmp-claude
+bash scripts/judge.sh --model openai/<id>        --runs 3 --seeds 1 --agent-only --output artifacts/cmp-openai
 ```
 
-The second command skips the scripted runs, since the first already checked them. A small `envkit report` change will put both directories in one table (model, reward, profit, calls, advance calls, wall time, end reason). Record the code SHA, command, model ids, seeds and results in `docs/DECISIONS.md` (AGENTS.md benchmark rules).
+The later commands skip the scripted runs, since the first already checked them. The key is picked from the model's provider prefix (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` in `.env`) and forwarded to OpenCode by Harbor; its value never appears on a command line. Add `--backend modal` to any of these during development. A small `envkit report` change will put both directories in one table (model, reward, profit, calls, advance calls, wall time, end reason). Record the code SHA, command, model ids, seeds and results in `docs/DECISIONS.md` (AGENTS.md benchmark rules).
 
 What we want to see: do-nothing 0 < Flash < Pro < reference 0.8, the same order on repeated runs, and failure modes in the logs that trace back to task decisions (section 9 and the context doc, 15.4).
 

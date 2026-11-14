@@ -10,6 +10,7 @@ You own everything about running the business: the market, orders that arrive da
 | `src/greenhouse/world/operations.py` | Stock (CO2 kg, seedlings per crop), orders with lead times, minimum quantities and late-delivery events, staff (crew, hiring with notice, release), task queue for plant, harvest and repair using worker-hours |
 | `src/greenhouse/world/events.py` | Event schedule drawn per seed from rates (stream `events`); turns events into `EquipmentEffect`s and `Alarm`s |
 | `src/greenhouse/world/ledger.py` | Records `LedgerEntry`s, prices `Metered` and `HarvestResult`, totals by category, money conservation check |
+| `src/greenhouse/world/business.py` | `build_business` and `Business`: the `BusinessModel` sim.py calls, over your operations, events and ledger (Max wrote the first version; yours now) |
 | `src/greenhouse/outcome.py` | `profit_eur`, the ledger dict the scorer reads, failure-mode fields (`fm_*`) |
 | `src/greenhouse/policies/{naive,rule_based,exploiter}.py` | Scripted policies (spec 9), playing through tools only |
 | `data/markets/nl_winter.toml`, `data/events/*.toml` | The values, with sources |
@@ -19,7 +20,7 @@ You own everything about running the business: the market, orders that arrive da
 
 ## What you provide, and to whom
 
-- **One object implementing `BusinessModel` (in `contracts.py`)**, built by `build_business(market, events, crop_ids, equipment_ids, horizon_h, rng)` in `world/operations.py`. `sim.py` already calls it: `start_hour` (events due), `end_hour(hour, metered)` (price energy, wages, task progress, deliveries), `place_order`, `cancel_order`, `hire`, `release`, `take_seedlings`, `queue_task`, `sell`, `cash_eur`, `profit_eur`, `totals`, `view`, `rules`. Inside it, split operations, events and ledger however you like. `tests/greenhouse/fakes.py` (`FakeBusiness`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
+- **One object implementing `BusinessModel` (in `contracts.py`)**, built by `build_business(market, events, crop_ids, equipment_ids, horizon_h, rng)` in `world/business.py`. `sim.py` already calls it: `start_hour` (events due), `end_hour(hour, metered)` (price energy, wages, task progress, deliveries), `place_order`, `cancel_order`, `hire`, `release`, `take_seedlings`, `queue_task`, `sell`, `cash_eur`, `profit_eur`, `totals`, `view`, `rules`. Inside it, split operations, events and ledger however you like. `tests/greenhouse/fakes.py` (`FakeBusiness`) shows the expected shape with toy numbers. Copy the shape, not the numbers.
 - Staff, start cash and starting seedling stock live in the market file (yours). The CO2 store level is physical and belongs to the facility (Emre): a CO2 `Delivery` you return is passed to `facility.receive_co2` by `sim.py`.
 - `outcome.ledger(sim) -> dict[str, float]` with `profit_eur` (the scored metric) plus `fm_*` evidence fields. Max wires it into `env.py`.
 - The policies Max registers in `env.policies()`.
@@ -38,6 +39,17 @@ What you consume: `HarvestResult` (from Lucas) and `Metered` (from Emre). Write 
 8. **Reference planner** (with Max, phase 3): rule-based plus a 48-hour look-ahead.
 
 **Done when:** ledger, ops and events have tests; profit is reproducible bit for bit; naive < rule-based in profit on seeds 1–3; the exploiter scores at most 0.05.
+
+## Next steps (round 2, after PR #12)
+
+Tasks 1–6 are on `main`. Max wired them into the simulator with `world/business.py` (the `BusinessModel` adapter) and `tests/greenhouse/test_business.py`, which runs your real market and event files inside the game with the fake facility and crops. Pull `main` first.
+
+1. **Review `world/business.py`; it is yours now.** Two contract rules it applies: CO2 deliveries go straight to the facility's store (Emre), and the sale price is the market crop price × the crop model's `price_factor` (Lucas grades, you price).
+2. **Clean up CO2 in the market file and ops.** The business never holds CO2 any more: drop `start_stock.co2_kg` and the CO2 `warn_below` (the facility raises the low-store alarm), and move `fm_co2_*` evidence out of `Operations` (ask Emre to report store-empty hours from the facility).
+3. **Policies (task 7)** against `tests/greenhouse/fixtures/fake-winter.toml`: `naive`, `rule_based`, then `exploiter`. The tools all exist.
+4. **D5 research (spec 7):** realistic rates for what goes wrong when nobody acts: how often a greenhouse of this size refills its CO2 tank, seedling lead times, what an unrepaired boiler costs. Put the values with sources in your data files.
+5. **Tell Max** if a per-occurrence event range matters to you: the loader currently draws every `{min, max}` once per seed, so all boiler trips in one run have the same duration.
+6. **Reference planner** with Max once the real facility lands.
 
 ## Watch out
 

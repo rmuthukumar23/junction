@@ -24,8 +24,18 @@ You own the glue: the envkit changes, the loader, the simulator that composes ev
 5. **`sim.py` skeleton with stubs**, then `env.py` with every tool from spec 5 returning stub data. That unblocks Rowan's policies. Swap in real modules as their PRs merge.
 6. **Scenario `normal-winter.toml`.** 42 days, `window_hours = 1`, `max_calls = 400`, `agent_timeout_sec = 10800`, anchored scoring on `profit_eur` (target 0.8), dev seeds 1–3 committed. Then `envkit build`, `envkit audit`, and `bash scripts/judge.sh --smoke` on Docker.
 7. **Reference planner** with Rowan, then calibrate. Check the ladder order: do-nothing < naive < rule-based < reference.
-8. **First model comparison** (spec 12): Gemini Flash vs Gemini Pro/Hydrogen, 3 runs each, seed 1, on Modal; confirm on Docker. Record it in `DECISIONS.md` with SHA, command, models and results.
+8. **First model comparison** (spec 12): Gemini Flash vs Gemini Pro/Hydrogen vs a Claude model, 3 runs each, seed 1, on Modal; confirm on Docker. Record it in `DECISIONS.md` with SHA, command, models and results.
 9. **Entire:** enable capture for Claude Code too, so these sessions are recorded (see below).
+
+## Next steps (round 2)
+
+Tasks 1–5 are done; Rowan's business runs inside the simulator through `world/business.py`.
+
+1. Merge Lucas's and Emre's PRs as they come, in that order (Lucas's is closer). After each, check that `world/modules.py:build` finds the real factory.
+2. Wire `outcome.ledger` (Rowan) into `env.ledger()`, so the verifier gets `fm_*` evidence.
+3. Decide with Rowan whether event ranges are drawn per occurrence (the loader now resolves every range once per seed).
+4. Task 6 (scenario), 7 (reference planner), 8 (comparison), now with an Anthropic model as a second provider (spec 12).
+5. Ask the organisers about D4 (400 calls, 3 h safety timeout).
 
 ## Integration duty
 

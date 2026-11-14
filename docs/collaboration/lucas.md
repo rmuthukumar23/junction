@@ -40,6 +40,17 @@ What you consume: a `ClimateSample` each sub-step. Write tests with hand-made sa
 
 **Done when:** all of the above have tests, `pytest tests -q` passes, and the two data files cite their sources.
 
+## Next steps (round 2, after `lucas/crops`)
+
+Your branch has tasks 1–8 (schema, `leafy_vanhenten`, lettuce, basil, spinach fixture, estimates). It merged `main` before the full `GrowthModel` interface landed, so it is not merged yet.
+
+1. **Rebase onto `origin/main`** and open the PR.
+2. **Add the four methods `sim.py` calls that `LeafyVanHenten` lacks:** `labour_hours("plant" | "harvest", area_m2)`, `seedlings_needed(area_m2)`, `min_days_before_end()` and `describe()` (the crop's published rules as JSON for `get_rules`). Their values (worker-hours per m², planting density, days needed) go in the crop files with sources.
+3. **Fill `grade` and `price_factor` on every `HarvestResult`.** The business sells at market price × `price_factor`; 0 when not sellable.
+4. **Play it in the game:** a test that runs your model in place of `FakeCrop` on the fake fixture for 10 days (copy the builder pattern in `tests/greenhouse/test_business.py`). Check speed: about 1,000 hours × 12 sub-steps × 8 batches must stay well under a few seconds.
+5. **D5 research (spec 7):** how fast a ready but unharvested batch loses quality and when it becomes unsellable; with that, doing nothing loses its crop.
+6. **D8 research (open, don't build yet):** nutrient (fertiliser) uptake per m² per day for lettuce and basil, so nutrients can become a consumable after v1.
+
 ## Watch out
 
 - An exploit judges will try is harvesting everything early. Your minimum sellable weight blocks it. Test it.

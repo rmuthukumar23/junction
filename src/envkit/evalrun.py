@@ -66,19 +66,33 @@ def pick_backend(requested: str) -> str:
 GOOGLE_OPENCODE_KEY = "GOOGLE_GENERATIVE_AI_API_KEY"
 
 
+# Host variable that holds each provider's key, and the variable OpenCode reads it from.
+PROVIDER_KEYS = {
+    "google": ("GEMINI_API_KEY", GOOGLE_OPENCODE_KEY),
+    "gemini": ("GEMINI_API_KEY", GOOGLE_OPENCODE_KEY),
+    "anthropic": ("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+    "openai": ("OPENAI_API_KEY", "OPENAI_API_KEY"),
+}
+
+
+def provider(model: str | None) -> str:
+    return model.split("/", 1)[0] if model else ""
+
+
 def is_google_model(model: str | None) -> bool:
-    return bool(model) and model.split("/", 1)[0] in ("google", "gemini")
+    return provider(model) in ("google", "gemini")
 
 
 def credential_env_name(a: argparse.Namespace) -> str:
-    return a.credential_env or ("GEMINI_API_KEY" if is_google_model(a.model) else "OPENAI_API_KEY")
+    return a.credential_env or PROVIDER_KEYS.get(provider(a.model), ("OPENAI_API_KEY", ""))[0]
 
 
 def credential_forwarding(a: argparse.Namespace) -> list[str]:
     """`--ae` arguments that hand the host credential to the agent without putting its value
     on the command line: Harbor expands the ${NAME} template inside its own process."""
-    if a.agent == "opencode" and is_google_model(a.model):
-        return ["--ae", f"{GOOGLE_OPENCODE_KEY}=${{{credential_env_name(a)}}}"]
+    target = PROVIDER_KEYS.get(provider(a.model), ("", ""))[1]
+    if a.agent == "opencode" and target:
+        return ["--ae", f"{target}=${{{credential_env_name(a)}}}"]
     return []
 
 

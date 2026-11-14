@@ -46,6 +46,17 @@ What you consume: setpoints (spec 5, `set_climate` and `set_energy` fields), and
 
 **Done when:** a two-compartment facility runs 42 days from data files under a fixed setpoint, deterministically, with conservation passing every hour, in under 10 s.
 
+## Next steps (round 2, after `emre/facility-climate-energy`)
+
+Your branch has the schemas, weather, climate, controller and energy centre, and the allocation already matches D2. It started before the `FacilityModel` interface existed, so it is the biggest piece of integration left, and the scenario waits on it.
+
+1. **Rebase onto `origin/main`.** Delete your local `EnergySettings` and `ClimateSetpoints` and use the ones in `contracts.py` (field names `heat_cap_kw`, `co2_cap_kg_h`, `lamp_hours`, `lamp_intensity_pct`). If a field is missing, tell Max; don't fork the type.
+2. **Implement all of `FacilityModel` and `build_facility(facility, climate, energy_prices, rng)` in `world/energy.py`.** Missing today: `compartment_ids`, `floor_area_m2`, `crop_id`, `start_batches`, `equipment_ids`, `fallback_climate`/`fallback_energy`, `check_climate`/`check_energy` (raise `RuleError`), `clear_effect`, `receive_co2`, `view(hour, rng)`, `forecast(hour, hours)`, `rules()`, and `end_hour(hour)` must return `(Metered, alarms)` with that hour's prices on `Metered`. Copy the shape of `FakeFacility` in `tests/greenhouse/fakes.py`.
+3. **Facility file:** remove `[staff]` (it is in the market file). Make `[fallback]` the D5 handover baseline: a typical standing setting per compartment, researched, not frost protection. You own the CO2 store: its start level, capacity, and an alarm when it runs low.
+4. **Play it in the game:** a test that runs your facility in place of `FakeFacility` with the fake crops and Rowan's real business for 10 days (the builder pattern is in `tests/greenhouse/test_business.py`). Equipment ids must include Rowan's event targets (`boiler`).
+5. **D3, after the facility runs in the game:** replace the generated weather and prices with recorded hourly series in the data files (KNMI De Bilt; EPEX/ENTSO-E NL day-ahead; TTF gas), with sources. Each seed picks a window from a list; dev seeds 1–6 and eval seeds 101–108 use different windows. Forecast = true series + seeded error growing with lead time. Keep the series in data, never fetched at run time.
+6. **D5 research:** CO2 dosing use per m² per hour, so the store runs out at a realistic pace when nobody reorders.
+
 ## Watch out
 
 - An exploit judges will try is running the CHP flat out to sell power. Export cap and realistic price ratios must make it pay only when it really would. Test that flat-out CHP on a mild day loses money.

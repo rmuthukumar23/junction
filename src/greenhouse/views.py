@@ -26,7 +26,7 @@ def status(sim: Greenhouse) -> dict[str, Any]:
         "clock": clock(sim),
         "readings": sim.readings,
         "settings": {"climate": {c: asdict(s) for c, s in sim.climate.items()}, "energy": asdict(sim.energy),
-                     "fallback_active": sim.unattended},
+                     "unattended": sim.unattended},
         "equipment_faults": sorted(sim.effects),
         "free_area_m2": {c: round(sim.free_area_m2(c), 1) for c in sim.facility.compartment_ids},
         "business": sim.business.view(sim.hour, sim.rng.stream(f"business/{sim.hour}")),
@@ -43,8 +43,9 @@ def rules(sim: Greenhouse) -> dict[str, Any]:
         "clock": {"hours_total": sim.horizon_h, "substeps_per_hour": sim.substeps,
                   "advance": "advance(hours) runs 1-24 hours with the standing settings and stops at the end "
                              "of any hour in which a new alarm appears. It is the only call that moves time."},
-        "settings": "Climate and energy settings stand until changed. Before any change, and for every hour "
-                    "after you stop, the facility's fallback settings are in effect (see facility.fallback).",
+        "settings": "Climate and energy settings stand until changed. At hour 0 the facility runs its baseline "
+                    "settings (see facility.fallback). After you stop, the settings stand and nobody acts: "
+                    "nothing is ordered, planted or harvested.",
         "facility": sim.facility.rules(),
         "crops": {cid: m.describe() for cid, m in sim.growth.items()},
         "business": sim.business.rules(),

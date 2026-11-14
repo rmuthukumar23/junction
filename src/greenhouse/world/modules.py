@@ -43,7 +43,7 @@ def build(env: dict[str, Any], rng: Rng) -> Modules:
     cfg = load(env, rng)
     from .crop import model_for                  # Lucas
     from .energy import build_facility           # Emre
-    from .operations import build_business       # Rowan
+    from .business import build_business         # Rowan (adapter over operations, events, ledger)
 
     facility = build_facility(cfg.facility, cfg.climate, cfg.energy_prices, rng.stream("facility"))
     growth = {cid: model_for(spec) for cid, spec in cfg.crops.items()}

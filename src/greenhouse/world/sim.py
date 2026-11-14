@@ -124,8 +124,12 @@ class Greenhouse:
         for d in end.deliveries:
             if d.item == "co2_kg":
                 self.facility.receive_co2(d.quantity)
+        changed = {e.target for e in end.effects}
         for task in end.completed:
-            self._complete(task, h)
+            self._complete(task, h, keep_effect=task.target in changed)
+        for eff in end.effects:
+            self.facility.apply_effect(eff)
+            self.effects[eff.target] = eff
 
         self.hour = h + 1
         self.readings = self.facility.view(self.hour, self.rng.stream(f"readings/{self.hour}"))
@@ -151,11 +155,10 @@ class Greenhouse:
                 "alarms": [asdict(a) for a in alarms]}
 
     def go_unattended(self) -> None:
-        """Nobody is deciding any more: the facility's fallback settings take over."""
-        if not self.unattended:
-            self.unattended = True
-            self.climate = dict(self.facility.fallback_climate())
-            self.energy = self.facility.fallback_energy()
+        """Nobody is deciding any more. Nothing is touched: the standing settings stay,
+        nothing is ordered, planted or harvested (D5). Stopping is therefore the same
+        as advancing without acting, so stopping early can never pay."""
+        self.unattended = True
 
     def finish(self) -> None:
         self.finished_by_player = True
@@ -263,7 +266,7 @@ class Greenhouse:
         self.batches[bid] = batch
         return batch
 
-    def _complete(self, task: Task, hour: int) -> None:
+    def _complete(self, task: Task, hour: int, keep_effect: bool = False) -> None:
         self.completed_task_ids.add(task.id)
         if task.kind == "plant":
             area = float(task.detail["area_m2"])
@@ -278,7 +281,7 @@ class Greenhouse:
             entry = self.business.sell(hour, result)
             self.harvests.append({**asdict(result), "hour": hour, "eur": entry.eur})
         elif task.kind == "repair":
-            if task.target in self.effects:
+            if task.target in self.effects and not keep_effect:
                 self.facility.clear_effect(task.target)
                 del self.effects[task.target]
 

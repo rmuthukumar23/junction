@@ -6,8 +6,8 @@ a new alarm, then asks the engine to close that many windows. Every other tool
 is free and never moves time.
 
 Hours that nobody ran (after `finish_episode`, the call limit, a timeout or a
-dead agent) run on the facility's fallback settings, so every run is scored at
-the end of the same last hour.
+dead agent) still run, with the standing settings and nobody acting, so every
+run is scored at the end of the same last hour.
 """
 from __future__ import annotations
 
@@ -165,7 +165,7 @@ class GreenhouseBench(Environment):
 
     @tool(cost=0)
     def finish_episode(self) -> dict[str, Any]:
-        """Stop deciding. All remaining hours run on the facility's fallback settings, and the result is taken at the end of the last hour. Cannot be undone."""
+        """Stop deciding. All remaining hours run with the current settings and nobody acting (no orders, planting or harvests), and the result is taken at the end of the last hour. Cannot be undone."""
         self.sim.finish()
         return {"final_result": self._result()}
 
