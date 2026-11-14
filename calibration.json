@@ -1,112 +1,5 @@
 {
  "tasks": {
-  "depot-basic": {
-   "7": {
-    "anchors": {
-     "absentee": {
-      "components": {
-       "business": 0.0,
-       "continuity": 1.0,
-       "reliability": 0.0
-      },
-      "metrics": {
-       "business_raw": -9466.06,
-       "continuity": 1.0,
-       "on_time_rate": 0.0
-      },
-      "reward": 0.1
-     },
-     "do-nothing": {
-      "components": {
-       "business": 0.0,
-       "continuity": 0.0,
-       "reliability": 0.0
-      },
-      "metrics": {
-       "business_raw": -9466.06,
-       "continuity": 0.0,
-       "on_time_rate": 0.0
-      },
-      "reward": 0.0
-     },
-     "random:1": {
-      "components": {
-       "business": 0.3037,
-       "continuity": 1.0,
-       "reliability": 0.3852
-      },
-      "metrics": {
-       "business_raw": 902.95,
-       "continuity": 1.0,
-       "on_time_rate": 0.3852
-      },
-      "reward": 0.3896
-     },
-     "reference": {
-      "components": {
-       "business": 0.7801,
-       "continuity": 1.0,
-       "reliability": 0.9951
-      },
-      "metrics": {
-       "business_raw": 17169.55,
-       "continuity": 1.0,
-       "on_time_rate": 0.9951
-      },
-      "reward": 0.8451
-     },
-     "rule-based": {
-      "components": {
-       "business": 0.7,
-       "continuity": 1.0,
-       "reliability": 1.0
-      },
-      "metrics": {
-       "business_raw": 14433.76,
-       "continuity": 1.0,
-       "on_time_rate": 1.0
-      },
-      "reward": 0.79
-     },
-     "ship-only": {
-      "components": {
-       "business": 0.1578,
-       "continuity": 1.0,
-       "reliability": 0.0898
-      },
-      "metrics": {
-       "business_raw": -4078.53,
-       "continuity": 1.0,
-       "on_time_rate": 0.0898
-      },
-      "reward": 0.2284
-     },
-     "stop-early": {
-      "components": {
-       "business": 0.175,
-       "continuity": 0.3,
-       "reliability": 0.2587
-      },
-      "metrics": {
-       "business_raw": -3490.61,
-       "continuity": 0.3,
-       "on_time_rate": 0.2587
-      },
-      "reward": 0.2042
-     }
-    },
-    "bundle": "254d6bc2f7c90fa9",
-    "components": {
-     "business": {
-      "scale": 34142.6,
-      "zero": -9466.06
-     }
-    },
-    "oracle": "reference",
-    "seed": 7,
-    "threshold": 0.78
-   }
-  },
   "root-cause": {
    "7": {
     "anchors": {
@@ -119,7 +12,25 @@
       },
       "reward": 0.0
      },
+     "blind": {
+      "components": {
+       "normalized_profit": 0.0
+      },
+      "metrics": {
+       "normalized_profit": 0.0
+      },
+      "reward": 0.0
+     },
      "do-nothing": {
+      "components": {
+       "normalized_profit": 0.0
+      },
+      "metrics": {
+       "normalized_profit": 0.0
+      },
+      "reward": 0.0
+     },
+     "ec-rules": {
       "components": {
        "normalized_profit": 0.0
       },
@@ -130,92 +41,27 @@
      },
      "reference": {
       "components": {
-       "normalized_profit": 0.6662
+       "normalized_profit": 0.882
       },
       "metrics": {
-       "normalized_profit": 0.6662
+       "normalized_profit": 0.882
       },
-      "reward": 0.6662
-     },
-     "rule-based": {
-      "components": {
-       "normalized_profit": 0.0355
-      },
-      "metrics": {
-       "normalized_profit": 0.0355
-      },
-      "reward": 0.0355
+      "reward": 0.882
      },
      "stop-early": {
       "components": {
-       "normalized_profit": 0.0902
+       "normalized_profit": 0.0
       },
       "metrics": {
-       "normalized_profit": 0.0902
+       "normalized_profit": 0.0
       },
-      "reward": 0.0902
+      "reward": 0.0
      }
     },
-    "bundle": "6bd5004b21948f40",
+    "bundle": "dd1be4c8a6d425aa",
     "components": {},
     "oracle": "reference",
     "seed": 7,
-    "threshold": null
-   }
-  },
-  "shift-planner": {
-   "0": {
-    "anchors": {
-     "absentee": {
-      "components": {
-       "on_time_value": 0.0
-      },
-      "metrics": {
-       "score": 0.0
-      },
-      "reward": 0.0
-     },
-     "do-nothing": {
-      "components": {
-       "on_time_value": 0.0
-      },
-      "metrics": {
-       "score": 0.0
-      },
-      "reward": 0.0
-     },
-     "earliest-deadline": {
-      "components": {
-       "on_time_value": 1.0
-      },
-      "metrics": {
-       "score": 1.0
-      },
-      "reward": 1.0
-     },
-     "reference": {
-      "components": {
-       "on_time_value": 1.0
-      },
-      "metrics": {
-       "score": 1.0
-      },
-      "reward": 1.0
-     },
-     "stop-early": {
-      "components": {
-       "on_time_value": 0.0
-      },
-      "metrics": {
-       "score": 0.0
-      },
-      "reward": 0.0
-     }
-    },
-    "bundle": "c20f97c1b814227f",
-    "components": {},
-    "oracle": "reference",
-    "seed": 0,
     "threshold": null
    }
   }

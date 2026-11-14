@@ -1,369 +1,226 @@
-"""Root Cause simulator: determinism, atomic plans, shared budgets, tests, reads, bounds of the episode."""
-import copy
+"""Root Cause simulator: determinism, requests, tests, the incident, views and failure modes."""
 import json
+from pathlib import Path
 import unittest
 
+from envkit.clients import run_inprocess
+from envkit.policies import make_policy
+from envkit.scenario import load_scenario
+
 from rootcause import outcome, views
-from rootcause.generator import generate
+from rootcause.model import step_bench
 from rootcause.sim import Greenhouse, RuleError
 
-ZONES = "ABCD"
+ROOT = Path(__file__).resolve().parents[1]
+SCENARIO = load_scenario(ROOT / "scenarios" / "root-cause.toml")
+CONFIG = dict(SCENARIO.env_config)
+SEED = 7
 
 
-def plan(irrigation=230.0, fertilizer=120.0, flush=0.0, **overrides):
-    out = {z: {"irrigation_l": irrigation, "fertilizer_g": fertilizer, "flush_l": flush} for z in ZONES}
-    for zone, values in overrides.items():
-        out[zone].update(values)
+def sim(seed=SEED):
+    return Greenhouse(CONFIG, seed)
+
+
+def plan(mains=230.0, fertilizer=90.0, flush=0.0, reserve=0.0, **overrides):
+    out = {z: {"mains_l": mains, "reserve_l": reserve, "fertilizer_g": fertilizer, "flush_l": flush} for z in "ABC"}
+    for bench, values in overrides.items():
+        out[bench].update(values)
     return out
 
 
-def fingerprint(sim):
-    """Everything that defines the state of a run, as comparable JSON."""
-    return json.dumps({
-        "day": sim.day, "fresh": sim.fresh_water_l, "plan": sim.plan, "costs": sim.costs, "used": sim.used,
-        "tests": sim.tests, "events": sim.events, "days": sim.days, "mornings": sim.mornings,
-        "zones": {z: [zone.volume, zone.nutrient, zone.salt, zone.condition, zone.harvest]
-                  for z, zone in sim.zones.items()},
-        "plans_submitted": sim.plans_submitted,
-    }, sort_keys=True)
-
-
-def play(seed, script):
-    """script: one entry per day, each a list of ('plan', {...}) / ('test', zone) requests."""
-    sim = Greenhouse({}, seed)
-    for requests in script:
-        for kind, arg in requests:
-            if kind == "plan":
-                sim.submit_plan(arg)
-            else:
-                sim.order_test(arg, "composition")
-        sim.advance()
-    sim.finish()
-    return sim
+def fingerprint(g):
+    return json.dumps({"day": g.day, "reserve": g.reserve_l, "costs": g.costs,
+                       "benches": {z: [b.volume, b.nutrient, b.salt, b.condition, b.harvest]
+                                   for z, b in g.benches.items()}}, sort_keys=True)
 
 
 class DeterminismTests(unittest.TestCase):
-    SCRIPT = [[("test", "A"), ("test", "C"), ("plan", plan(B={"fertilizer_g": 0.0}))],
-              [("plan", plan(300, 200, C={"flush_l": 400.0}))],
-              [], [("plan", plan(150, 0))], [("test", "B")]]
-
     def test_same_seed_and_actions_give_the_same_outcome(self):
-        a, b = play(7, self.SCRIPT), play(7, self.SCRIPT)
+        a, b = sim(), sim()
+        for g in (a, b):
+            g.submit_plan(plan(reserve=50.0))
+            g.advance()
+            g.finish()
         self.assertEqual(fingerprint(a), fingerprint(b))
-        self.assertEqual(outcome.ledger(a), outcome.ledger(b))
-        self.assertEqual(outcome.report(a), outcome.report(b))
 
     def test_different_seeds_differ(self):
-        self.assertNotEqual(outcome.ledger(play(7, self.SCRIPT))["profit_eur"],
-                            outcome.ledger(play(8, self.SCRIPT))["profit_eur"])
+        self.assertNotEqual(sim(1).instance.backup_salt_g_l, sim(2).instance.backup_salt_g_l)
 
-    def test_weather_forecasts_and_sensor_noise_do_not_depend_on_what_the_player_does(self):
-        idle, busy = Greenhouse({}, 7), Greenhouse({}, 7)
-        for _ in range(25):                       # extra reads and tests must not shift any random stream
-            views.status(busy), views.forecast(busy), views.history(busy, "A", 0, None)
-        busy.order_test("A", "composition")
-        busy.submit_plan(plan(300, 900, flush=100))
-        self.assertEqual(idle.instance, busy.instance)
-        for _ in range(14):
-            self.assertEqual(views.forecast(idle), views.forecast(busy))
-            idle.advance(), busy.advance()
-        self.assertEqual([d["temp_c"] for d in idle.days], [d["temp_c"] for d in busy.days])
-        self.assertEqual(generate({}, 7), generate({}, 7))
-
-    def test_forecasts_never_contain_the_realized_future(self):
-        sim = Greenhouse({}, 7)
-        issued = [d["temp_c"] for d in views.forecast(sim)["days"]]
-        self.assertEqual(len(issued), sim.p.forecast_days)
-        self.assertNotEqual(issued, list(sim.instance.temps[:len(issued)]))
-        self.assertNotIn("temp_c", views.history(sim, "A", 0, None)["days"][0])   # day 0 has not happened yet
-        sim.advance()
-        self.assertEqual(views.history(sim, "A", 0, None)["days"][0]["temp_c"], sim.instance.temps[0])
+    def test_exogenous_draws_do_not_depend_on_what_the_player_does(self):
+        quiet, busy = sim(), sim()
+        for _ in range(3):
+            busy.order_water_test() if busy.day not in {t["sampled_day"] for t in busy.tests} else None
+            views.status(busy)
+            busy.submit_plan(plan(100.0, 300.0, reserve=100.0))
+            busy.advance()
+            quiet.advance()
+        self.assertEqual(quiet.instance, busy.instance)
+        self.assertEqual([m["A"]["day"] for m in quiet.mornings], [m["A"]["day"] for m in busy.mornings])
 
 
-class PlanTests(unittest.TestCase):
-    def setUp(self):
-        self.sim = Greenhouse({}, 7)
-
-    def rejected(self, zone_plans):
-        before = fingerprint(self.sim)
-        with self.assertRaises(RuleError) as caught:
-            self.sim.submit_plan(zone_plans)
-        self.assertEqual(fingerprint(self.sim), before, "a rejected plan must change nothing")
-        return str(caught.exception)
-
-    def test_malformed_plans_are_rejected_without_any_change(self):
-        cases = {
-            "not an object": [1, 2, 3],
-            "missing zone": {z: plan()[z] for z in "ABC"},
-            "unknown zone": {**plan(), "E": plan()["A"]},
-            "missing field": plan(A={}) | {"A": {"irrigation_l": 1.0}},
-            "unknown field": plan(A={"water": 5.0}),
-            "negative": plan(A={"irrigation_l": -1.0}),
-            "nan": plan(A={"fertilizer_g": float("nan")}),
-            "infinity": plan(A={"flush_l": float("inf")}),
-            "string": plan(A={"irrigation_l": "lots"}),
-            "boolean": plan(A={"irrigation_l": True}),
-            "zone not an object": {**plan(), "A": 220},
-            "too much irrigation": plan(A={"irrigation_l": self.sim.p.irrigation_max_l + 1}),
-            "too much fertilizer": plan(A={"fertilizer_g": self.sim.p.fertilizer_max_g + 1}),
-            "flush beyond pumpable": plan(A={"flush_l": self.sim.pumpable_l("A") + 1}),
-        }
-        for name, bad in cases.items():
-            with self.subTest(name):
-                self.assertIn("nothing was changed", self.rejected(bad))
-
+class RequestTests(unittest.TestCase):
     def test_error_names_every_problem_so_it_can_be_fixed_in_one_go(self):
-        message = self.rejected({"A": {"irrigation_l": -5.0, "fertilizer_g": 10.0, "flush_l": 0.0}, "Z": {}})
-        for expected in ("unknown zone(s) ['Z']", "missing zone(s) ['B', 'C', 'D']", "zone A: irrigation_l must not be negative"):
-            self.assertIn(expected, message)
+        g = sim()
+        with self.assertRaises(RuleError) as cm:
+            g.submit_plan({"A": {"mains_l": -1, "reserve_l": 0, "fertilizer_g": 9999, "flush_l": 0},
+                           "B": {"mains_l": 400, "reserve_l": 200, "fertilizer_g": 0, "flush_l": 0, "x": 1}})
+        message = str(cm.exception)
+        for fragment in ("missing bench(es) ['C']", "must not be negative", "fertilizer_g 9999",
+                         "unknown field(s) ['x']", "top-up limit"):
+            self.assertIn(fragment, message)
+        self.assertIsNone(g.plan)
 
-    def test_plan_over_the_daily_cap_is_rejected_whole(self):
-        cap = self.sim.p.daily_fresh_water_cap_l
-        message = self.rejected(plan(irrigation=cap / 4 + 1))
-        self.assertIn(f"only {cap:.1f} L can be delivered", message)
-        self.assertIn("Reduce irrigation or flush by at least 4.0 L", message)
-        self.sim.submit_plan(plan(irrigation=cap / 4))            # exactly at the cap is fine
-        self.assertEqual(self.sim.plan["A"]["irrigation_l"], cap / 4)
-
-    def test_flush_counts_against_the_same_shared_water(self):
-        cap = self.sim.p.daily_fresh_water_cap_l
-        self.rejected(plan(irrigation=cap / 4, A={"flush_l": 0.5}))
-        self.assertTrue(self.sim.submit_plan(plan(irrigation=cap / 4 - 100, A={"flush_l": 400.0}))["accepted"])
-
-    def test_plan_cannot_draw_more_than_the_allocation_left(self):
-        self.sim.fresh_water_l = 500.0
-        message = self.rejected(plan(irrigation=200))
-        self.assertIn("500.0 L left in the allocation", message)
-        self.sim.submit_plan(plan(irrigation=125))
-        self.sim.advance()
-        self.assertAlmostEqual(self.sim.fresh_water_l, 0.0)
-        self.rejected(plan(irrigation=0.1))                        # nothing left: water is never created
-        self.sim.submit_plan(plan(irrigation=0, fertilizer=50))
-
-    def test_no_zone_is_favored_when_the_default_plan_cannot_be_supplied(self):
-        self.sim.fresh_water_l = 460.0                             # half of what four default irrigations need
-        applied, source = self.sim.effective_plan()
-        self.assertEqual(source, "default_scaled")
-        self.assertEqual({round(zp["irrigation_l"], 6) for zp in applied.values()}, {115.0})
-        self.sim.advance()
-        self.assertAlmostEqual(self.sim.fresh_water_l, 0.0)
-        self.assertEqual(self.sim.days[0]["plan_source"], "default_scaled")
+    def test_the_reserve_is_shared_and_limited(self):
+        g = sim()
+        with self.assertRaises(RuleError):
+            g.submit_plan(plan(0.0, reserve=g.reserve_l / 3 + 1.0))
+        g.submit_plan(plan(0.0, reserve=400.0))
+        g.advance()
+        self.assertAlmostEqual(g.reserve_l, g.instance.reserve_l - 1200.0)
+        self.assertAlmostEqual(g.costs["reserve_water"], 1200.0 * g.p.reserve_price_per_l)
 
     def test_resubmitting_replaces_the_plan_and_nothing_is_charged_until_the_day_runs(self):
-        self.sim.submit_plan(plan(100, 50))
-        summary = self.sim.submit_plan(plan(200, 200, A={"flush_l": 100.0}))["plan"]
-        self.assertEqual(self.sim.plans_submitted, 1)
-        self.assertEqual((sum(self.sim.costs.values()), self.sim.fresh_water_l), (0.0, self.sim.instance.fresh_water_l))
-        self.assertEqual(summary["fresh_water_l"], 900.0)
-        self.assertEqual(summary["immediate_cost"], {"water_eur": 18.0, "fertilizer_eur": 16.0, "discharge_eur": 1.0,
-                                                     "total_eur": 35.0})
-        self.sim.advance()
-        self.assertAlmostEqual(self.sim.costs["water"], 18.0)
-        self.assertAlmostEqual(self.sim.costs["fertilizer"], 16.0)
-        self.assertAlmostEqual(self.sim.costs["discharge"], 1.0)
-        self.assertEqual(self.sim.days[0]["zones"]["A"]["plan"], {"irrigation_l": 200.0, "fertilizer_g": 200.0, "flush_l": 100.0})
+        g = sim()
+        g.submit_plan(plan(100.0))
+        g.submit_plan(plan(200.0))
+        self.assertEqual(sum(g.costs.values()), 0.0)
+        g.advance()
+        self.assertEqual(g.days[0]["benches"]["A"]["plan"]["mains_l"], 200.0)
+        self.assertEqual(g.plans_submitted, 1)
 
     def test_a_plan_lasts_one_day(self):
-        self.sim.submit_plan(plan(300, 0))
-        self.sim.advance()
-        self.sim.advance()
-        self.assertEqual([d["plan_source"] for d in self.sim.days], ["submitted", "default"])
-        self.assertEqual(self.sim.days[1]["zones"]["A"]["plan"], self.sim.default_plan()["A"])
+        g = sim()
+        g.submit_plan(plan(100.0, reserve=50.0))
+        g.advance()
+        g.advance()
+        self.assertEqual([d["plan_source"] for d in g.days], ["submitted", "default"])
 
     def test_plan_summary_reveals_no_outcome(self):
-        text = json.dumps(self.sim.submit_plan(plan())["plan"])
-        for hidden in ("growth", "harvest", "nutrient_g_l", "salt", "stress", "profit", "temp"):
-            self.assertNotIn(hidden, text)
+        summary = sim().submit_plan(plan())["plan"]
+        self.assertFalse({"growth_kg", "condition", "salt_g_l", "nutrient_g_l"} & set(json.dumps(summary).split('"')))
 
 
-class LabTests(unittest.TestCase):
-    def setUp(self):
-        self.sim = Greenhouse({}, 7)
+class TestAndIncidentTests(unittest.TestCase):
+    def test_tests_are_charged_once_at_order_time_and_arrive_next_morning_stamped(self):
+        g = sim()
+        g.order_test("B")
+        g.order_water_test()
+        self.assertEqual(g.costs["tests"], g.p.test_price + g.p.water_test_price)
+        with self.assertRaises(RuleError):
+            g.order_test("B")
+        self.assertTrue(all("result" not in t for t in views.tests(g)["pending"]))
+        report = g.advance()
+        delivered = {t["test_type"]: t for t in report["tests_delivered"]}
+        self.assertEqual(set(delivered), {"composition", "mains_water"})
+        self.assertEqual(delivered["composition"]["sampled_day"], 0)
+        self.assertAlmostEqual(delivered["mains_water"]["result"]["salt_g_l"], g.p.mains_salt_g_l)
 
-    def test_cost_is_charged_once_at_order_time(self):
-        price = self.sim.p.test_price
-        self.sim.order_test("B", "composition")
-        self.assertEqual(self.sim.costs["tests"], price)
-        for _ in range(3):
-            self.sim.advance()
-        self.assertEqual(self.sim.costs["tests"], price)
-        self.assertEqual(outcome.ledger(play(7, [[("test", "B")]]))["cost_tests_eur"], price)
-
-    def test_duplicate_request_the_same_day_is_refused_and_free(self):
-        self.sim.order_test("B", "composition")
-        before = fingerprint(self.sim)
-        with self.assertRaises(RuleError) as caught:
-            self.sim.order_test("B", "composition")
-        self.assertIn("Nothing was charged", str(caught.exception))
-        self.assertEqual(fingerprint(self.sim), before)
-        self.sim.order_test("C", "composition")                    # another zone is a different sample
-        self.sim.advance()
-        self.sim.order_test("B", "composition")                    # so is the same zone on another day
-        self.assertEqual(self.sim.costs["tests"], 3 * self.sim.p.test_price)
-
-    def test_invalid_requests_change_and_charge_nothing(self):
-        before = fingerprint(self.sim)
-        for zone, kind in (("E", "composition"), ("A", "dna"), (None, "composition"), ("A", None), (7, 7)):
-            with self.assertRaises(RuleError):
-                self.sim.order_test(zone, kind)
-        self.assertEqual(fingerprint(self.sim), before)
-
-    def test_result_arrives_after_one_day_and_describes_the_sample_time(self):
-        truth = self.sim.truth[0]["C"]
-        ordered = self.sim.order_test("C", "composition")
-        self.assertEqual((ordered["sampled_day"], ordered["delivery_day"], ordered["status"]), (0, 1, "pending"))
-        self.assertNotIn("result", ordered)
-        self.assertNotIn("result", views.tests(self.sim)["pending"][0])
-        self.assertNotIn("nutrient_g_l", json.dumps(views.status(self.sim)))
-
-        self.sim.submit_plan(plan(C={"flush_l": 500.0, "fertilizer_g": 900.0}))   # change the zone after sampling
-        report = self.sim.advance()
-        (delivered,) = report["tests_delivered"]
-        self.assertEqual((delivered["sampled_day"], delivered["delivery_day"], delivered["status"]), (0, 1, "delivered"))
-        self.assertIn("before that day's plan", delivered["sample_time"])
-        result = delivered["result"]
-        self.assertAlmostEqual(result["nutrient_g_l"], truth["nutrient_g_l"], places=3)
-        self.assertAlmostEqual(result["salt_g_l"], truth["salt_g_l"], places=3)
-        self.assertEqual(result["volume_l"], self.sim.mornings[0]["C"]["volume_l"])
-        now = self.sim.truth[1]["C"]
-        self.assertGreater(abs(now["salt_g_l"] - result["salt_g_l"]), 0.3, "the zone has moved on since the sample")
-        self.assertEqual(views.status(self.sim)["zones"][2]["latest_test"]["sampled_day"], 0)
+    def test_the_incident_is_announced_on_its_day_and_changes_only_the_mains_water(self):
+        g = sim()
+        day = g.instance.incident_day
+        self.assertEqual(views.status(g)["notices"], [])
+        while g.day < day:
+            g.advance()
+        notices = views.status(g)["notices"]
+        self.assertEqual(len(notices), 1)
+        self.assertIn("backup source", notices[0])
+        self.assertNotIn("salt", notices[0].lower())          # the notice does not name the cause
+        g.order_water_test()
+        g.advance()
+        measured = [t for t in g.tests if t["test_type"] == "mains_water"][0]["result"]["salt_g_l"]
+        self.assertAlmostEqual(measured, g.instance.backup_salt_g_l, 3)
+        self.assertGreater(measured, 5 * g.p.mains_salt_g_l)
 
     def test_a_result_can_be_rolled_forward_with_the_public_rules(self):
-        """The sample plus the published daily update reproduce today's hidden state."""
-        from rootcause.model import step_zone
-        sim = self.sim
-        sim.order_test("C", "composition")
-        sim.submit_plan(plan(C={"flush_l": 400.0, "fertilizer_g": 700.0, "irrigation_l": 150.0}))
-        report = sim.advance()
-        result = report["tests_delivered"][0]["result"]
-        spec = next(z for z in sim.instance.zones if z.id == "C")
-        rolled = step_zone(sim.p, spec.growth_max_kg, spec.transp_base_l, result["volume_l"],
-                           result["nutrient_g_l"] * result["volume_l"], result["salt_g_l"] * result["volume_l"],
-                           sim.mornings[0]["C"]["condition"], 150.0, 700.0, 400.0, report["temp_c"])
-        self.assertAlmostEqual(rolled.nutrient_g, sim.zones["C"].nutrient, delta=1.5)
-        self.assertAlmostEqual(rolled.salt_g, sim.zones["C"].salt, delta=1.5)
+        g = sim()
+        g.order_test("A")
+        bench_plan = plan(180.0, 150.0, flush=100.0)
+        g.submit_plan(bench_plan)
+        morning = g.mornings[0]["A"]
+        g.advance()
+        r = [t for t in g.tests if t["target"] == "A"][0]["result"]
+        b = g.benches["A"]
+        step = step_bench(g.p, b.spec.growth_max_kg, b.spec.transp_base_l, r["volume_l"],
+                          r["nutrient_g_l"] * r["volume_l"], r["salt_g_l"] * r["volume_l"], morning["condition"],
+                          180.0, 0.0, 150.0, 100.0, g.days[0]["temp_c"], 0, g.p.mains_salt_g_l)
+        self.assertAlmostEqual(step.nutrient_g, b.nutrient, delta=1.0)
+        self.assertAlmostEqual(step.salt_g, b.salt, delta=1.0)
 
-    def test_late_tests_stay_charged_and_are_delivered_at_the_end(self):
-        sim = self.sim
-        for _ in range(13):
-            sim.advance()
-        sim.order_test("A", "composition")
-        sim.finish()
-        self.assertTrue(sim.tests[0]["delivered"])
-        self.assertEqual(outcome.ledger(sim)["cost_tests_eur"], sim.p.test_price)
+    def test_day_zero_lab_report_is_exact(self):
+        g = sim()
+        for z, rep in g.lab_report.items():
+            b = g.benches[z]
+            self.assertAlmostEqual(rep["nutrient_g_l"] * rep["volume_l"], b.nutrient, delta=0.5)
+            self.assertAlmostEqual(rep["salt_g_l"] * rep["volume_l"], b.salt, delta=0.5)
 
 
-class ReadTests(unittest.TestCase):
+class ViewTests(unittest.TestCase):
     def test_reads_are_repeatable_and_change_nothing(self):
-        sim = Greenhouse({}, 7)
-        sim.order_test("A", "composition")
-        sim.submit_plan(plan())
-        sim.advance()
-        before = fingerprint(sim)
-        reads = [lambda: views.status(sim), lambda: views.rules(sim), lambda: views.forecast(sim),
-                 lambda: views.tests(sim), lambda: views.events(sim, 0), lambda: views.history(sim, "A", 0, None),
-                 lambda: sim.plan_summary(*sim.effective_plan()), lambda: outcome.ledger(sim)]
-        for read in reads:
-            first = copy.deepcopy(read())
-            for _ in range(5):
-                self.assertEqual(read(), first)
-        self.assertEqual(fingerprint(sim), before)
+        g = sim()
+        before = fingerprint(g)
+        first = json.dumps([views.rules(g), views.status(g), views.history(g, "A", 0, None), views.tests(g)])
+        second = json.dumps([views.rules(g), views.status(g), views.history(g, "A", 0, None), views.tests(g)])
+        self.assertEqual(first, second)
+        self.assertEqual(fingerprint(g), before)
 
     def test_a_returned_view_cannot_be_used_to_edit_the_simulator(self):
-        sim = Greenhouse({}, 7)
-        status = views.status(sim)
-        status["fresh_water"]["left_l"] = 10 ** 9
-        status["zones"][0]["volume_l"] = 0
-        views.rules(sim)["parameters"]["price_per_kg"] = 10 ** 6
-        sim.default_plan()["A"]["irrigation_l"] = 0
-        self.assertEqual(views.status(sim)["fresh_water"]["left_l"], sim.instance.fresh_water_l)
-        self.assertEqual(sim.p.price_per_kg, 2.0)
-        self.assertEqual(sim.default_plan()["A"]["irrigation_l"], sim.p.default_irrigation_l)
+        g = sim()
+        status = views.status(g)
+        status["benches"][0]["volume_l"] = 1e9
+        status["lab_report_day_0"]["A"]["salt_g_l"] = 0
+        self.assertNotEqual(views.status(g)["benches"][0]["volume_l"], 1e9)
+        self.assertNotEqual(g.lab_report["A"]["salt_g_l"], 0)
 
-    def test_live_views_never_expose_hidden_state(self):
-        sim = Greenhouse({}, 7)
-        sim.advance()
-        future = [t for t in sim.instance.temps[sim.day:]]
-        text = json.dumps([views.status(sim), views.rules(sim), views.forecast(sim), views.tests(sim),
-                           views.events(sim, 0), views.history(sim, "C", 0, None)])
-        for hidden in ("salty_hungry", "starting_composition", "hidden_morning", "\"factors\"", "realized_temps",
-                       "midday_ec", "\"nutrient_g_l\"", "\"salt_g_l\""):
-            self.assertNotIn(hidden, text)
-        self.assertNotIn(json.dumps(future)[1:-1], text)
+    def test_rules_publish_every_parameter_but_not_the_incident(self):
+        g = sim()
+        rules = json.dumps(views.rules(g))
+        for name in g.p.as_dict():
+            self.assertIn(name, rules)
+        self.assertNotIn(f"{g.instance.backup_salt_g_l}", rules)
+        self.assertNotIn("incident_day", rules)
+
+    def test_the_analysis_view_refuses_until_the_end(self):
+        g = sim()
         with self.assertRaises(RuleError):
-            outcome.report(sim)                                     # the analysis view opens only at the end
-        sim.finish()
-        self.assertIn("starting_composition_type", json.dumps(outcome.report(sim)))
+            outcome.report(g)
+        g.finish()
+        self.assertEqual(outcome.report(g)["incident"]["backup_salt_g_l"], g.instance.backup_salt_g_l)
 
 
-class EpisodeBoundTests(unittest.TestCase):
-    def test_exactly_fourteen_days_then_everything_is_refused(self):
-        sim = Greenhouse({}, 7)
-        for expected in range(14):
-            self.assertEqual(sim.day, expected)
-            sim.advance()
-        self.assertTrue(sim.done)
-        before = fingerprint(sim)
-        for request in (sim.advance, lambda: sim.submit_plan(plan()), lambda: sim.order_test("A", "composition")):
-            with self.assertRaises(RuleError):
-                request()
-        sim.finish()                                                # harmless once over
-        self.assertEqual(fingerprint(sim).replace('"finished"', ""), before.replace('"finished"', ""))
-        self.assertEqual(len(sim.days), 14)
+class FailureModeTests(unittest.TestCase):
+    """Each comparator fails in its own recognizable way; the analysis must say so."""
 
-    def test_doing_nothing_runs_the_default_plan_to_the_last_day(self):
-        sim = Greenhouse({}, 7)
-        sim.finish()
-        self.assertEqual((sim.day, len(sim.days)), (14, 14))
-        self.assertTrue(all(d["plan_source"].startswith("default") for d in sim.days))
-        ledger = outcome.ledger(sim)
-        self.assertEqual((ledger["profit_eur"], ledger["normalized_profit"]), (ledger["profit_floor_eur"], 0.0))
+    def modes(self, name, seed=SEED):
+        ep = run_inprocess(SCENARIO, seed, make_policy(name, SCENARIO))
+        ep.result()
+        return outcome.failure_modes(ep.env.sim)
 
-    def test_stopping_early_is_scored_at_the_same_final_day_as_playing_on(self):
-        script = [[("plan", plan(250, 300, C={"flush_l": 500.0}))], [("plan", plan(250, 200))]]
-        stopped = Greenhouse({}, 7)
-        for requests in script:
-            stopped.submit_plan(requests[0][1])
-            stopped.advance()
-        frozen = outcome.profit(stopped)                            # what stopping would freeze, if it could
-        stopped.finish()
+    def test_doing_nothing_loses_to_salt(self):
+        fm = self.modes("do-nothing")
+        self.assertEqual(fm["dominant_loss"], "salinity")
+        self.assertIsNone(fm["first_test_after_notice_day"])
+        self.assertEqual(fm["default_plan_days"], 6)
 
-        walked = Greenhouse({}, 7)
-        for requests in script:
-            walked.submit_plan(requests[0][1])
-            walked.advance()
-        while not walked.done:
-            walked.advance()                                        # same thing, one explicit day at a time
-        self.assertEqual(outcome.ledger(stopped), outcome.ledger(walked))
-        self.assertEqual(stopped.day, 14)
-        self.assertNotEqual(round(frozen, 2), outcome.ledger(stopped)["profit_eur"])
-        self.assertEqual([d["plan_source"] for d in stopped.days], ["submitted"] * 2 + ["default"] * 12)
+    def test_ec_rules_misread_the_rise_and_starve_the_crop(self):
+        fm = self.modes("ec-rules")
+        self.assertGreater(fm["fed_less_while_short_bench_days"], 3)
+        self.assertGreater(fm["flushed_after_incident_l"], 0.0)
+        self.assertEqual(fm["reserve_used_l"], 0.0)
+        self.assertGreater(fm["crop_lost_eur"]["nutrient"], 50.0)
 
-    def test_a_plan_submitted_before_stopping_still_runs_for_its_day(self):
-        sim = Greenhouse({}, 7)
-        sim.submit_plan(plan(400, 0))
-        sim.finish()
-        self.assertEqual([d["plan_source"] for d in sim.days][:2], ["submitted", "default"])
+    def test_the_blind_planner_never_uses_the_reserve_and_loses_to_salt(self):
+        fm = self.modes("blind")
+        self.assertEqual((fm["dominant_loss"], fm["reserve_used_l"]), ("salinity", 0.0))
+        self.assertIsNone(fm["first_test_after_notice_day"])
 
-    def test_unused_inventory_is_worth_nothing(self):
-        thrifty, lavish = Greenhouse({}, 7), Greenhouse({}, 7)
-        thrifty.finish()
-        self.assertGreater(thrifty.fresh_water_l, 0)
-        ledger = outcome.ledger(thrifty)
-        # Each figure is rounded to the cent on its own, so the identity holds to within a cent.
-        self.assertAlmostEqual(ledger["profit_eur"], ledger["revenue_eur"] - ledger["cost_total_eur"], delta=0.011)
-        self.assertAlmostEqual(ledger["revenue_eur"], 2.0 * ledger["harvest_kg"], places=1)
-        del lavish
-
-    def test_two_runs_do_not_share_state(self):
-        a, b = Greenhouse({}, 7), Greenhouse({}, 7)
-        a.order_test("A", "composition")
-        a.submit_plan(plan(400, 1000))
-        a.advance()
-        self.assertEqual(fingerprint(b), fingerprint(Greenhouse({}, 7)))
-        b.finish()
-        self.assertEqual(outcome.ledger(b)["normalized_profit"], 0.0)
+    def test_the_reference_tests_on_the_notice_day_and_avoids_most_losses(self):
+        fm = self.modes("reference")
+        nothing = self.modes("do-nothing")
+        self.assertEqual(fm["days_to_first_test"], 0)
+        self.assertEqual(fm["mains_test_day"], fm["incident_day"])
+        self.assertGreater(fm["reserve_used_l"], 1000.0)
+        self.assertLess(sum(fm["crop_lost_eur"].values()), 0.5 * sum(nothing["crop_lost_eur"].values()))
+        self.assertEqual(fm["fed_less_while_short_bench_days"], 0)
 
 
 if __name__ == "__main__":

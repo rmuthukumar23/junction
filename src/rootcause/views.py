@@ -152,7 +152,7 @@ def status(sim: Any) -> dict[str, Any]:
         "crop_gain_so_far_kg": round(gain, 1),
         "crop_value_so_far_eur": round(gain * p.price_per_kg, 2),
         "benches": [_bench_view(sim, b) for b in sim.benches],
-        "lab_report_day_0": sim.lab_report,
+        "lab_report_day_0": {z: dict(r) for z, r in sim.lab_report.items()},
         "notices": [e["text"] for e in sim.events if e["kind"] == "notice"],
         "tests_pending": sum(1 for t in sim.tests if not t["delivered"]),
         "tests_delivered_today": [sim.public_test(t) for t in sim.tests

@@ -171,3 +171,16 @@ def test_stop_after_plays_a_prefix(scenario):
     part = run_inprocess(scenario, 7, make_policy("stop-after:reference@10", scenario))
     assert [r["digest"] for r in part.trace.calls] == [r["digest"] for r in full.trace.calls[:10]]
     assert part.result()["stopped_early"]
+
+
+def test_call_limit_stops_the_episode_and_counts_every_request():
+    import dataclasses
+    base = _strict_scenario()
+    scenario = dataclasses.replace(base, shift=dataclasses.replace(base.shift, max_calls=3))
+    ep = Episode(scenario, 0)
+    ep.call("observe", {})
+    ep.call("no_such_tool", {})                 # refused requests count too
+    assert not ep.done
+    r = ep.call("observe", {})
+    assert r["header"]["done"] and ep.end_reason == "call_limit" and ep.result()["stopped_early"]
+    assert ep.call("observe", {})["error"]["code"] == "episode_over"

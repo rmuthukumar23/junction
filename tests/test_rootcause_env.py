@@ -1,4 +1,4 @@
-"""Root Cause on the envkit backend: tools, time, fixed-horizon scoring, replay and tampering."""
+"""Root Cause (lettuce incident) on the envkit backend: tools, time, fixed-horizon scoring, replay and tampering."""
 import json
 import math
 from pathlib import Path
@@ -22,26 +22,29 @@ ROOT = Path(__file__).resolve().parents[1]
 SCENARIO = load_scenario(ROOT / "scenarios" / "root-cause.toml")
 SEED = SCENARIO.seeds[0]
 VERIFIER_BUNDLE = ROOT / "tasks" / task_name(SCENARIO, SEED) / "tests" / "bundle"
-REQUIRED_TOOLS = {"get_status", "get_history", "get_forecast", "get_pending_tests", "order_test",
+REQUIRED_TOOLS = {"get_status", "get_history", "get_tests", "order_test", "order_water_test",
                   "submit_day_plan", "advance_day", "finish_episode"}
+DAYS = 6
 
 
-def plan(irrigation=230.0, fertilizer=120.0, flush=0.0, **overrides):
-    out = {z: {"irrigation_l": irrigation, "fertilizer_g": fertilizer, "flush_l": flush} for z in "ABCD"}
-    for zone, values in overrides.items():
-        out[zone].update(values)
+def plan(mains=230.0, fertilizer=90.0, flush=0.0, reserve=0.0, **overrides):
+    out = {z: {"mains_l": mains, "reserve_l": reserve, "fertilizer_g": fertilizer, "flush_l": flush} for z in "ABC"}
+    for bench, values in overrides.items():
+        out[bench].update(values)
     return out
 
 
 # A fixed, mixed sequence of requests: reads, tests, plans, an invalid plan, advances.
 ACTIONS = [
-    ("get_rules", {}), ("get_status", {}), ("order_test", {"zone_id": "C"}), ("order_test", {"zone_id": "B"}),
-    ("submit_day_plan", {"zone_plans": plan(C={"fertilizer_g": 400.0})}), ("advance_day", {}),
-    ("get_pending_tests", {}), ("submit_day_plan", {"zone_plans": plan(900.0)}),          # rejected: over the cap
-    ("submit_day_plan", {"zone_plans": plan(250.0, 150.0, C={"flush_l": 450.0, "fertilizer_g": 900.0},
-                                            B={"fertilizer_g": 0.0})}),
-    ("advance_day", {}), ("get_history", {"zone_id": "C"}), ("advance_day", {}),
-    ("submit_day_plan", {"zone_plans": plan(260.0, 140.0)}), ("advance_day", {}),
+    ("get_rules", {}), ("get_status", {}), ("order_test", {"bench_id": "C"}), ("order_test", {"bench_id": "B"}),
+    ("submit_day_plan", {"bench_plans": plan(C={"fertilizer_g": 300.0})}), ("advance_day", {}),
+    ("get_tests", {}), ("submit_day_plan", {"bench_plans": plan(900.0)}),          # rejected: over the top-up limit
+    ("order_water_test", {}),
+    ("submit_day_plan", {"bench_plans": plan(0.0, 120.0, reserve=230.0, C={"flush_l": 50.0, "fertilizer_g": 200.0},
+                                             B={"fertilizer_g": 60.0})}),
+    ("advance_day", {}), ("get_history", {"bench_id": "C"}),
+    ("submit_day_plan", {"bench_plans": plan(0.0, 100.0, reserve=230.0)}), ("advance_day", {}),
+    ("submit_day_plan", {"bench_plans": plan(40.0, 100.0, reserve=200.0)}), ("advance_day", {}),
 ]
 
 
@@ -51,9 +54,9 @@ def new_episode(seed=SEED, path=None):
 
 def state(episode):
     sim = episode.env.sim
-    return json.dumps({"day": sim.day, "fresh": sim.fresh_water_l, "plan": sim.plan, "costs": sim.costs,
-                       "tests": sim.tests, "zones": {z: [x.volume, x.nutrient, x.salt, x.condition, x.harvest]
-                                                     for z, x in sim.zones.items()}}, sort_keys=True)
+    return json.dumps({"day": sim.day, "reserve": sim.reserve_l, "plan": sim.plan, "costs": sim.costs,
+                       "tests": sim.tests, "benches": {z: [x.volume, x.nutrient, x.salt, x.condition, x.harvest]
+                                                       for z, x in sim.benches.items()}}, sort_keys=True)
 
 
 def run_actions(episode, actions=ACTIONS):
@@ -70,16 +73,16 @@ class ToolTests(unittest.TestCase):
     def test_the_contract_tools_exist_with_schemas(self):
         tools = {t["name"]: t for t in self.episode.describe_tools()}
         self.assertEqual(set(tools), REQUIRED_TOOLS | {"get_rules", "get_events"})
-        self.assertEqual(tools["order_test"]["input_schema"]["required"], ["zone_id"])
-        self.assertEqual(tools["submit_day_plan"]["input_schema"]["required"], ["zone_plans"])
+        self.assertEqual(tools["order_test"]["input_schema"]["required"], ["bench_id"])
+        self.assertEqual(tools["submit_day_plan"]["input_schema"]["required"], ["bench_plans"])
         self.assertEqual({n for n, t in tools.items() if t["cost"]}, {"advance_day"})
 
     def test_reads_never_move_time_or_change_state(self):
         before, header = state(self.episode), self.episode.header()
-        for _ in range(40):
-            for tool, args in (("get_status", {}), ("get_rules", {}), ("get_forecast", {}), ("get_pending_tests", {}),
-                               ("get_events", {}), ("get_history", {"zone_id": "A"}),
-                               ("get_history", {"zone_id": "D", "first_day": 0, "last_day": 5})):
+        for _ in range(15):    # 90 reads: within the call limit
+            for tool, args in (("get_status", {}), ("get_rules", {}), ("get_tests", {}),
+                               ("get_events", {}), ("get_history", {"bench_id": "A"}),
+                               ("get_history", {"bench_id": "C", "first_day": 0, "last_day": 5})):
                 response = self.call(tool, **args)
                 self.assertTrue(response["ok"], response)
         self.assertEqual(state(self.episode), before)
@@ -89,8 +92,9 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_only_advance_day_moves_time(self):
-        self.call("order_test", zone_id="A")
-        self.call("submit_day_plan", zone_plans=plan())
+        self.call("order_test", bench_id="A")
+        self.call("order_water_test")
+        self.call("submit_day_plan", bench_plans=plan())
         self.assertEqual(self.episode.header()["day"], 0)
         response = self.call("advance_day")
         self.assertEqual((response["result"]["completed_day"], response["header"]["day"]), (0, 1))
@@ -99,34 +103,36 @@ class ToolTests(unittest.TestCase):
     def test_malformed_and_out_of_range_requests_change_nothing(self):
         before = state(self.episode)
         bad = [
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": float("nan")})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": float("inf")})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": -math.inf})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": "abc"})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": None})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": True})}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": [plan()]}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": "A=220"}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": float("nan")})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": float("inf")})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": -math.inf})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": "abc"})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": None})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": True})}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": [plan()]}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": "A=220"}, "invalid_arguments"),
             ("submit_day_plan", {}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(), "profit_eur": 10 ** 9}, "invalid_arguments"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": -1.0})}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": plan(A={"irrigation_l": 1e9})}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": plan(A={"fertilizer_g": 1e9})}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": plan(A={"flush_l": 1e9})}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": {**plan(), "E": plan()["A"]}}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": {"A": plan()["A"]}}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": plan(A={"nutrient_g": 5000.0})}, "tool_error"),
-            ("submit_day_plan", {"zone_plans": plan(400.1)}, "tool_error"),
-            ("order_test", {"zone_id": "E"}, "tool_error"),
-            ("order_test", {"zone_id": 3}, "invalid_arguments"),
-            ("order_test", {"zone_id": "A", "test_type": "truth"}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(), "profit_eur": 10 ** 9}, "invalid_arguments"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": -1.0})}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": plan(A={"mains_l": 1e9})}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": plan(A={"fertilizer_g": 1e9})}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": plan(A={"flush_l": 1e9})}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": {**plan(), "E": plan()["A"]}}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": {"A": plan()["A"]}}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": plan(A={"nutrient_g": 5000.0})}, "tool_error"),
+            ("submit_day_plan", {"bench_plans": plan(0.0, reserve=900.0)}, "tool_error"),   # 2700 L > the reserve
+            ("submit_day_plan", {"bench_plans": plan(300.0, reserve=200.1)}, "tool_error"),  # over the top-up limit
+            ("order_test", {"bench_id": "E"}, "tool_error"),
+            ("order_test", {"bench_id": 3}, "invalid_arguments"),
+            ("order_test", {"bench_id": "A", "test_type": "truth"}, "invalid_arguments"),
+            ("order_water_test", {"source": "rain"}, "invalid_arguments"),
             ("order_test", {}, "invalid_arguments"),
-            ("get_history", {"zone_id": "Q"}, "tool_error"),
-            ("get_history", {"zone_id": "A", "first_day": -1}, "tool_error"),
-            ("get_history", {"zone_id": "A", "first_day": 1.5}, "invalid_arguments"),
+            ("get_history", {"bench_id": "Q"}, "tool_error"),
+            ("get_history", {"bench_id": "A", "first_day": -1}, "tool_error"),
+            ("get_history", {"bench_id": "A", "first_day": 1.5}, "invalid_arguments"),
             ("get_events", {"since_day": -3}, "tool_error"),
             ("advance_day", {"days": 3}, "invalid_arguments"),
-            ("set_state", {"fresh_water_l": 10 ** 9}, "unknown_tool"),
+            ("set_state", {"reserve_l": 10 ** 9}, "unknown_tool"),
             ("reset", {}, "unknown_tool"),
             ("get_analysis", {}, "unknown_tool"),
         ]
@@ -141,42 +147,61 @@ class ToolTests(unittest.TestCase):
 
     def test_a_rejected_plan_leaves_the_previous_plan_in_force(self):
         good = plan(200.0, 100.0)
-        self.assertTrue(self.call("submit_day_plan", zone_plans=good)["ok"])
-        error = self.call("submit_day_plan", zone_plans=plan(900.0))["error"]["message"]
+        self.assertTrue(self.call("submit_day_plan", bench_plans=good)["ok"])
+        error = self.call("submit_day_plan", bench_plans=plan(900.0))["error"]["message"]
         self.assertIn("nothing was changed", error)
         self.assertEqual(self.episode.env.sim.plan, good)
         self.call("advance_day")
-        self.assertEqual(self.episode.env.sim.days[0]["zones"]["A"]["plan"], good["A"])
+        self.assertEqual(self.episode.env.sim.days[0]["benches"]["A"]["plan"], good["A"])
 
     def test_duplicate_test_order_is_refused_and_charged_once(self):
-        self.assertTrue(self.call("order_test", zone_id="A")["ok"])
-        again = self.call("order_test", zone_id="A")
-        self.assertEqual(again["error"]["code"], "tool_error")
-        self.assertEqual(self.episode.env.sim.costs["tests"], 25.0)
-        self.assertEqual(len(self.call("get_pending_tests")["result"]["pending"]), 1)
+        self.assertTrue(self.call("order_test", bench_id="A")["ok"])
+        self.assertTrue(self.call("order_water_test")["ok"])
+        self.assertEqual(self.call("order_test", bench_id="A")["error"]["code"], "tool_error")
+        self.assertEqual(self.call("order_water_test")["error"]["code"], "tool_error")
+        self.assertEqual(self.episode.env.sim.costs["tests"], 30.0)
+        self.assertEqual(len(self.call("get_tests")["result"]["pending"]), 2)
 
     def test_hidden_state_is_never_in_a_live_response(self):
-        self.call("order_test", zone_id="A")
-        responses = run_actions(self.episode, ACTIONS[:10])
-        text = json.dumps(responses[:-1])   # everything before the test result's day
-        for hidden in ("salty_hungry", "composition_type", "hidden_morning", "realized_temps", "profit_floor"):
+        sim = self.episode.env.sim
+        responses = [self.call("get_rules"), self.call("get_status")]
+        while sim.day <= sim.instance.incident_day:      # play into the incident without a mains test
+            responses.append(self.call("advance_day"))
+            responses += [self.call("get_status"), self.call("get_events"), self.call("get_tests")]
+        text = json.dumps(responses)
+        for hidden in ("backup_salt", "hidden_morning", "realized_temps", "profit_floor", "profit_informed",
+                       f"{sim.instance.backup_salt_g_l:.3f}", "failure_modes"):
             self.assertNotIn(hidden, text)
-        future = self.episode.env.sim.instance.temps[self.episode.env.sim.day + 1:]
-        self.assertNotIn(json.dumps(list(future))[1:-1], json.dumps(self.call("get_forecast")))
+        self.assertIn("backup source", text)             # the notice itself is public
+        future = sim.instance.temps[sim.day + sim.p.forecast_days:]
+        self.assertNotIn(json.dumps(list(future))[1:-1], json.dumps(self.call("get_status")))
 
 
 class TimeAndTerminalTests(unittest.TestCase):
-    def test_fourteen_advances_end_the_episode_and_then_everything_is_refused(self):
+    def test_the_call_limit_ends_the_episode_like_stopping(self):
+        limit = SCENARIO.shift.max_calls
+        self.assertIsNotNone(limit)
+        capped = new_episode()
+        for _ in range(limit):
+            capped.call("get_status", {})
+        self.assertTrue(capped.done)
+        self.assertEqual(capped.end_reason, "call_limit")
+        self.assertEqual(capped.call("get_status", {})["error"]["code"], "episode_over")
+        nothing = run_inprocess(SCENARIO, SEED, make_policy("do-nothing", SCENARIO))
+        self.assertEqual(capped.env.ledger(), nothing.env.ledger())
+        self.assertLess(len(run_inprocess(SCENARIO, SEED, make_policy("reference", SCENARIO)).trace.calls), limit // 4)
+
+    def test_six_advances_end_the_episode_and_then_everything_is_refused(self):
         episode = new_episode()
-        for day in range(14):
+        for day in range(DAYS):
             response = episode.call("advance_day", {})
             self.assertTrue(response["ok"])
-            self.assertEqual(response["header"]["done"], day == 13)
+            self.assertEqual(response["header"]["done"], day == DAYS - 1)
         final = response["result"]["final_result"]
         self.assertEqual(final, episode.env.ledger())
         self.assertEqual(episode.end_reason, "horizon")
         before = state(episode)
-        for tool, args in (("advance_day", {}), ("submit_day_plan", {"zone_plans": plan()}), ("order_test", {"zone_id": "A"}),
+        for tool, args in (("advance_day", {}), ("submit_day_plan", {"bench_plans": plan()}), ("order_test", {"bench_id": "A"}),
                            ("finish_episode", {}), ("get_status", {})):
             response = episode.call(tool, args)
             self.assertEqual(response["error"]["code"], "episode_over")
@@ -186,14 +211,14 @@ class TimeAndTerminalTests(unittest.TestCase):
     def test_doing_nothing_is_the_default_plan_through_the_last_day(self):
         nothing = run_inprocess(SCENARIO, SEED, make_policy("do-nothing", SCENARIO))
         attend = run_inprocess(SCENARIO, SEED, make_policy("absentee", SCENARIO))
-        self.assertEqual(nothing.env.sim.day, 14)
+        self.assertEqual(nothing.env.sim.day, DAYS)
         self.assertEqual(nothing.env.ledger(), attend.env.ledger())
         ledger = nothing.result()
-        self.assertEqual((ledger["normalized_profit"], ledger["stopped_early"], ledger["windows_played"]), (0.0, True, 14))
+        self.assertEqual((ledger["normalized_profit"], ledger["stopped_early"], ledger["windows_played"]), (0.0, True, DAYS))
         self.assertTrue(all(d["plan_source"] == "default" for d in nothing.env.sim.days))
 
     def test_every_way_of_stopping_early_gives_the_same_final_day_result(self):
-        """finish_episode, a closed session, and advancing without plans all end on day 14 with the same score."""
+        """finish_episode, a closed session, and advancing without plans all end on the last day with the same score."""
         prefix = ACTIONS[:10]
         finished = new_episode()
         run_actions(finished, prefix)
@@ -213,10 +238,10 @@ class TimeAndTerminalTests(unittest.TestCase):
         ledgers = [e.env.ledger() for e in (finished, abandoned, walked)]
         self.assertEqual(ledgers[0], ledgers[1])
         self.assertEqual(ledgers[1], ledgers[2])
-        self.assertEqual([e.env.sim.day for e in (finished, abandoned, walked)], [14, 14, 14])
+        self.assertEqual([e.env.sim.day for e in (finished, abandoned, walked)], [DAYS] * 3)
         self.assertEqual(response["result"]["final_result"], ledgers[0])
         self.assertNotEqual(frozen, ledgers[1]["profit_eur"], "stopping must not freeze the position")
-        self.assertEqual(ledgers[0]["cost_tests_eur"], 50.0, "tests ordered before stopping stay charged")
+        self.assertEqual(ledgers[0]["cost_tests_eur"], 45.0, "tests ordered before stopping stay charged")
 
     def test_stop_early_baseline_never_beats_playing_on(self):
         cal = entry_for(load_calibration(ROOT), SCENARIO.id, SEED)
@@ -224,8 +249,9 @@ class TimeAndTerminalTests(unittest.TestCase):
         self.assertEqual(anchors["do-nothing"], 0.0)
         self.assertEqual(anchors["absentee"], 0.0)
         self.assertLess(anchors["stop-early"], anchors["reference"])
-        self.assertLess(anchors["rule-based"], anchors["reference"])
-        self.assertGreater(anchors["reference"], 0.5)
+        self.assertLess(anchors["ec-rules"], anchors["reference"])
+        self.assertLess(anchors["blind"], anchors["reference"])
+        self.assertGreater(anchors["reference"], 0.7)
 
 
 class ReplayAndEquivalenceTests(unittest.TestCase):
@@ -285,15 +311,15 @@ class ReplayAndEquivalenceTests(unittest.TestCase):
         fresh = new_episode()
         self.assertEqual(state(fresh), state(new_episode()))
         self.assertEqual(fresh.header()["day"], 0)
-        self.assertEqual(fresh.env.sim.fresh_water_l, fresh.env.sim.instance.fresh_water_l)
+        self.assertEqual(fresh.env.sim.reserve_l, fresh.env.sim.instance.reserve_l)
 
     def test_scripted_policies_touch_only_the_public_tools(self):
-        for name in ("reference", "rule-based", "stop-early"):
+        for name in ("reference", "blind", "ec-rules", "stop-early"):
             episode = run_inprocess(SCENARIO, SEED, make_policy(name, SCENARIO))
             used = {r["tool"] for r in episode.trace.calls}
             self.assertLessEqual(used, REQUIRED_TOOLS | {"get_rules", "get_events"}, name)
             self.assertEqual(episode.faults, 0)
-            self.assertEqual(episode.env.sim.day, 14)
+            self.assertEqual(episode.env.sim.day, DAYS)
 
     def test_reference_does_not_depend_on_hidden_state(self):
         """Give the planner a client that hides the episode object entirely."""
@@ -345,7 +371,7 @@ class VerifierTests(unittest.TestCase):
         self.assertTrue(out["replay"]["consistent"])
         self.assertEqual(out["notes"], [])
         self.assertEqual(out["ledger"]["conservation_ok"], 1.0)
-        self.assertEqual(out["ledger"]["days_played"], 14)
+        self.assertEqual(out["ledger"]["days_played"], DAYS)
 
     def test_empty_trace_is_graded_as_doing_nothing_and_missing_trace_gives_no_reward(self):
         out = grade(VERIFIER_BUNDLE, self.record("do-nothing"))
@@ -356,17 +382,17 @@ class VerifierTests(unittest.TestCase):
         self.assertFalse((self.dir / "out" / "reward.txt").exists())
 
     def test_reward_file_holds_one_number_between_zero_and_one(self):
-        code = verify_main(["--bundle", str(VERIFIER_BUNDLE), "--trace", str(self.record("rule-based")),
+        code = verify_main(["--bundle", str(VERIFIER_BUNDLE), "--trace", str(self.record("ec-rules")),
                             "--out", str(self.dir / "out")])
         self.assertEqual(code, 0)
         text = (self.dir / "out" / "reward.txt").read_text().split()
         self.assertEqual(len(text), 1)
         self.assertTrue(0.0 <= float(text[0]) <= 1.0)
-        self.assertEqual(float(text[0]), self.cal["anchors"]["rule-based"]["reward"])
+        self.assertEqual(float(text[0]), self.cal["anchors"]["ec-rules"]["reward"])
 
     def test_forged_responses_and_claimed_scores_gain_nothing(self):
         """The verifier replays actions; it never reads a number the trace claims."""
-        honest = grade(VERIFIER_BUNDLE, self.record("rule-based"))
+        honest = grade(VERIFIER_BUNDLE, self.record("blind"))
         records = read_trace(self.dir / "trace.jsonl")
         for r in records:
             if r.get("k") == "call":
@@ -375,7 +401,7 @@ class VerifierTests(unittest.TestCase):
                 r["digest"] = "0" * 16
                 r["ok"] = True
         records.append({"k": "score", "reward": 1.0, "profit_eur": 10 ** 9})
-        records.append({"k": "state", "fresh_water_l": 10 ** 9, "zones": {"A": {"harvest": 10 ** 6}}})
+        records.append({"k": "state", "reserve_l": 10 ** 9, "benches": {"A": {"harvest": 10 ** 6}}})
         write_trace(self.dir / "forged.jsonl", records)
         forged = grade(VERIFIER_BUNDLE, self.dir / "forged.jsonl")
         self.assertEqual(forged["reward"], honest["reward"])
@@ -395,8 +421,8 @@ class VerifierTests(unittest.TestCase):
         """Calls written into a trace go through the same validation as live calls."""
         records = read_trace(self.record("do-nothing"))
         injected = [
-            {"k": "call", "i": 0, "tool": "submit_day_plan", "args": {"zone_plans": plan(5000.0, 0.0)}},
-            {"k": "call", "i": 1, "tool": "submit_day_plan", "args": {"zone_plans": plan(A={"irrigation_l": -9999.0})}},
+            {"k": "call", "i": 0, "tool": "submit_day_plan", "args": {"bench_plans": plan(5000.0, 0.0)}},
+            {"k": "call", "i": 1, "tool": "submit_day_plan", "args": {"bench_plans": plan(A={"mains_l": -9999.0})}},
             {"k": "call", "i": 2, "tool": "set_profit", "args": {"profit_eur": 10 ** 9}},
             {"k": "call", "i": 3, "tool": "advance_day", "args": {"harvest_kg": 10 ** 6}},
         ]

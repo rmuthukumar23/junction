@@ -27,6 +27,7 @@ async function request(path, options = {}) {
   } catch (err) {
     throw new ApiError("The server did not respond. Is `python -m rootcause_app` still running?", 0);
   }
+  /** @type {any} */
   let payload = null;
   try {
     payload = await response.json();

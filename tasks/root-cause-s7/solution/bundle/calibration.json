@@ -9,7 +9,25 @@
    },
    "reward": 0.0
   },
+  "blind": {
+   "components": {
+    "normalized_profit": 0.0
+   },
+   "metrics": {
+    "normalized_profit": 0.0
+   },
+   "reward": 0.0
+  },
   "do-nothing": {
+   "components": {
+    "normalized_profit": 0.0
+   },
+   "metrics": {
+    "normalized_profit": 0.0
+   },
+   "reward": 0.0
+  },
+  "ec-rules": {
    "components": {
     "normalized_profit": 0.0
    },
@@ -20,33 +38,24 @@
   },
   "reference": {
    "components": {
-    "normalized_profit": 0.6662
+    "normalized_profit": 0.882
    },
    "metrics": {
-    "normalized_profit": 0.6662
+    "normalized_profit": 0.882
    },
-   "reward": 0.6662
-  },
-  "rule-based": {
-   "components": {
-    "normalized_profit": 0.0355
-   },
-   "metrics": {
-    "normalized_profit": 0.0355
-   },
-   "reward": 0.0355
+   "reward": 0.882
   },
   "stop-early": {
    "components": {
-    "normalized_profit": 0.0902
+    "normalized_profit": 0.0
    },
    "metrics": {
-    "normalized_profit": 0.0902
+    "normalized_profit": 0.0
    },
-   "reward": 0.0902
+   "reward": 0.0
   }
  },
- "bundle": "6bd5004b21948f40",
+ "bundle": "dd1be4c8a6d425aa",
  "components": {},
  "oracle": "reference",
  "seed": 7,

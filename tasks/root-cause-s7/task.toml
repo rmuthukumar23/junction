@@ -8,19 +8,19 @@ artifacts = [
 
 [task]
 name = "junction/root-cause-s7"
-description = "Root Cause: greenhouse operations"
+description = "Root Cause: lettuce greenhouse incident response"
 keywords = ["envkit", "mcp", "simulation"]
 
 [metadata]
 scenario = "root-cause"
 seed = 7
-bundle = "6bd5004b21948f40"
+bundle = "dd1be4c8a6d425aa"
 
 [agent]
-timeout_sec = 3600.0
+timeout_sec = 420.0
 
 [verifier]
-timeout_sec = 300.0
+timeout_sec = 120.0
 environment_mode = "separate"
 
 [environment]
