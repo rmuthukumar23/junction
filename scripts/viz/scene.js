@@ -1,7 +1,9 @@
 // The greenhouse site in 3D: an orthographic (isometric) camera, rendered at low resolution
-// and scaled up without smoothing for a voxel/pixel look. Drag to rotate, scroll to zoom.
-const Scene = (() => {
-  const PIX = 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
+// and scaled up without smoothing for a voxel/pixel look. Drag to rotate (left/right turns,
+// up/down tilts), scroll to zoom. makeScene() returns one independent scene per canvas, so
+// several growers can be watched side by side.
+const makeScene = (opts = {}) => {
+  const PIX = opts.pix || 3, HW = 10, HD = 14, WALL = 3.4, RIDGE = 2.2, GAP = 3.5, ROAD_Z = HD / 2 + 8;
   const SLOPE = Math.atan2(2.2, 5);              // roof pitch: RIDGE over half the width
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, k) => a + (b - a) * k;
   const col = (h) => new THREE.Color(h);
@@ -9,7 +11,9 @@ const Scene = (() => {
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
   let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
-  let az = Math.PI / 4, zoom = 1, layerLbl, bubbles = [], workers = [], lastHour = -1;
+  let az = Math.PI / 4, el = 0.6, zoom = opts.zoom || 1, layerLbl, bubbles = [], workers = [], lastHour = -1, flashes = [];
+  let rt, post, postScene, postCam, crisp = true, shadows = true;
+  let pix = PIX, field = { kind: "temp", opacity: 0.35 }, fog = true, shards = [], rings = [], prevPanes = {}, crews = {};
   const lambert = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
   const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
   const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -19,16 +23,50 @@ const Scene = (() => {
     canvas = cv; stage = cv.parentElement;
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap;   // hard-edged pixel shadows
+    // Pixel-art finish: the scene is drawn small into a target with depth, then a full-screen
+    // pass adds 1-pixel outlines where depth jumps, a light inner edge where colour jumps, and
+    // quantizes colour with a 4x4 ordered dither. Nearest-neighbour upscaling keeps pixels square.
+    rt = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    rt.depthTexture = new THREE.DepthTexture(1, 1);
+    post = new THREE.ShaderMaterial({
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new THREE.Vector2(1, 1) },
+                  levels: { value: 20 }, edge: { value: 0.0012 }, outline: { value: 0.62 } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: `
+        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float levels; uniform float edge; uniform float outline;
+        varying vec2 vUv;
+        float d(vec2 o) { return texture2D(tDepth, vUv + o / res).r; }
+        float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+        float bayer(vec2 p) { int x = int(mod(p.x, 4.0)), y = int(mod(p.y, 4.0)); int i = x + y * 4;
+          float m[16]; m[0]=0.;m[1]=8.;m[2]=2.;m[3]=10.;m[4]=12.;m[5]=4.;m[6]=14.;m[7]=6.;m[8]=3.;m[9]=11.;m[10]=1.;m[11]=9.;m[12]=15.;m[13]=7.;m[14]=13.;m[15]=5.;
+          for (int k = 0; k < 16; k++) if (k == i) return m[k] / 16.0 - 0.5; return 0.0; }
+        void main() {
+          vec3 c = texture2D(tColor, vUv).rgb; float z = d(vec2(0.0));
+          float dz = max(max(d(vec2(1.,0.)) - z, d(vec2(-1.,0.)) - z), max(d(vec2(0.,1.)) - z, d(vec2(0.,-1.)) - z));
+          float l = lum(c), dl = max(abs(lum(texture2D(tColor, vUv + vec2(1.,0.) / res).rgb) - l), abs(lum(texture2D(tColor, vUv + vec2(0.,1.) / res).rgb) - l));
+          if (dz > edge) c *= outline;                                   // silhouette: the nearer object gets a dark rim
+          else if (dl > 0.18) c *= 0.86;                                 // inner edges between faces
+          c = floor(c * levels + 0.5 + bayer(gl_FragCoord.xy) * 0.9) / levels;
+          gl_FragColor = vec4(c, 1.0);
+        }` ,
+      depthTest: false, depthWrite: false });
+    postScene = new THREE.Scene(); postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-10, 10, 10, -10, -200, 400);
     world.amb = new THREE.AmbientLight(0xffffff, 0.4); scene.add(world.amb);
     world.hemi = new THREE.HemisphereLight(0xbfdfff, 0x3a5030, 0.35); scene.add(world.hemi);
     world.sun = new THREE.DirectionalLight(0xfff2d0, 0.9); world.sun.position.set(-30, 40, 20); scene.add(world.sun);
+    world.sun.castShadow = true; world.sun.shadow.mapSize.set(1024, 1024); world.sun.shadow.bias = -0.0015;
+    const sc = world.sun.shadow.camera; sc.left = -60; sc.right = 60; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 200;
+    scene.fog = new THREE.Fog(0x0b1230, 110, 190);
     layerLbl = document.createElement("div"); layerLbl.className = "scene-labels"; stage.appendChild(layerLbl);
     // drag to rotate, wheel to zoom; a click without a drag opens details
     let down = null;
-    canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, az, moved: false }; canvas.setPointerCapture(e.pointerId); });
-    canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 3) down.moved = true; az = down.az - dx * 0.008; });
+    canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, az, el, moved: false }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) down.moved = true; az = down.az - dx * 0.008; el = clamp(down.el + dy * 0.006, 0.15, 1.35); });
     canvas.addEventListener("pointerup", (e) => { if (down && !down.moved) canvas.dispatchEvent(new CustomEvent("scenepick", { detail: pick(e) })); down = null; });
     const qz = +new URLSearchParams(location.search).get("zoom"); if (qz) zoom = clamp(qz, 0.6, 3);
     canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoom = clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 3); }, { passive: false });
@@ -36,7 +74,8 @@ const Scene = (() => {
 
   function clearWorld() {
     while (scene.children.length > 3) scene.remove(scene.children[3]);
-    layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; lastHour = -1;
+    scene.add(world.sun.target);
+    layerLbl.innerHTML = ""; houses = {}; ec = {}; workers = []; bubbles = []; flashes = []; shards = []; rings = []; prevPanes = {}; crews = {}; lastHour = -1;
   }
 
   function setData(m) {
@@ -65,6 +104,14 @@ const Scene = (() => {
     const glass = box(0.1, 0.6, 1.5, basic(0x9cd0f0)); glass.position.set(3.16, 1.4, 0); tr.add(glass);
     for (const wx of [-1.1, 1.0, 2.5]) for (const wz of [-0.9, 0.9]) { const w = box(0.7, 0.7, 0.2, lambert(0x1a1d24)); w.position.set(wx, 0.35, wz); tr.add(w); }
     tr.visible = false; tr.position.z = ROAD_Z; scene.add(tr); world.truck = tr;
+    world.sun.target.position.set(world.x0 + world.span / 2, 0, 0);
+    scene.traverse(shade);
+  }
+  // Solid things cast and catch shadows; glass, air, light cones and particles do not.
+  function shade(o) {
+    if (!o.isMesh) return;
+    const m = o.material, solid = m && !m.transparent && !(m.blending === THREE.AdditiveBlending) && m.type !== "MeshBasicMaterial";
+    o.castShadow = solid; o.receiveShadow = !!m && !m.transparent;
   }
 
   function buildHouse(id, cx) {
@@ -118,6 +165,32 @@ const Scene = (() => {
     const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     h.co2 = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xbcd7ff, size: 2, sizeAttenuation: false })); G.add(h.co2);
     h.hit = box(HW, WALL + RIDGE, HD, basic(0, { visible: false })); h.hit.position.y = (WALL + RIDGE) / 2; h.hit.userData.pick = id; G.add(h.hit);
+    // roof panes that can break: 2 slopes x 3 rows x 7 columns, broken in a fixed order per house
+    h.panes = []; const holeMat = lambert(0x0c1118), crackMat = new THREE.LineBasicMaterial({ color: 0xe8f6ff });
+    for (const side of [-1, 1]) for (let row = 0; row < 3; row++) for (let col = 0; col < 7; col++) {
+      const u = (row + 0.5) / 3, x = side * (HW / 2) * (1 - u), y = WALL + RIDGE * u + 0.05, z = -HD / 2 + 1 + col * ((HD - 2) / 6);
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.z = -side * SLOPE;
+      const hole = box(1.25, 0.04, 1.5, holeMat); g.add(hole);
+      const pts = []; for (let k = 0; k < 5; k++) { const a = k * 1.26 + (col + row) * 0.7; pts.push(new THREE.Vector3(0, 0.03, 0), new THREE.Vector3(Math.cos(a) * 0.7, 0.03, Math.sin(a) * 0.8)); }
+      g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), crackMat));
+      g.visible = false; G.add(g); h.panes.push(g);
+    }
+    for (let i = h.panes.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [h.panes[i], h.panes[j]] = [h.panes[j], h.panes[i]]; }
+    // the field: a voxel volume coloured by one of the house's real readings (one value per house:
+    // the simulator models each house as one air volume; the shimmer is decoration)
+    const NX = 6, NY = 3, NZ = 8; h.field = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.8, 1.2),
+      basic(0xffffff, { transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }), NX * NY * NZ);
+    h.field.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NX * NY * NZ * 3), 3);
+    const fm = new THREE.Matrix4(); let fi = 0; h.fieldPh = [];
+    for (let ix = 0; ix < NX; ix++) for (let iy = 0; iy < NY; iy++) for (let iz = 0; iz < NZ; iz++) {
+      fm.makeTranslation(-HW / 2 + 1 + ix * ((HW - 2) / (NX - 1)), 0.7 + iy * 0.95, -HD / 2 + 1.2 + iz * ((HD - 2.4) / (NZ - 1)));
+      h.field.setMatrixAt(fi, fm); h.fieldPh.push(rnd() * 6.28); fi++;
+    }
+    G.add(h.field);
+    // heat escaping through broken panes
+    const sp = new Float32Array(40 * 3); for (let i = 0; i < 40; i++) { sp[i * 3] = (rnd() - 0.5) * HW * 0.8; sp[i * 3 + 1] = WALL + RIDGE + rnd() * 4; sp[i * 3 + 2] = (rnd() - 0.5) * (HD - 2); }
+    const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+    h.leak = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xff8a3c, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.8 })); h.leak.visible = false; G.add(h.leak);
     // label
     h.lbl = document.createElement("div"); h.lbl.className = "lbl"; layerLbl.appendChild(h.lbl);
     houses[id] = h;
@@ -212,6 +285,116 @@ const Scene = (() => {
     }
   }
 
+  // ---------------- damage and repairs ----------------
+  function makeCrew(trade) {
+    const g = new THREE.Group();
+    const vest = box(0.55, 0.8, 0.38, lambert(0xff7a1a)); vest.position.y = 0.75; g.add(vest);
+    const head = box(0.38, 0.38, 0.38, lambert(0xf0c8a0)); head.position.y = 1.35; g.add(head);
+    const hat = box(0.46, 0.14, 0.46, lambert(0xffd400)); hat.position.y = 1.6; g.add(hat);
+    const legs = box(0.45, 0.4, 0.3, lambert(0x24304a)); legs.position.y = 0.2; g.add(legs);
+    const arm = new THREE.Group(); arm.position.set(0.32, 1.05, 0); const a = box(0.14, 0.55, 0.14, lambert(0xff7a1a)); a.position.y = -0.25; arm.add(a);
+    const tool = box(0.1, 0.1, 0.45, lambert(0x9aa3b0)); tool.position.set(0, -0.55, 0.15); arm.add(tool); g.add(arm); g.userData.arm = arm;
+    if (trade === "glazier") { const pane = box(0.05, 0.9, 1.0, lambert(0xbfe6ff, { transparent: true, opacity: 0.6 })); pane.position.set(-0.4, 0.9, 0); g.add(pane); }
+    const ladder = new THREE.Group();
+    for (const lz of [-0.35, 0.35]) { const r = box(0.08, 4.4, 0.08, lambert(0xc9b27a)); r.position.set(0, 2.2, lz); ladder.add(r); }
+    for (let k = 0; k < 8; k++) { const rung = box(0.06, 0.06, 0.7, lambert(0xc9b27a)); rung.position.set(0, 0.4 + k * 0.5, 0); ladder.add(rung); }
+    ladder.rotation.z = 0.28; g.userData.ladder = ladder;
+    const sp = new Float32Array(16 * 3), sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+    g.userData.sparks = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xfff1a8, size: 2.5, sizeAttenuation: false }));
+    const lbl = document.createElement("div"); lbl.className = "lbl crew"; layerLbl.appendChild(lbl);
+    return { g, lbl };
+  }
+  function crewSpot(target) {
+    const hid = target.split(".")[0];
+    if (houses[hid]) return { x: houses[hid].cx - HW / 2 - 0.9, z: HD / 2 - 2.5, ladder: true, y: 0 };
+    return { x: ec.x - 3.6, z: 3.6, ladder: false, y: 0 };
+  }
+  function updateDamage(f, hf, dt, newHour) {
+    const panes = {}; for (const d of f.dmg || []) { const hid = d.eq.split(".")[0]; if (houses[hid] && d.eq.endsWith("glass")) panes[hid] = d.panes; }
+    for (const id of ids) {
+      const H = houses[id], n = Math.min(H.panes.length, panes[id] || 0), before = prevPanes[id] || 0;
+      H.panes.forEach((p, i) => (p.visible = i < n));
+      if (newHour && n > before) for (let i = before; i < n; i++) burst(H, H.panes[i]);         // a storm just broke these
+      if (newHour && n < before && n === 0) ring(H.cx, 0x7bd88f);                              // repaired
+      prevPanes[id] = n;
+      const c = f.c[id], leaking = n > 0 && c.t > f.out.t + 1;                                 // heat only leaks out when inside is warmer
+      H.leak.visible = leaking;
+      if (leaking) { const a = H.leak.geometry.attributes.position, k = Math.min(1, n / 12);
+        H.leak.geometry.setDrawRange(0, Math.round(10 + 30 * k)); H.leak.material.opacity = 0.35 + 0.5 * k;
+        for (let i = 0; i < a.count; i++) { let y = a.getY(i) + dt * (1.5 + (i % 5) * 0.4); if (y > WALL + RIDGE + 5) y = WALL + RIDGE; a.setY(i, y); a.setX(i, a.getX(i) + Math.sin(t * 2 + i) * dt * 0.3); }
+        a.needsUpdate = true; }
+    }
+    // contractors on site, from the simulator's bookings
+    const on = new Set();
+    for (const b of f.crew_on || []) {
+      if (b.st !== "on_site") continue;
+      on.add(b.id);
+      if (!crews[b.id]) { const c = makeCrew(b.trade); c.g.traverse(shade); const s = crewSpot(b.target); c.g.position.set(s.x, 0, s.z + (Object.keys(crews).length % 3) * 0.3); scene.add(c.g);
+        if (s.ladder) { c.g.userData.ladder.position.set(s.x + 0.6, 0, s.z + 1); scene.add(c.g.userData.ladder); }
+        scene.add(c.g.userData.sparks); crews[b.id] = { ...c, b, s }; }
+      const c = crews[b.id]; c.b = b;
+      c.g.userData.arm.rotation.z = -0.6 + Math.sin(t * 9) * 0.7;
+      const sp = c.g.userData.sparks.geometry.attributes.position;
+      for (let i = 0; i < sp.count; i++) { const ph = (t * 3 + i / sp.count) % 1; sp.setXYZ(i, c.g.position.x + 0.5 + Math.cos(i * 2.4) * ph * 0.8, 1 + ph * (c.s.ladder ? 3.4 : 1.2) * (i % 2 ? 1 : 0.4), c.g.position.z + Math.sin(i * 2.4) * ph * 0.8); }
+      sp.needsUpdate = true;
+      c.lbl.innerHTML = `${b.trade.replace("_", " ").toUpperCase()} <b class="ok">${b.done}/${b.need} H</b>`;
+    }
+    for (const [id, c] of Object.entries(crews)) if (!on.has(id)) {
+      scene.remove(c.g); scene.remove(c.g.userData.ladder); scene.remove(c.g.userData.sparks); c.lbl.remove(); delete crews[id];
+      if ((f.crew_on || []).some((b) => b.id === id && b.st === "done")) ring(c.s.ladder ? c.s.x + HW / 2 + 0.9 : ec.x, 0x7bd88f);
+    }
+    // falling glass and repair rings
+    shards = shards.filter((s) => { s.life -= dt; if (s.life <= 0) { scene.remove(s.m); return false; }
+      s.v.y -= 14 * dt; s.m.position.addScaledVector(s.v, dt); if (s.m.position.y < 0.05) { s.m.position.y = 0.05; s.v.set(0, 0, 0); }
+      s.m.rotation.x += dt * 6; s.m.rotation.y += dt * 4; return true; });
+    rings = rings.filter((r) => { r.life += dt; if (r.life > 1.6) { scene.remove(r.m); return false; }
+      const k = 1 + r.life * 6; r.m.scale.set(k, k, k); r.m.material.opacity = 1 - r.life / 1.6; return true; });
+  }
+  function burst(H, pane) {
+    const p = new THREE.Vector3(); pane.getWorldPosition(p);
+    for (let i = 0; i < 6; i++) { const m = box(0.25 + rnd() * 0.3, 0.04, 0.2 + rnd() * 0.3, lambert(0xcfeeff, { transparent: true, opacity: 0.85 }));
+      m.position.copy(p); scene.add(m); shards.push({ m, v: new THREE.Vector3((rnd() - 0.5) * 5, 2 + rnd() * 3, (rnd() - 0.5) * 5), life: 2.2 }); }
+  }
+  function ring(x, color) {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.12, 4, 24), basic(color, { transparent: true }));
+    m.rotation.x = Math.PI / 2; m.position.set(x, 0.3, 0); scene.add(m); rings.push({ m, life: 0 });
+  }
+
+  // ---------------- the field ----------------
+  const FIELDS = {
+    // Outside the crop's ideal range (its data file's climate_targets, day or night): blue below, red above, dark inside.
+    temp: { label: "Temperature vs the crop's ideal range", unit: "°C", lo: -6, hi: 6, div: true,
+            v: (c, f, hd, id) => { const r = ((meta.targets || {})[id] || {})[(hd >= 6 && hd < 18) ? "day" : "night"];
+              return !r ? 0 : c.t < r[0] ? c.t - r[0] : c.t > r[1] ? c.t - r[1] : 0; } },
+    rhx: { label: "Humidity vs the crop's ideal range", unit: "%", lo: -20, hi: 20, div: true,
+           v: (c, f, hd, id) => { const r = ((meta.targets || {})[id] || {}).rh; return !r ? 0 : c.rh < r[0] ? c.rh - r[0] : c.rh > r[1] ? c.rh - r[1] : 0; } },
+    co2: { label: "CO2", unit: " ppm", lo: 380, hi: 1300, v: (c) => c.co2 },
+    rh: { label: "Humidity", unit: "%", lo: 50, hi: 100, v: (c) => c.rh },
+    par: { label: "Light at the plants", unit: " µmol/m²/s", lo: 0, hi: 400, v: (c) => c.par },
+    heat: { label: "Heat delivered", unit: " kWh", lo: 0, hi: null, v: (c, f, hd, id) => (f.hd || {})[id] || 0 },
+  };
+  const INFERNO = [[0, 0, 4], [40, 11, 84], [101, 21, 110], [159, 42, 99], [212, 72, 66], [245, 125, 21], [250, 193, 39], [252, 255, 164]];
+  function cmap(k, div) {
+    if (div) { // blue (cold) - dark - red (hot): invisible when on target
+      const a = Math.min(1, Math.abs(k)); return k < 0 ? [0.15 * a, 0.45 * a, 1.0 * a] : [1.0 * a, 0.25 * a, 0.1 * a];
+    }
+    const x = Math.max(0, Math.min(1, k)) * (INFERNO.length - 1), i = Math.min(INFERNO.length - 2, Math.floor(x)), u = x - i;
+    return INFERNO[i].map((v, j) => (v + (INFERNO[i + 1][j] - v) * u) / 255);
+  }
+  function updateField(f, hd) {
+    const F = FIELDS[field.kind];
+    for (const id of ids) {
+      const H = houses[id]; H.field.visible = !!F && field.opacity > 0.01; if (!H.field.visible) continue;
+      const v = F.v(f.c[id], f, hd, id), hi = F.hi ?? (meta.maxHD || 1);
+      const k = F.div ? Math.max(-1, Math.min(1, v / F.hi)) : (v - F.lo) / (hi - F.lo);
+      const base = cmap(k, F.div); H.field.material.opacity = field.opacity;
+      for (let i = 0; i < H.fieldPh.length; i++) { const w = 0.72 + 0.28 * Math.sin(t * 1.7 + H.fieldPh[i]);
+        H.field.instanceColor.setXYZ(i, base[0] * w, base[1] * w, base[2] * w); }
+      H.field.instanceColor.needsUpdate = true;
+      H.fieldVal = v;
+    }
+  }
+
   // ---------------- people ----------------
   const SHIRTS = [0xe85d4a, 0x4a90e8, 0xf2b33d, 0x9b6be0, 0x3dbf8a, 0xe06aa8, 0xffffff, 0x8bc34a];
   function updateWorkers(f, hd, dt, speed) {
@@ -221,7 +404,7 @@ const Scene = (() => {
       const head = box(0.38, 0.38, 0.38, lambert(0xf0c8a0)); head.position.y = 1.35; g.add(head);
       const legs = box(0.45, 0.4, 0.3, lambert(0x2a2f3a)); legs.position.y = 0.2; g.add(legs);
       const crate = box(0.6, 0.35, 0.4, lambert(0xa0703c)); crate.position.set(0, 0.85, 0.35); g.add(crate);
-      g.position.set(world.x0 - 8 - i, 0, HD / 2 + 3.2); scene.add(g); workers.push({ g, crate, i });
+      g.position.set(world.x0 - 8 - i, 0, HD / 2 + 3.2); g.traverse(shade); scene.add(g); workers.push({ g, crate, i });
     }
     while (workers.length > f.staff) scene.remove(workers.pop().g);
     const on = hd >= meta.shift[0] && hd < meta.shift[1], task = f.tasks.find((k) => k.st !== "done");
@@ -249,13 +432,18 @@ const Scene = (() => {
     if (!ids.length) return;
     t += dt;
     const hd = hf % 24, day = daylight(f, hd), dark = 1 - day, h = Math.floor(hf);
-    if (h !== lastHour) { layout(f); lastHour = h; }
+    const newHour = h !== lastHour;
+    if (newHour) { layout(f); }
+    updateDamage(f, hf, dt, newHour && lastHour >= 0 && h > lastHour && h - lastHour < 30);
+    updateField(f, hd);
+    lastHour = h;
     // sky and light
     const twi = (hd > 7 && hd < 10) || (hd > 15 && hd < 18) ? clamp(1 - Math.abs(day - 0.15) * 4, 0, 1) : 0;
-    renderer.setClearColor(mixc("#0b1230", "#7fb2e0", day).lerp(col(0xf0a060), twi * 0.35));
+    const sky = mixc("#0b1230", "#7fb2e0", day).lerp(col(0xf0a060), twi * 0.35);
+    renderer.setClearColor(sky); scene.fog = fog ? (scene.fog || new THREE.Fog(sky, 110, 190)) : null; if (scene.fog) scene.fog.color = sky;
     world.amb.intensity = 0.18 + day * 0.35; world.amb.color = mixc("#7080c0", "#ffffff", day);
     world.hemi.intensity = 0.15 + day * 0.35; world.sun.intensity = day * 0.85;
-    const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(-Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25);
+    const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(world.x0 + world.span / 2 - Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25); world.sun.castShadow = shadows && day > 0.05;
     const snowy = meta.snowAt[h] === 1; world.ground.material.color = col(snowy ? 0xdfe8ee : 0x3d5a3a);
     // houses
     for (const id of ids) {
@@ -302,6 +490,10 @@ const Scene = (() => {
       world.truck.visible = true; world.truck.position.x = k < 0.4 ? lerp(a, stop, k / 0.4) : k < 0.65 ? stop : lerp(stop, b, (k - 0.65) / 0.35);
     }
     updateWorkers(f, hd, dt, speed);
+    // outlines around whatever the grower's latest decision touched
+    flashes = flashes.filter((x) => { x.life += dt; if (x.life > 3.5) { scene.remove(x.m); return false; }
+      x.m.material.opacity = (x.life > 2.7 ? (3.5 - x.life) / 0.8 : 1) * (0.65 + 0.35 * Math.sin(x.life * 9));
+      const k = 1 + 0.04 * Math.sin(x.life * 9); x.m.scale.set(k, k, k); return true; });
     // snow or rain
     const snow = f.out.t <= 0.5 && f.out.rh >= 82, rain = !snow && f.out.rh >= 94, fl = world.flakes;
     fl.visible = snow || rain; fl.material.color = col(snow ? 0xffffff : 0x9cc0ff);
@@ -309,19 +501,23 @@ const Scene = (() => {
       for (let i = 0; i < a.count; i++) { let y = a.getY(i) - v * dt; if (y < 0) y += 22; a.setY(i, y); a.setX(i, a.getX(i) + f.out.wind * 0.15 * dt); }
       a.needsUpdate = true; }
     placeCamera(); resize();
-    renderer.render(scene, camera);
+    if (crisp) {
+      const w = renderer.domElement.width, h = renderer.domElement.height;
+      if (rt.width !== w || rt.height !== h) { rt.setSize(w, h); post.uniforms.res.value.set(w, h); }
+      renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+    } else renderer.render(scene, camera);
     labels(f, dt);
   }
 
   function placeCamera() {
-    const cx = world.x0 + world.span / 2, el = 0.6, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    const cx = world.x0 + world.span / 2, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
     camera.position.set(cx + Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d);
     camera.lookAt(cx, 2, 0);
     const halfW = (world.span * 0.52) / zoom, halfH = halfW / aspect;
     camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH; camera.updateProjectionMatrix();
   }
   function resize() {
-    const w = Math.max(1, Math.round(canvas.clientWidth / PIX)), h = Math.max(1, Math.round(canvas.clientHeight / PIX));
+    const w = Math.max(1, Math.round(canvas.clientWidth / pix)), h = Math.max(1, Math.round(canvas.clientHeight / pix));
     if (canvas.width !== w || canvas.height !== h) renderer.setSize(w, h, false);
   }
 
@@ -338,6 +534,7 @@ const Scene = (() => {
       const [x, y] = toScreen(H.cx, 0, HD / 2 + 1.6); H.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, 0)`;
     }
     const [ex, ey] = toScreen(ec.x + 2, 0, 5); ec.lbl.style.transform = `translate(${ex}px, ${ey}px) translate(-50%, 0)`;
+    for (const c of Object.values(crews)) { const [cx, cy] = toScreen(c.g.position.x, 2.4, c.g.position.z); c.lbl.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -100%)`; }
     bubbles = bubbles.filter((b) => { b.life += dt; if (b.life > 3.2) { b.el.remove(); return false; }
       const [x, y] = toScreen(...b.at); b.el.style.transform = `translate(${x}px, ${y - b.lvl * 26 - Math.min(b.life, 0.3) * 30}px) translate(-50%, -100%)`;
       b.el.style.opacity = b.life > 2.7 ? (3.2 - b.life) / 0.5 : 1; return true; });
@@ -361,6 +558,26 @@ const Scene = (() => {
     const hit = ray.intersectObjects(targets, false)[0];
     return hit ? hit.object.userData.pick : "weather";
   }
-  function reset() { bubbles.forEach((b) => b.el.remove()); bubbles = []; }
-  return { init, setData, render, bubble, reset };
-})();
+  // Outline the buildings a decision acts on: houses by id, "energy", "co2" or "road".
+  function flash(wheres, color) {
+    if (!ids.length) return;
+    for (const w of new Set(wheres)) {
+      let g, at;
+      if (houses[w]) { g = new THREE.BoxGeometry(HW + 0.9, WALL + RIDGE + 0.9, HD + 0.9); at = [houses[w].cx, (WALL + RIDGE) / 2, 0]; }
+      else if (w === "energy" || w === "co2") { g = new THREE.BoxGeometry(15, 10, 10); at = [ec.x + 3, 4.6, -1]; }
+      else if (w === "road") { g = new THREE.BoxGeometry(9, 4, 5); at = [ec.x - 5, 2, ROAD_Z]; }
+      else continue;
+      const m = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+      m.renderOrder = 10; m.position.set(...at); scene.add(m); flashes.push({ m, life: 0 });
+    }
+  }
+  function reset() {
+    bubbles.forEach((b) => b.el.remove()); bubbles = []; flashes.forEach((x) => scene.remove(x.m)); flashes = [];
+    shards.forEach((x) => scene.remove(x.m)); shards = []; rings.forEach((x) => scene.remove(x.m)); rings = [];
+    for (const c of Object.values(crews)) { scene.remove(c.g); scene.remove(c.g.userData.ladder); scene.remove(c.g.userData.sparks); c.lbl.remove(); }
+    crews = {}; prevPanes = {}; lastHour = -1;
+  }
+  function settings(o) { if (o.field) field = { ...field, ...o.field }; if (o.fog != null) fog = o.fog; if (o.pix) pix = o.pix;
+    if (o.crisp != null) crisp = o.crisp; if (o.shadows != null) shadows = o.shadows; }
+  return { init, setData, render, bubble, flash, reset, settings, FIELDS };
+};
