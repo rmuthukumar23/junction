@@ -3,9 +3,11 @@ import dataclasses
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from envkit.rng import Rng
 from greenhouse.config.base import ConfigError, Range, Table
+from greenhouse.config import loader
 from greenhouse.config.loader import data_files, load
 
 
@@ -83,8 +85,10 @@ class LoaderTests(unittest.TestCase):
             self.load({**ENV, "climate": "../outside.toml"})
 
     def test_missing_owner_parser_names_the_owner(self):
-        with self.assertRaisesRegex(ConfigError, r"not built \((Emre|Rowan|Lucas)\)"):
-            load(ENV, Rng(1), self.root)
+        # Every real parser exists now, so point one at a module that does not.
+        with mock.patch.dict(loader.PARSERS, {"crops": ("greenhouse.config.not_yet", "parse_crop", "Lucas")}):
+            with self.assertRaisesRegex(ConfigError, r"not built \(Lucas\)"):
+                load(ENV, Rng(1), self.root)
 
     def test_data_files_lists_every_file(self):
         self.assertEqual(data_files(ENV), ["f.toml", "c.toml", "e.toml", "m.toml", "lettuce.toml", "basil.toml"])

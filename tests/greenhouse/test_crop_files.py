@@ -1,4 +1,5 @@
 """Every crop file (data/crops plus test fixtures) behaves sensibly with no code changes."""
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -7,7 +8,14 @@ from test_crop_growth import ROOT, climate, grow, load
 from greenhouse.world.crop import model_for, target_climate
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-CROP_FILES = sorted((ROOT / "data" / "crops").glob("*.toml")) + sorted(FIXTURES.glob("*.toml"))
+
+
+def _is_crop(path: Path) -> bool:
+    """The fixtures folder also holds task fixtures; keep the crop files."""
+    return tomllib.loads(path.read_text(encoding="utf-8")).get("schema", "").startswith("crop/")
+
+
+CROP_FILES = sorted((ROOT / "data" / "crops").glob("*.toml")) + sorted(filter(_is_crop, FIXTURES.glob("*.toml")))
 BASIL = ROOT / "data" / "crops" / "basil_genovese.toml"
 
 
