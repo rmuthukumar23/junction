@@ -82,6 +82,20 @@ class OutageTests(unittest.TestCase):
         self.assertEqual(rules["duration_h"], [BOILER.duration_h.min, BOILER.duration_h.max])
 
 
+class QuoteTests(unittest.TestCase):
+    def test_a_repair_quote_changes_nothing_and_unknown_equipment_is_refused(self):
+        from greenhouse.world.operations import OpsError
+        ev = Events([replace(BOILER, rate_per_day=0.0, pinned_hours=(10,))], HORIZON, Rng(1))
+        ev.due(10)
+        quote = ev.repair_quote(11, "boiler")
+        self.assertTrue(quote.broken)
+        self.assertEqual((ev.repairs_requested, ev.outages[0].repair_requested_hour), (0, None))
+        self.assertIsNotNone(ev.outage_effect("boiler", 11))
+        self.assertIsNone(ev.outage_effect("boiler", 9))
+        with self.assertRaises(OpsError):
+            ev.repair_quote(11, "chp")
+
+
 class SpamTests(unittest.TestCase):
     def test_fifty_repairs_in_a_row_are_clearly_worse_than_none(self):
         """Repairs of working equipment cost money and worker-hours and do nothing."""

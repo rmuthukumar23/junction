@@ -28,35 +28,42 @@ price_eur_per_unit = 8.0
 external_price_eur_per_kg = 0.32
 
 [items.co2_kg]
-# Liquid CO2 delivered to the on-site tank. Charged on delivery.
+# Liquid CO2 delivered into the facility's tank (the facility file holds its size, start
+# level and low-store alarm). Charged on delivery.
 category = "co2"
 price_eur_per_unit = 0.25          # bulk delivery, below the contract price above
 lead_time_h = 72                   # three days from order to tank (spec test: hour 10 -> 82)
-min_quantity = 2000.0              # kg; one road tanker part-load
+# kg; one road tanker part-load. Sizing: holding ~900 ppm needs 70-130 kg/ha/h of dosing
+# with vents closed (AHDB CO2 best practice guide, citing Nederhoff), and Dutch farms that
+# buy CO2 use 20-30 kg/m2 a year (WUR Energy Monitor 2022). For 2 x 1000 m2 that is
+# roughly 110-160 kg a day, so a minimum order lasts about two weeks: a refill rhythm a
+# careful operator must plan around the lead time, and a naive one runs dry.
+min_quantity = 2000.0
 dispatch_h = 12                    # cancellable until the supplier dispatches
 cancel_fee_eur = 150.0
-warn_below = 500.0                 # kg; a stock_low alarm below this
 
 [items."seedlings:lettuce_butterhead"]
 # Per plant (a propagated plug ready to transplant). Plug prices are a few cents each;
 # the crop file's planting density turns area into plants.
 category = "seedlings"
 price_eur_per_unit = 0.08
-lead_time_h = 120                  # five days: the propagator ships from stock
+# Dutch propagators raise leaf-vegetable plants to order (Beekenkamp Plants), and lettuce
+# propagation takes 2-3 weeks (Teagasc Iceberg Lettuce technical note, 2020). We assume
+# plants on a pre-booked propagation schedule, released a week after the call-off; a full
+# sow-to-order lead time would leave no replanting window in a 42-day episode (spec D1).
+lead_time_h = 168
 min_quantity = 5000.0
 dispatch_h = 24
 cancel_fee_eur = 200.0
-warn_below = 0.0
 
 [items."seedlings:basil_genovese"]
-# Per plant.
+# Per plant. Same propagation assumption as lettuce (a pre-booked schedule, one week).
 category = "seedlings"
 price_eur_per_unit = 0.10
-lead_time_h = 120
+lead_time_h = 168
 min_quantity = 5000.0
 dispatch_h = 24
 cancel_fee_eur = 200.0
-warn_below = 0.0
 
 [staff]
 # Employer cost per paid worker-hour. The 2026 Dutch statutory minimum is EUR 14.71/h
@@ -71,7 +78,6 @@ hiring_fee_eur = 400.0             # agency placement fee per worker
 hire_notice_days = 3               # an agency worker starts three days after the request
 release_notice_days = 7            # paid for a week after release
 
-[start_stock]
-co2_kg = 1500.0
+[start_stock]                      # the CO2 store's start level is in the facility file
 "seedlings:lettuce_butterhead" = 0.0
 "seedlings:basil_genovese" = 0.0

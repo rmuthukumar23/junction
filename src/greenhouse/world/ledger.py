@@ -31,7 +31,6 @@ class EnergyPrices:
     gas_eur_per_m3: float
     import_eur_per_kwh: float
     export_eur_per_kwh: float
-    peak: bool = False            # this hour counts as a price peak (for failure-mode evidence)
 
 
 @dataclass(frozen=True)
@@ -49,9 +48,12 @@ class Ledger:
         self.start_cash_eur = float(start_cash_eur)
         self.cash_eur = float(start_cash_eur)
         self.entries: list[LedgerEntry] = []
-        # Evidence for failure modes (outcome.py), not money.
-        self.peak_import_kwh = 0.0
+        # Evidence for failure modes (outcome.py), not money. Buying power at peaks shows as
+        # paying more per kWh than the average hourly price: no threshold needed.
         self.import_kwh = 0.0
+        self.import_cost_eur = 0.0
+        self.hours_priced = 0
+        self.sum_import_price = 0.0
         self.harvests = 0
         self.unsellable_harvests = 0
         self.harvest_units = 0.0
@@ -97,8 +99,9 @@ class Ledger:
                         f"{m.external_co2_kg:.1f} kg external CO2"),
         ]
         self.import_kwh += m.electricity_import_kwh
-        if prices.peak:
-            self.peak_import_kwh += m.electricity_import_kwh
+        self.import_cost_eur += m.electricity_import_kwh * prices.import_eur_per_kwh
+        self.hours_priced += 1
+        self.sum_import_price += prices.import_eur_per_kwh
         return [e for e in out if e is not None]
 
     def price_harvest(self, hour: int, result: HarvestResult, unit_price_eur: float,

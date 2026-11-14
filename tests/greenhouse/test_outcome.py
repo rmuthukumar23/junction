@@ -43,6 +43,11 @@ class StandIn:
 
 
 class OutcomeTests(unittest.TestCase):
+    def test_the_outcome_reads_the_business_inside_a_simulator(self):
+        class Sim:
+            business = StandIn().play(30)
+        self.assertEqual(outcome.ledger(Sim())["profit_eur"], outcome.ledger(Sim.business)["profit_eur"])
+
     def test_doing_nothing_loses_exactly_the_fixed_wages(self):
         sim = StandIn().play()
         result = outcome.ledger(sim)
@@ -70,15 +75,12 @@ class OutcomeTests(unittest.TestCase):
 
     def test_failure_modes_record_what_went_wrong(self):
         sim = StandIn()
-        sim.ops.use_co2(0, sim.ops.stock["co2_kg"] + 50.0)        # run the store dry
         sim.ops.queue(0, "harvest", "L1", 10_000.0)               # more work than the crew can ever do
         sim.ledger.price_harvest(0, HarvestResult("b", "lettuce_butterhead", 10, "head", 90, 0.9, False), 0.45, [])
         sim.events = Events([replace(e, rate_per_day=0.0, pinned_hours=(30,)) if e.kind == "equipment" else
                              replace(e, rate_per_day=0.0) for e in EVENTS], HORIZON, Rng(1))
         sim.play(100)
         fm = outcome.failure_modes(sim)
-        self.assertGreater(fm["fm_co2_store_empty_days"], 4.0)
-        self.assertAlmostEqual(fm["fm_co2_short_kg"], 50.0)
         self.assertEqual(fm["fm_tasks_never_done"], 1.0)
         self.assertEqual(fm["fm_unsellable_harvests"], 1.0)
         self.assertEqual((fm["fm_outages"], fm["fm_outages_never_repaired"]), (1.0, 1.0))

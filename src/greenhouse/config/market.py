@@ -40,7 +40,7 @@ class ItemSpec:
     min_quantity: float
     dispatch_h: int                    # after this many hours an order can no longer be cancelled
     cancel_fee_eur: float
-    warn_below: float                  # stock below this raises a stock_low alarm (0 = never)
+    warn_below: float = 0.0            # stock below this raises a stock_low alarm (0 = never)
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,7 @@ def parse_market(raw: dict[str, Any], source: str) -> MarketSpec:
             min_quantity=i.num("min_quantity", lo=0.0),
             dispatch_h=i.int("dispatch_h", lo=0),
             cancel_fee_eur=i.num("cancel_fee_eur", lo=0.0),
-            warn_below=i.num("warn_below", lo=0.0),
+            warn_below=i.num("warn_below", default=0.0, lo=0.0),
         )
         i.done()
 
@@ -122,6 +122,9 @@ def parse_market(raw: dict[str, Any], source: str) -> MarketSpec:
     for item_id in list(stock_raw.raw):
         if item_id not in items:
             raise ConfigError(f"{source}: 'start_stock.{item_id}' is not an item in 'items'")
+        if items[item_id].category == "co2":
+            raise ConfigError(f"{source}: 'start_stock.{item_id}': the CO2 store belongs to the facility; "
+                              "set its start level in the facility file")
         start_stock[item_id] = stock_raw.num(item_id, lo=0.0)
     stock_raw.done()
 

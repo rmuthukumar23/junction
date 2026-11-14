@@ -44,6 +44,8 @@ class MarketSchemaTests(unittest.TestCase):
         cases.append((crew, "start_crew"))
         bad_cat = copy.deepcopy(raw); bad_cat["items"]["co2_kg"]["category"] = "wages"
         cases.append((bad_cat, "category"))
+        co2_stock = copy.deepcopy(raw); co2_stock["start_stock"]["co2_kg"] = 500.0
+        cases.append((co2_stock, "start_stock.co2_kg"))
         for doc, key in cases:
             with self.subTest(key=key):
                 with self.assertRaises(ConfigError) as cm:
