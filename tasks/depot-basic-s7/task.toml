@@ -14,7 +14,7 @@ keywords = ["envkit", "mcp", "simulation"]
 [metadata]
 scenario = "depot-basic"
 seed = 7
-bundle = "c229ee92d1e9b84c"
+bundle = "254d6bc2f7c90fa9"
 
 [agent]
 timeout_sec = 3600.0

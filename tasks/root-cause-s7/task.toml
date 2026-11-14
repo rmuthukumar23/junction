@@ -14,7 +14,7 @@ keywords = ["envkit", "mcp", "simulation"]
 [metadata]
 scenario = "root-cause"
 seed = 7
-bundle = "1447dec5e855e3b5"
+bundle = "6bd5004b21948f40"
 
 [agent]
 timeout_sec = 3600.0
