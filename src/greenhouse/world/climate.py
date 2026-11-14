@@ -52,8 +52,10 @@ class CompartmentClimate:
              leakage_factor: float = 1.0) -> ClimateSample:
         if dt_h <= 0 or dt_h > 1:
             raise ValueError('substep duration must be in (0, 1] hours')
-        if min(heat_kw, co2_kg_h, transpiration_kg_h, co2_uptake_kg_h) < 0:
-            raise ValueError('physical flows must be non-negative')
+        if (any(not math.isfinite(v) for v in
+                (heat_kw, co2_kg_h, transpiration_kg_h, co2_uptake_kg_h)) or
+                min(heat_kw, co2_kg_h, transpiration_kg_h) < 0):
+            raise ValueError('physical flows must be finite; heat, dosing and transpiration must be non-negative')
         if hour // 24 != self._dli_day:
             self.dli_mol_m2 = 0.0
             self._dli_day = hour // 24
@@ -78,7 +80,8 @@ class CompartmentClimate:
             self.temp_c = equilibrium + (self.temp_c - equilibrium) * math.exp(-cooling_kw_per_c * dt_h / thermal_mass)
         else:
             self.temp_c += net_kw * dt_h / thermal_mass
-        # Air exchange acts on concentrations. Exponential relaxation preserves bounds.
+        # Air exchange acts on concentrations. Negative crop uptake releases CO2.
+        # Exponential relaxation preserves bounds.
         decay = math.exp(-exchange_ach * dt_h)
         air_mass = self.volume_m3 * _AIR_KG_M3
         ppm_per_kg = 1e6 / (air_mass * _CO2_TO_AIR_MOLAR_RATIO)

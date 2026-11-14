@@ -306,7 +306,7 @@ class Facility:
     def substep(self, hour: int, dt_h: float,
                 climate: dict[str, ClimateSetpoints], energy: EnergySettings,
                 loads: dict[str, CropLoad]) -> dict[str, ClimateSample]:
-        """Crop loads use the preceding sample, avoiding a same-step algebraic loop."""
+        """Crop loads use the preceding sample; negative CO2 uptake is night respiration."""
         if not math.isfinite(dt_h) or dt_h <= 0 or dt_h > 1:
             raise ValueError('substep duration must be in (0, 1]')
         if self._open_hour is not None and self._open_hour != hour:
@@ -318,9 +318,10 @@ class Facility:
         for key in self.compartment_ids:
             self.check_climate(key, climate[key])
             load = loads[key]
-            if any(not math.isfinite(v) or v < 0 for v in
-                   (load.planted_m2, load.transpiration_kg_h, load.co2_uptake_kg_h)):
-                raise ValueError('crop loads must be finite and non-negative')
+            if (any(not math.isfinite(v) for v in
+                    (load.planted_m2, load.transpiration_kg_h, load.co2_uptake_kg_h)) or
+                    load.planted_m2 < 0 or load.transpiration_kg_h < 0):
+                raise ValueError('crop loads must be finite; area and transpiration must be non-negative')
         self.check_energy(energy)
         weather = self.weather.at(hour)
         effects = {key: value for key, value in self.effects.items()

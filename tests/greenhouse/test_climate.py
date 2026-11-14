@@ -91,3 +91,11 @@ class AdditionalClimateTests(unittest.TestCase):
         self.assertGreater(intact.dli_mol_m2, 0)
         intact.step(24, 1/12, self.weather, act, 0, 0, 0, 0)
         self.assertEqual(intact.dli_mol_m2, 0)
+
+    def test_night_respiration_releases_co2_into_the_air(self):
+        act = Actuators(0, False, 0, 0, 0)
+        control = CompartmentClimate(self.comp, initial_co2_ppm=420)
+        respiring = CompartmentClimate(self.comp, initial_co2_ppm=420)
+        control.step(0, 1/12, self.weather, act, 0, 0, 0, 0)
+        respiring.step(0, 1/12, self.weather, act, 0, 0, 0, -1)
+        self.assertGreater(respiring.co2_ppm, control.co2_ppm)

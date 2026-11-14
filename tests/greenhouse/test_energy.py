@@ -166,6 +166,29 @@ class FacilityEpisodeTests(unittest.TestCase):
         self.assertGreater(sim.history[0].metered['gas_eur_per_m3'], 0)
         self.assertLess(sim.business.totals()['gas'], 0)
 
+    def test_real_modules_run_together_for_ten_days(self):
+        from greenhouse.world.modules import build
+        from greenhouse.world.sim import Greenhouse
+
+        env = {
+            'facility': 'data/facilities/nl_two_compartment.toml',
+            'climate': 'data/climates/nl_january.toml',
+            'energy_prices': 'data/energy_prices/nl_winter.toml',
+            'market': 'data/markets/nl_winter.toml',
+            'crops': ['data/crops/lettuce_butterhead.toml', 'data/crops/basil_genovese.toml'],
+            'events': ['data/events/boiler_trip.toml', 'data/events/late_delivery.toml'],
+            'horizon_days': 10,
+            'substeps_per_hour': 12,
+        }
+        sim = Greenhouse(build(env, Rng(1)), Rng(1))
+        for _ in range(240):
+            sim.run_hour()
+        self.assertEqual(sim.hour, 240)
+        self.assertEqual(len(sim.history), 240)
+        self.assertLess(sim.facility.energy.co2_store_kg,
+                        sim.facility.spec.energy_centre.co2_store.start_kg)
+        self.assertLess(sim.business.profit_eur(), 0)
+
     def test_full_42_days_under_10s_and_conserved(self):
         import time
         from greenhouse.world.controller import ClimateSetpoints
