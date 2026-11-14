@@ -8,7 +8,7 @@ dependencies = []
 [project.optional-dependencies]
 eval = ["ortools==9.15.6755"]
 mcp = ["mcp==2.3.0"]
-harbor = ["harbor[modal]==0.26.0"]
+harbor = ["harbor[modal]==0.26.0", "certifi==2026.10.23"]
 
 [dependency-groups]
 dev = ["pytest==9.0.3"]

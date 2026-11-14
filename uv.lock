@@ -1478,6 +1478,7 @@ eval = [
     { name = "ortools" },
 ]
 harbor = [
+    { name = "certifi" },
     { name = "harbor", extra = ["modal"] },
 ]
 mcp = [
@@ -1491,6 +1492,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", marker = "extra == 'harbor'", specifier = "==2026.10.23" },
     { name = "harbor", extras = ["modal"], marker = "extra == 'harbor'", specifier = "==0.26.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = "==2.3.0" },
     { name = "ortools", marker = "extra == 'eval'", specifier = "==9.15.6755" },
