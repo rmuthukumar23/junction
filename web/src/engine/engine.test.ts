@@ -4,6 +4,8 @@ import { angleList, flipX, parseGrid, rotate, trim } from "./pixels";
 import { Player, animKeys, ease } from "./player";
 import { Particles, Shake } from "./particles";
 import { validateSheet, type SheetFile } from "./sheet";
+import { AnimSprite } from "./anim";
+import { SpriteView } from "./bank";
 
 const KEYS = new Set(COLORS.map((c) => c.key));
 const rows = (img: { w: number; h: number; data: Uint8Array }) => {
@@ -121,5 +123,23 @@ describe("sheet validation", () => {
     const bad: SheetFile = { format: "pixel-sprites/1", sprites: { a: { frames: [["k.", "#"]], anchor: [5, 0], variants: { v: { k: "?" } } } }, anims: { x: { sprite: "a", frames: [[3, 0]] }, y: { sprite: "nope", frames: [[0, 1]] } } };
     const errs = validateSheet(bad, KEYS).join("\n");
     for (const s of ["width 1", "'#'", "anchor", "variant v", "frame 3", "duration", "unknown sprite"]) expect(errs).toContain(s);
+  });
+});
+
+describe("AnimSprite", () => {
+  const frames = [0, 1, 2].map((i) => ({ img: null as unknown as HTMLCanvasElement, w: 1, h: 1, ax: 0, ay: 0, pts: {}, i }));
+  const view = new SpriteView("t", frames, [], [], null);
+  it("walks the animation's frames and fires events", () => {
+    const seen: string[] = [];
+    const a = new AnimSprite(view, { sprite: "t", loop: true, frames: [[0, 100], [2, 100, "tick"]] }, 0, (n) => seen.push(n));
+    expect((a.frame() as unknown as { i: number }).i).toBe(0);
+    a.update(0); a.update(150);
+    expect((a.frame() as unknown as { i: number }).i).toBe(2); expect(seen).toEqual(["tick"]);
+    a.update(100); expect((a.frame() as unknown as { i: number }).i).toBe(0);
+  });
+  it("offsets the phase and finishes one-shots", () => {
+    const a = new AnimSprite(view, { sprite: "t", loop: false, frames: [[0, 100], [1, 100]] }, 120);
+    expect((a.frame() as unknown as { i: number }).i).toBe(1);
+    a.update(500); expect(a.done).toBe(true);
   });
 });
