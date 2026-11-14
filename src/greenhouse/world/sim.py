@@ -28,6 +28,7 @@ from ..contracts import (Alarm, BatchState, ClimateSetpoints, CropLoad, EnergySe
 from .modules import Modules
 
 STANDING = ("growing", "ready")
+AREA_ROUNDING_M2 = 0.05      # half of the 0.1 m2 step in which views report areas; not a game value
 
 
 @dataclass
@@ -199,8 +200,13 @@ class Greenhouse:
         crop_id = self.facility.crop_id(compartment_id)
         model = self.growth[crop_id]
         free = self.free_area_m2(compartment_id)
-        if area_m2 > free + 1e-9:
-            raise RuleError(f"only {free:.0f} m2 is free in {compartment_id}")
+        # get_status shows the free area to one decimal, so that figure must be plantable:
+        # a request within that rounding plants what is actually free.
+        if area_m2 > free + AREA_ROUNDING_M2:
+            raise RuleError(f"only {free:.1f} m2 is free in {compartment_id}")
+        area_m2 = min(area_m2, free)
+        if area_m2 <= 0:
+            raise RuleError(f"no area is free in {compartment_id}")
         days_left = self.hours_left() / 24
         if days_left < model.min_days_before_end():
             raise RuleError(f"too late to plant {crop_id}: {days_left:.1f} days left, "

@@ -123,6 +123,24 @@ class OperationTests(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertIn("too late", r["error"]["message"])
 
+    def test_the_free_area_get_status_shows_can_be_planted(self):
+        """Status rounds areas to 0.1 m2, sometimes upwards. Planting the figure shown
+        must work and plant what is free (it used to be refused as 'more than free')."""
+        ep = episode()
+        ok(ep, "set_climate", {"compartment": "A", **WARM})
+        while ep.env.sim.free_area_m2("A") <= 0:
+            for b in ep.env.sim.batch_views():
+                if b["compartment"] == "A" and b["status"] == "ready" and not b["harvest_queued"]:
+                    ok(ep, "harvest", {"batch_id": b["id"]})
+            ok(ep, "advance", {"hours": 6})
+        ok(ep, "plant", {"compartment": "A", "area_m2": 50.04})
+        shown = ok(ep, "get_status")["result"]["free_area_m2"]["A"]
+        self.assertGreater(shown, ep.env.sim.free_area_m2("A"))      # 199.96 is shown as 200.0
+        task = ok(ep, "plant", {"compartment": "A", "area_m2": shown})["result"]["task"]
+        self.assertAlmostEqual(task["detail"]["area_m2"], 199.96)
+        self.assertEqual(ep.env.sim.free_area_m2("A"), 0.0)
+        self.assertFalse(ep.call("plant", {"compartment": "A", "area_m2": 0.2})["ok"])
+
     def test_orders_and_repairs(self):
         ep = episode()
         self.assertFalse(ep.call("place_order", {"item": "co2_kg", "quantity": 5})["ok"])

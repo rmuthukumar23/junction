@@ -182,15 +182,19 @@ class Events:
         out = []
         for s in self.specs.values():
             rng_range = s.duration_h if s.kind == "equipment" else s.delay_h
-            value = [rng_range.min, rng_range.max] if isinstance(rng_range, Range) else rng_range
+            # Only a range is published. The loader draws each range once per seed before
+            # the business is built, so a plain number here is that hidden draw: it is
+            # left out, and its range is in get_rules under hidden_parameter_ranges.
+            length = {"duration_h" if s.kind == "equipment" else "delay_h": [rng_range.min, rng_range.max]} \
+                if isinstance(rng_range, Range) else {}
             row: dict[str, Any] = {"id": s.id, "kind": s.kind, "rate_per_day": s.rate_per_day}
             if s.kind == "equipment":
                 row.update(target=s.target, capacity_factor=s.capacity_factor, leakage_factor=s.leakage_factor,
-                           duration_h=value, repair={"cost_eur": s.repair.cost_eur,
-                                                     "worker_hours": s.repair.worker_hours,
-                                                     "shortens_to_h": s.repair.shortens_to_h})
+                           **length, repair={"cost_eur": s.repair.cost_eur,
+                                             "worker_hours": s.repair.worker_hours,
+                                             "shortens_to_h": s.repair.shortens_to_h})
             else:
-                row.update(delay_h=value, items=list(s.items))
+                row.update(**length, items=list(s.items))
             out.append(row)
         return out
 

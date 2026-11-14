@@ -49,6 +49,17 @@ class LedgerTests(unittest.TestCase):
         self.assertAlmostEqual(t["electricity_sold"], 4.0)
         self.assertAlmostEqual(t["co2"], -6.0)                   # store CO2 was paid on delivery, not here
 
+    def test_negative_prices_are_settled_with_their_sign(self):
+        """Recorded day-ahead prices go below zero: exporting then costs money and
+        importing pays. It must be booked, not raise (it used to end the episode)."""
+        book = Ledger(0.0)
+        m = Metered(hour=7, electricity_import_kwh=100.0, electricity_export_kwh=40.0)
+        book.price_metered(m, EnergyPrices(0.5, -0.02, -0.05), external_co2_eur_per_kg=0.3)
+        t = book.totals()
+        self.assertAlmostEqual(t["electricity_bought"], 2.0)     # paid to take power
+        self.assertAlmostEqual(t["electricity_sold"], -2.0)      # paid to get rid of it
+        self.assertEqual(book.conservation_error(), 0.0)
+
     def test_buying_at_peaks_shows_as_paying_more_than_the_average_price(self):
         book = Ledger(0.0)
         book.price_metered(Metered(hour=0, electricity_import_kwh=0.0), EnergyPrices(0.5, 0.10, 0.05), 0.3)

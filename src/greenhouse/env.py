@@ -17,7 +17,7 @@ from typing import Annotated, Any, Literal, Optional
 from envkit.core import Environment, ToolError, tool
 from envkit.rng import Rng
 
-from . import views
+from . import outcome, views
 from .config.loader import data_files
 from .contracts import RuleError
 from .world.modules import builder
@@ -201,6 +201,12 @@ class GreenhouseBench(Environment):
         out.update({f"eur_{k}": round(v, 4) for k, v in sorted(s.business.totals().items())})
         out["harvests"] = float(len(s.harvests))
         out["unsellable_harvests"] = float(sum(not h["sellable"] for h in s.harvests))
+        # The real business also reports money by category and failure-mode evidence
+        # (`fm_*`), and refuses a run whose money does not balance. None of it is scored:
+        # the score reads `profit_eur` only. The test fakes have no ledger to read.
+        if all(hasattr(s.business, part) for part in ("ledger", "ops", "events")):
+            evidence = outcome.ledger(s)
+            out.update({k: v for k, v in evidence.items() if k != "profit_eur"})
         return out
 
     def _result(self) -> dict[str, Any]:
@@ -211,7 +217,15 @@ class GreenhouseBench(Environment):
 
     @classmethod
     def policies(cls) -> dict[str, Any]:
-        return {}
+        """The ladder of spec 9. Every policy plays through the tools only. `absentee`
+        replaces envkit's, which ends windows with a tool the greenhouse does not offer."""
+        from .policies.common import Absentee
+        from .policies.exploiter import EXPLOITS
+        from .policies.naive import Naive
+        from .policies.reference import Reference
+        from .policies.rule_based import RuleBased
+        return {"absentee": Absentee, "naive": Naive, "rule-based": RuleBased, "reference": Reference,
+                **EXPLOITS}
 
     @classmethod
     def fuzz_args(cls, tool_name: str, rng: Rng) -> dict[str, Any] | None:

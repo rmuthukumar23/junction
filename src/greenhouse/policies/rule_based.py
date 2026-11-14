@@ -1,7 +1,8 @@
 """Rule-based grower (spec 9): practitioner rules without a model of the future.
 
   * Climate: crop-file targets; energy screen on automatic (closed at night).
-  * Lamps: on in the cheapest hours of the electricity forecast, if one is offered.
+  * Lamps: on for the crop file's photoperiod, in the cheapest hours of the electricity
+    forecast, if one is offered. The intensity stays at the facility's baseline.
   * CO2: reorder at a level that covers the lead time at the recent use rate, so the
     store never runs dry; no dosing target while it is empty.
   * Seedlings: ordered a lead time before a batch is due, so freed space is replanted.
@@ -16,7 +17,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .common import ToolPolicy, midpoint, result
+from .common import ToolPolicy, import_prices, midpoint, result
 
 
 class RuleBased(ToolPolicy):
@@ -24,8 +25,7 @@ class RuleBased(ToolPolicy):
     default_day_c = 18.0
     default_night_c = 14.0
     default_co2_ppm = 800.0
-    lamp_hours_per_day = 6        # how many cheapest hours the lamps run
-    lamp_intensity_pct = 100.0
+    lamp_hours_per_day = 12       # cheapest hours the lamps run when a crop publishes no photoperiod
     safety_days = 2.0             # extra days of CO2 on top of the lead time
     cover_days = 7.0              # an order covers this many days of use
     fallback_lead_h = 72.0
@@ -33,6 +33,7 @@ class RuleBased(ToolPolicy):
     max_hires = 2                 # a cap on how far it grows the crew
 
     def setup(self, status: dict[str, Any]) -> None:
+        self.lamps_set: dict[str, list[int]] = {}
         self.last_store: float | None = self.co2_store(status)
         self.use_per_day = 0.0
         self.hired = 0
@@ -110,16 +111,19 @@ class RuleBased(ToolPolicy):
                 self.hired += 1
 
     def set_lamps(self, status: dict[str, Any]) -> None:
-        forecast = result(self.call("get_forecast", hours=24)).get("forecast", {})
-        prices = next((v for k, v in forecast.items() if "price" in k and isinstance(v, list)), None)
+        now = status.get("clock", {}).get("hour", 0)
+        prices = import_prices(result(self.call("get_forecast", hours=24)).get("forecast", {}), now)
         if not prices:
             return
-        hour0 = status.get("clock", {}).get("hour_of_day", 0)
-        cheapest = sorted(range(len(prices)), key=lambda i: (prices[i], i))[:self.lamp_hours_per_day]
-        hours = sorted((hour0 + i) % 24 for i in cheapest)
-        for compartment in self.crop_of(status):
-            self.call("set_climate", compartment=compartment, lamp_hours=hours,
-                      lamp_intensity_pct=self.lamp_intensity_pct)
+        by_price = sorted(prices, key=lambda row: (row[1], row[0]))
+        for compartment, crop in self.crop_of(status).items():
+            # The crop file's photoperiod, in the cheapest hours; the intensity is left as it stands.
+            wanted = self.targets(crop).get("photoperiod_h")
+            count = round(wanted) if isinstance(wanted, (int, float)) and wanted > 0 else self.lamp_hours_per_day
+            hours = sorted({hour % 24 for hour, _ in by_price[:count]})
+            if hours != self.lamps_set.get(compartment):
+                self.lamps_set[compartment] = hours
+                self.call("set_climate", compartment=compartment, lamp_hours=hours)
 
     @staticmethod
     def _repair_queued(status: dict[str, Any], equipment_id: str) -> bool:
