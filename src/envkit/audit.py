@@ -10,7 +10,10 @@ Checks (limits can be overridden in the scenario's [audit] table):
   2. absentee (shows up, does nothing) scores at most `absentee_max` (0.15).
   3. stopping early never pays: cutting the reference run off after a
      fraction of its tool calls never scores more than cutting it off later,
-     and every such prefix is below the full reference.
+     and every such prefix is below the full reference. A prefix may equal
+     the reference only when every call it leaves out is a clock tool named in
+     `[audit] clock_tools` (e.g. a final `advance_day` whose day would run the
+     plan already submitted): leaving those out changes no decision.
   4. no degenerate strategy (random calls, spamming one tool) reaches the
      pass threshold set by the best scripted anchor, or the reference itself
      when the scenario has no anchored component.
@@ -57,6 +60,9 @@ def audit(scenario: Scenario, seed: int, calibration: dict[str, Any] | None = No
     absentee = add("idle", "absentee")
     cuts = sorted({max(1, round(f * len(ref_ep.trace.calls))) for f in STOP_FRACTIONS})
     stops = [add("stop-early", f"stop-after:reference@{n}") for n in cuts]
+    clock = set(limits.get("clock_tools", ()))
+    decisive = [any(r["tool"] not in clock for r in ref_ep.trace.calls[n:]) for n in cuts]
+    below = all(s < reference or (not d and s <= reference + 1e-9) for s, d in zip(stops, decisive))
     degenerate = [add("random", f"random:{s}") for s in range(5)]
     tools = [t["name"] for t in ref_ep.describe_tools()]
     degenerate += [add("spam", f"spam:{t}") for t in tools]
@@ -73,8 +79,9 @@ def audit(scenario: Scenario, seed: int, calibration: dict[str, Any] | None = No
          f"{absentee:.4f} <= {limits['absentee_max']}"),
         ("stopping earlier never scores more", all(b >= a - tol for a, b in zip(stops, stops[1:])),
          " <= ".join(f"{s:.3f}" for s in stops)),
-        ("every stop-early run is below the reference", max(stops) < reference,
-         f"max {max(stops):.4f} < {reference:.4f}"),
+        ("every stop-early run is below the reference", below,
+         f"max {max(stops):.4f} < {reference:.4f}" + (f" (ties allowed when only {sorted(clock)} is left out)"
+                                                      if clock else "")),
         ("no degenerate strategy reaches the pass threshold", max(degenerate) < (threshold or reference),
          f"max {max(degenerate):.4f} < {threshold or reference}"),
         ("the reference clears the pass threshold", threshold is None or reference >= threshold,

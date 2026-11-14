@@ -192,6 +192,7 @@ class Episode:
         self.alerts: list[dict[str, Any]] = []
         self._alerts_read = 0
         self.calls = 0
+        self.requests = 0      # every call that reached the engine while the episode was open
         self.rejected = 0
         self.faults = 0
         self.ops_used = 0
@@ -267,6 +268,11 @@ class Episode:
                 self._close_window()
         elif code == "insufficient_ops":
             self.rejected += 1
+        if code != "episode_over":
+            self.requests += 1
+            limit = self.shift.max_calls
+            if limit is not None and self.requests >= limit and not self.done:
+                self._stop_at_call_limit()
 
         response: dict[str, Any] = {"ok": ok}
         if ok:
@@ -311,6 +317,14 @@ class Episode:
             self.stopped_early = True
         while not self.done:
             self._close_window()
+
+    def _stop_at_call_limit(self) -> None:
+        """The request budget is spent: play every remaining window unattended."""
+        self.stopped_early = True
+        while not self.done:
+            self._close_window()
+        if self.end_reason == "horizon":
+            self.end_reason = "call_limit"
 
     def _open_window(self) -> None:
         for ev in self.scenario.events:

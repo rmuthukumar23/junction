@@ -1,29 +1,32 @@
-"""The reference policy: a receding-horizon planner on a state estimate.
+"""The planners: a diagnosing reference, a blind variant, and the informed bound.
 
-It plays through the same tools as any player and uses only what they return:
-the published rules, the morning readings, the forecast, and the results of
-the tests it pays for. It is a strong comparator, not a proof of what is
-optimal: it searches a small grid of candidate plans and plans against a
-forecast, so a better player can beat it.
+All three share one planning core (`plan_day`) and differ only in what they
+believe about the mains water:
 
-Estimate. The split of each zone's EC into nutrients and salts is not
-observable, so on day 0 it orders one composition test per zone and acts on a
-cautious guess until the results arrive. From then on it keeps its own copy of
-each zone's nutrient and salt mass and rolls it forward every morning with the
-published daily update (`model.step_zone`), its own plan, and the temperature
-that the history reports for the day just played.
+  reference  Diagnoses. When the utility notice arrives it orders a mains water
+             test at once, and from the next morning it also estimates the new
+             salt content from the benches' own EC readings: the rise in EC that
+             its nutrient model does not explain is salt brought by mains
+             water. Plays through the public tools only.
+  blind      The same planner and the same tools, but it ignores the notice and
+             never tests: it assumes the water is unchanged and trusts its
+             model. It shows what the incident costs a good planner that does
+             not look for the root cause.
+  informed   The same planner told the true backup salinity from the moment of
+             the incident. It is not a player: the scorer runs it on the
+             instance to set the top of the reward scale (outcome.informed_profit).
 
-Plan. Every morning, for each zone, it scores a grid of candidates:
+Plan. Each morning, for each bench, it scores a grid of candidates
 
-    flush today       x  nutrient level to hold  x  volume level to hold
+    flush today  x  nutrient level to hold  x  volume level to hold
+                 x  reserve share of today's top-up  x  reserve share of later top-ups
 
-by simulating its estimate of that zone to the end of the season under the
-forecast (the seasonal normal beyond it) and adding up sales minus costs.
-Zones share fresh water, so it then picks one candidate per zone to maximize
-the total, subject to today's deliverable water and the allocation left. It
-does that by raising an internal price on water, first for the season and
-then for today, until the picks fit. Only today's part of the plan is
-submitted; tomorrow it plans again from new readings.
+by simulating its estimate of that bench to the last day under the forecast
+and the believed mains salt, adding up sales minus costs. Benches share the
+reserve, so it then picks one candidate per bench to maximize the total while
+the planned reserve use fits what is left, by raising an internal price on
+reserve water. Only today's part of the plan is submitted; tomorrow it plans
+again from new readings.
 """
 from __future__ import annotations
 
@@ -31,166 +34,242 @@ from typing import Any, NamedTuple
 
 from envkit.policies import Client, Policy
 
-from .model import Params, step_zone, transpiration_factor
-from .policies import submit_within_supply
+from .model import Params, demand_l, step_bench
 
-FLUSHES_L = (0.0, 150.0, 300.0, 450.0, 600.0)
-NUTRIENT_LEVELS_G_L = (0.8, 1.0, 1.2, 1.4)                         # held at mid-day
-VOLUME_LEVELS_L = (500.0, 650.0, 800.0, 950.0, 1100.0, 1250.0, 1400.0)   # held at the end of the day
-WATER_PRICES = (0.0, 0.01, 0.02, 0.04, 0.07, 0.1, 0.15, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0, 4.0)
-PRIOR_SALT_G_L = 0.9   # the guess used before any test result exists
+FLUSHES_L = (0.0, 150.0, 300.0)
+NUTRIENT_LEVELS_G_L = (0.6, 0.75, 0.9, 1.05)                  # held at mid-day
+VOLUME_LEVELS_L = (650.0, 800.0, 950.0, 1100.0)               # held at the end of the day
+RESERVE_SHARES = (0.0, 0.25, 0.5, 0.75, 1.0)                  # of a day's top-up: today, and every later day
+RESERVE_PRICES = tuple(round(0.005 * k, 3) for k in range(0, 41)) + (0.3, 0.5, 1.0, 2.0)
+# Until the first evidence arrives the reference assumes the new water is this
+# salty (five times the usual mains): the notice and the rules say a backup
+# source can carry several times as much salt, so it hedges rather than assume nothing changed.
+PRECAUTION_SALT_G_L = 0.5
 
 
 class Candidate(NamedTuple):
     value: float          # sales minus costs over the rest of the season, EUR
-    water_today: float
-    water_total: float
-    irrigation_l: float   # today's part of the plan
-    fertilizer_g: float
-    flush_l: float
+    reserve_total: float  # reserve this candidate uses over the rest of the season
+    plan: dict[str, float]
 
 
-class Zone:
-    """What the planner knows or believes about one zone this morning."""
+class Belief(NamedTuple):
+    """What a planner believes about one bench this morning."""
+    growth_max: float
+    transp_base: float
+    volume: float
+    nutrient: float
+    salt: float
+    condition: float
 
-    def __init__(self, zone_id: str, growth_max: float, transp_base: float):
-        self.id, self.growth_max, self.transp_base = zone_id, growth_max, transp_base
-        self.volume = self.condition = 0.0
-        self.nutrient = self.salt = 0.0     # estimated masses, g
-        self.tested = False
 
-
-def day_plan(p: Params, transp_base: float, v: float, n: float, condition: float, temp: float,
-             flush: float, nutrient_level: float, volume_level: float, last_day: bool) -> tuple[float, float]:
-    """Irrigation and fertilizer that hold the two levels for one day."""
-    demand = transp_base * transpiration_factor(p, temp) * (p.canopy_floor + (1.0 - p.canopy_floor) * condition)
-    if last_day:   # water left in the loop after the last day is worth nothing
-        volume_level = min(volume_level, p.comfort_volume_l - 0.3 * demand)
-    irrigation = min(p.irrigation_max_l, p.capacity_l - v, max(0.0, volume_level + demand - v))
-    irrigation = max(0.0, irrigation)
+def day_amounts(p: Params, b: Belief, v: float, n: float, h: float, temp: float, flush: float,
+                level: float, volume_level: float, share: float, last_day: bool) -> dict[str, float]:
+    """The top-up and fertilizer that hold the two levels for one day."""
+    demand = demand_l(p, b.transp_base, temp, h)
+    if last_day:   # solution left after the cut is worth nothing
+        volume_level = min(volume_level, p.comfort_volume_l + 0.5 * demand)
+    top_up = max(0.0, min(p.top_up_max_l, p.capacity_l - v, volume_level + demand - v))
     n_after_flush = n * (1.0 - min(1.0, flush / v)) if v > 0 else n
-    wanted = nutrient_level * (v + irrigation - 0.5 * demand)
+    wanted = level * (v + top_up - 0.5 * demand)
     fertilizer = min(p.fertilizer_max_g, max(0.0, (wanted - n_after_flush) / (1.0 - p.fertilizer_ballast)))
-    return irrigation, fertilizer
+    return {"mains_l": top_up * (1.0 - share), "reserve_l": top_up * share, "fertilizer_g": fertilizer,
+            "flush_l": flush}
 
 
-def rollout(p: Params, zone: Zone, temps: list[float], flush_today: float,
-            nutrient_level: float, volume_level: float, day0: int = 0) -> Candidate:
-    """Simulate the estimate of one zone to the end of the season."""
-    v, n, s, h = zone.volume, zone.nutrient, zone.salt, zone.condition
-    value = water_total = 0.0
-    today = (0.0, 0.0, 0.0)
+def rollout(p: Params, b: Belief, temps: list[float], day0: int, salt_by_day: list[float],
+            flush_today: float, level: float, volume_level: float, share_today: float,
+            share_later: float) -> Candidate:
+    v, n, s, h = b.volume, b.nutrient, b.salt, b.condition
+    value = reserve_total = 0.0
+    today: dict[str, float] = {}
     last = len(temps) - 1
     for k, temp in enumerate(temps):
-        flush = flush_today if k == 0 else 0.0
-        irrigation, fertilizer = day_plan(p, zone.transp_base, v, n, h, temp, flush,
-                                          nutrient_level, volume_level, k == last)
-        r = step_zone(p, zone.growth_max, zone.transp_base, v, n, s, h, irrigation, fertilizer, flush, temp, day0 + k)
-        water = irrigation + flush
-        value += (p.price_per_kg * r.growth_kg - water * p.water_price_per_l
-                  - fertilizer * p.fertilizer_price_per_g - (flush + r.overflow_l) * p.discharge_price_per_l)
-        water_total += water
+        flush = min(flush_today, max(0.0, v - p.dead_volume_l)) if k == 0 else 0.0
+        share = share_today if k == 0 else share_later
+        a = day_amounts(p, b, v, n, h, temp, flush, level, volume_level, share, k == last)
+        r = step_bench(p, b.growth_max, b.transp_base, v, n, s, h, a["mains_l"], a["reserve_l"], a["fertilizer_g"],
+                       a["flush_l"], temp, day0 + k, salt_by_day[k])
+        value += (p.price_per_kg * r.growth_kg - (a["mains_l"] + a["flush_l"]) * p.mains_price_per_l
+                  - a["reserve_l"] * p.reserve_price_per_l
+                  - a["fertilizer_g"] * p.fertilizer_price_per_g - (a["flush_l"] + r.overflow_l) * p.discharge_price_per_l)
+        reserve_total += a["reserve_l"]
         if k == 0:
-            today = (irrigation, fertilizer, flush)
+            today = a
         v, n, s, h = r.volume_l, r.nutrient_g, r.salt_g, r.condition
-    return Candidate(value, today[0] + today[2], water_total, *today)
+    return Candidate(value, reserve_total, today)
 
 
-def candidates(p: Params, zone: Zone, temps: list[float], allow_flush: bool, day0: int = 0) -> list[Candidate]:
-    pumpable = max(0.0, zone.volume - p.dead_volume_l)
-    flushes = [f for f in FLUSHES_L if f <= pumpable] if allow_flush else [0.0]
-    return [rollout(p, zone, temps, flush, level, volume, day0)
-            for flush in flushes for level in NUTRIENT_LEVELS_G_L for volume in VOLUME_LEVELS_L]
-
-
-def choose(options: dict[str, list[Candidate]], water_left: float, available_today: float) -> dict[str, Candidate]:
-    """One candidate per zone, maximizing total value within both water limits."""
+def plan_day(p: Params, beliefs: dict[str, Belief], temps: list[float], day0: int, salt_by_day: list[float],
+             reserve_left: float) -> dict[str, dict[str, float]]:
+    """Today's plan for every bench."""
+    options: dict[str, list[Candidate]] = {}
+    for bench_id, b in beliefs.items():
+        shares = RESERVE_SHARES if reserve_left > 1e-6 else (0.0,)
+        options[bench_id] = [rollout(p, b, temps, day0, salt_by_day, f, lvl, vol, now, later)
+                             for f in FLUSHES_L for lvl in NUTRIENT_LEVELS_G_L
+                             for vol in VOLUME_LEVELS_L for now in shares for later in shares]
     picks: dict[str, Candidate] = {}
-    for season_price in WATER_PRICES:
-        for today_price in WATER_PRICES:
-            picks = {z: max(cs, key=lambda c: c.value - season_price * c.water_total - today_price * c.water_today)
-                     for z, cs in options.items()}
-            if (sum(c.water_total for c in picks.values()) <= water_left + 1e-6
-                    and sum(c.water_today for c in picks.values()) <= available_today + 1e-6):
-                return picks
-    return picks   # nothing fits: the caller scales the thriftiest picks down
+    for price in RESERVE_PRICES:
+        picks = {z: max(cs, key=lambda c: c.value - price * c.reserve_total) for z, cs in options.items()}
+        if sum(c.reserve_total for c in picks.values()) <= reserve_left + 1e-6:
+            break
+    else:   # nothing fits the season's reserve: take the thriftiest options
+        picks = {z: min(cs, key=lambda c: (c.reserve_total, -c.value)) for z, cs in options.items()}
+    plan = {z: dict(c.plan) for z, c in picks.items()}
+    today = sum(bp["reserve_l"] for bp in plan.values())
+    if today > reserve_left and today > 0:
+        scale = reserve_left / today
+        for bp in plan.values():
+            moved = bp["reserve_l"] * (1.0 - scale)
+            bp["reserve_l"] -= moved
+            bp["mains_l"] += moved
+    return {z: {k: int(v * 10) / 10.0 for k, v in bp.items()} for z, bp in plan.items()}   # round down
+
+
+def horizon_temps(forecast: list[float], days_left: int) -> list[float]:
+    temps = list(forecast[:days_left])
+    while len(temps) < days_left:
+        temps.append(temps[-1] if temps else 22.0)
+    return temps
+
+
+# -- the players ------------------------------------------------------------------------
+
+class _Tracker:
+    """A planner's own bookkeeping of each bench's nutrient and salt mass."""
+
+    def __init__(self, p: Params, rules: dict[str, Any], status: dict[str, Any]):
+        self.p = p
+        self.specs = {b["bench_id"]: (b["growth_max_kg_per_day"], b["transpiration_base_l_per_day"])
+                      for b in rules["benches"]}
+        lab = status["lab_report_day_0"]
+        self.mass = {z: (r["nutrient_g_l"] * r["volume_l"], r["salt_g_l"] * r["volume_l"]) for z, r in lab.items()}
+        self.read(status)
+
+    def read(self, status: dict[str, Any]) -> None:
+        self.morning = {b["bench_id"]: b for b in status["benches"]}
+
+    def beliefs(self) -> dict[str, Belief]:
+        out = {}
+        for z, (g, t) in self.specs.items():
+            m = self.morning[z]
+            n, s = self.mass[z]
+            out[z] = Belief(g, t, m["volume_l"], n, s, m["condition"])
+        return out
+
+    def roll(self, day: int, plan: dict[str, dict[str, float]], temp: float, salt: float,
+             before: dict[str, Belief]) -> None:
+        """Move every bench's masses through the day just played."""
+        for z, b in before.items():
+            bp = plan[z]
+            r = step_bench(self.p, b.growth_max, b.transp_base, b.volume, b.nutrient, b.salt, b.condition,
+                           bp["mains_l"], bp["reserve_l"], bp["fertilizer_g"], bp["flush_l"], temp, day, salt)
+            self.mass[z] = (r.nutrient_g, r.salt_g)
 
 
 class Reference(Policy):
+    """Diagnoses the incident, then plans with what it learned."""
+
+    diagnose = True
+
     def run(self, client: Client) -> None:
         rules = client.call("get_rules")["result"]
         p = Params.from_mapping(rules["parameters"])
-        zones = {z["zone_id"]: Zone(z["zone_id"], z["growth_max_kg_per_day"], z["transpiration_base_l_per_day"])
-                 for z in rules["zones"]}
         status = client.call("get_status")["result"]
-        for z in status["zones"]:
-            zone = zones[z["zone_id"]]
-            zone.volume, zone.condition = z["volume_l"], z["condition"]
-            dissolved = z["ec_ds_m"] * z["volume_l"] / p.ec_per_g_l
-            zone.salt = min(0.8 * dissolved, PRIOR_SALT_G_L * z["volume_l"])
-            zone.nutrient = dissolved - zone.salt
-            client.call("order_test", zone_id=zone.id, test_type="composition")
-
-        journal: list[dict[str, Any]] = []   # per played day: what each zone looked like and what was applied
+        track = _Tracker(p, rules, status)
+        usual = p.mains_salt_g_l
+        believed = usual            # salt in mains water, as far as this planner knows
+        noticed_day: int | None = None
+        history: list[dict[str, Any]] = []    # per played day: beliefs before, plan, temp
         while not client.done:
-            forecast = client.call("get_forecast")["result"]
-            if client.done:
-                return
-            days_left = status["days_left"]
-            temps = [d["temp_c"] for d in forecast["days"]][:days_left]
-            temps += [forecast["normal_temp_c"]] * (days_left - len(temps))
-            options = {z.id: candidates(p, z, temps, z.tested, status["day"]) for z in zones.values()}
-            water = status["fresh_water"]
-            picks = choose(options, water["left_l"], water["available_today_l"])
-            plan = {z: {"irrigation_l": c.irrigation_l, "fertilizer_g": c.fertilizer_g, "flush_l": c.flush_l}
-                    for z, c in picks.items()}
-            need = sum(zp["irrigation_l"] + zp["flush_l"] for zp in plan.values())
-            if need > water["available_today_l"] and need > 0:
-                scale = water["available_today_l"] / need
-                for zp in plan.values():
-                    zp["irrigation_l"] *= scale
-                    zp["flush_l"] *= scale
-            plan = {z: {k: int(v * 10) / 10.0 for k, v in zp.items()} for z, zp in plan.items()}   # round down
-            submit_within_supply(client, plan)
-
-            before = {z.id: (z.volume, z.condition) for z in zones.values()}
+            day = status["day"]
+            if self.diagnose and noticed_day is None and status["notices"]:
+                noticed_day = day
+                believed = PRECAUTION_SALT_G_L
+                client.call("order_water_test")
+            temps = horizon_temps([f["temp_c"] for f in status["forecast_c"]], status["days_left"])
+            plan = plan_day(p, track.beliefs(), temps, day, [believed] * len(temps), status["reserve_left_l"])
+            if not client.call("submit_day_plan", bench_plans=plan)["ok"]:
+                plan = None
+            before = track.beliefs()
             response = client.call("advance_day")
             if not response["ok"]:
                 return
             report = response["result"]
-            journal.append({"temp": report["temp_c"], "before": before,
-                            "plan": {r["zone_id"]: r["plan"] for r in report["zones"]}})
-            self.update(p, zones, journal, report)
+            applied = {r["bench_id"]: r["plan"] for r in report["benches"]}
+            history.append({"day": day, "before": before, "plan": applied, "temp": report["temp_c"]})
             status = report["status"]
+            track.read(status)
+            if self.diagnose and noticed_day is not None:
+                measured = [t["result"]["salt_g_l"] for t in report["tests_delivered"]
+                            if t["test_type"] == "mains_water"]
+                if measured:
+                    believed = measured[-1]
+                else:
+                    believed = self.estimate_salt(p, history, track, noticed_day, believed)
+                # Replay every day since the notice with the corrected belief.
+                self.replay(track, history, noticed_day, usual, believed)
+            else:
+                track.roll(day, applied, report["temp_c"], believed, before)
+            if client.done:
+                return
 
     @staticmethod
-    def update(p: Params, zones: dict[str, Zone], journal: list[dict[str, Any]], report: dict[str, Any]) -> None:
-        """Bring every zone's estimate to this morning."""
-        today = report["day"]
-        results = {t["zone_id"]: t for t in report["tests_delivered"] if t["test_type"] == "composition"}
-        readings = {z["zone_id"]: z for z in report["status"]["zones"]}
-        for zone in zones.values():
-            test = results.get(zone.id)
-            if test is not None:
-                # A result describes the sample day's morning. Start there and
-                # replay every day since with the plans that were applied.
-                r = test["result"]
-                zone.nutrient, zone.salt = r["nutrient_g_l"] * r["volume_l"], r["salt_g_l"] * r["volume_l"]
-                zone.tested = True
-                first = test["sampled_day"]
-            else:
-                first = today - 1
-            for day in range(first, today):
-                entry = journal[day]
-                volume, condition = entry["before"][zone.id]
-                zp = entry["plan"][zone.id]
-                step = step_zone(p, zone.growth_max, zone.transp_base, volume, zone.nutrient, zone.salt, condition,
-                                 zp["irrigation_l"], zp["fertilizer_g"], zp["flush_l"], entry["temp"], day)
-                zone.nutrient, zone.salt = step.nutrient_g, step.salt_g
-            reading = readings[zone.id]
-            zone.volume, zone.condition = reading["volume_l"], reading["condition"]
-            if not zone.tested:
-                # Without a test only the total is known: keep the nutrient
-                # estimate and let the salt estimate absorb what EC reports.
-                dissolved = reading["ec_ds_m"] * reading["volume_l"] / p.ec_per_g_l
-                zone.salt = max(0.0, dissolved - zone.nutrient)
+    def replay(track: _Tracker, history: list[dict[str, Any]], since: int, usual: float, salt: float) -> None:
+        start = next(i for i, h in enumerate(history) if h["day"] == since)
+        b0 = history[start]["before"]
+        track.mass = {z: (b.nutrient, b.salt) for z, b in b0.items()}
+        for h in history[start:]:
+            before = {z: b._replace(nutrient=track.mass[z][0], salt=track.mass[z][1]) for z, b in h["before"].items()}
+            h["before"] = before
+            track.roll(h["day"], h["plan"], h["temp"], salt, before)
+
+    @staticmethod
+    def estimate_salt(p: Params, history: list[dict[str, Any]], track: _Tracker, since: int, guess: float) -> float:
+        """The mains salt that best explains this morning's EC readings.
+
+        EC is linear in dissolved mass and the masses are linear in the mains
+        salt, so try a fine grid and keep the value with the least squared
+        error over all benches. Sensor noise is small next to the signal."""
+        best, best_err = guess, float("inf")
+        saved = dict(track.mass)
+        snapshots = [dict(h["before"]) for h in history]
+        for k in range(0, 301):
+            salt = k * 0.005
+            Reference.replay(track, history, since, p.mains_salt_g_l, salt)
+            err = 0.0
+            for z, (n, s) in track.mass.items():
+                m = track.morning[z]
+                predicted = p.ec_per_g_l * (n + s) / m["volume_l"]
+                err += (predicted - m["ec_ds_m"]) ** 2
+            if err < best_err:
+                best, best_err = salt, err
+            for h, snap in zip(history, snapshots):
+                h["before"] = dict(snap)
+        track.mass = saved
+        return best
+
+
+class Blind(Reference):
+    """The same planner, but it ignores the notice and never tests."""
+
+    diagnose = False
+
+
+def informed_run(sim: Any) -> None:
+    """Play `sim` with the planner, told the true backup salinity from the incident on.
+
+    Runs directly on a simulator (it is the scorer's yardstick, not a player).
+    Its beliefs are the true masses each morning."""
+    p, inst = sim.p, sim.instance
+    while not sim.done:
+        day = sim.day
+        beliefs = {z: Belief(b.spec.growth_max_kg, b.spec.transp_base_l, b.volume, b.nutrient, b.salt, b.condition)
+                   for z, b in sim.benches.items()}
+        temps = horizon_temps(list(inst.forecasts[day]), sim.horizon - day)
+        salts = [inst.mains_salt(d) if d >= inst.incident_day and day >= inst.incident_day else p.mains_salt_g_l
+                 for d in range(day, sim.horizon)]
+        plan = plan_day(p, beliefs, temps, day, salts, sim.reserve_l)
+        sim.submit_plan(plan)
+        sim.advance()

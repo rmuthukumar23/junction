@@ -5,7 +5,7 @@ class to run, its configuration, the clock, the scripted events, and how the
 terminal ledger is scored. The layout follows StoreBench's `task.toml`.
 
     [task]     id, title, env ("package.module:Class"), prompt, seeds, reference
-    [shift]    windows (or horizon_days), window_hours, ops_per_window, start
+    [shift]    windows (or horizon_days), window_hours, ops_per_window, start, max_calls (optional)
     [env]      free-form configuration handed to the environment
     [[events]] scripted changes: at_window (or at_days), kind, parameters, and
                an information channel:
@@ -42,6 +42,10 @@ class Shift:
     window_hours: float
     ops_per_window: int
     start: str = "2026-01-01 00:00:00"
+    # Most requests (accepted, refused or malformed) an episode takes. Reaching it
+    # ends the episode as if the player had stopped: every remaining window runs
+    # unattended. None means no limit. It bounds the wall-clock length of a run.
+    max_calls: int | None = None
 
     @property
     def horizon_days(self) -> float:
@@ -94,11 +98,12 @@ class Scenario:
         return getattr(importlib.import_module(module), cls)
 
     def render_prompt(self) -> str:
-        """Substitute ${windows}, ${ops_per_window}, ${window_hours}, ${horizon_days}."""
+        """Substitute ${windows}, ${ops_per_window}, ${window_hours}, ${horizon_days}, ${max_calls}."""
         s = self.shift
         values = {
             "windows": s.windows,
             "ops_per_window": s.ops_per_window,
+            "max_calls": "no limit on" if s.max_calls is None else s.max_calls,
             "window_hours": f"{s.window_hours:g}",
             "horizon_days": f"{s.horizon_days:g}",
             "title": self.title,
@@ -140,7 +145,11 @@ def parse_scenario(text: str) -> Scenario:
         raise ScenarioError("[shift] needs 'windows' or 'horizon_days'")
     if windows < 1 or int(sh.get("ops_per_window", 0)) < 1:
         raise ScenarioError("[shift] needs windows >= 1 and ops_per_window >= 1")
-    shift = Shift(windows, window_hours, int(sh["ops_per_window"]), str(sh.get("start", Shift.start)))
+    max_calls = sh.get("max_calls")
+    if max_calls is not None and int(max_calls) < 1:
+        raise ScenarioError("[shift] max_calls must be at least 1")
+    shift = Shift(windows, window_hours, int(sh["ops_per_window"]), str(sh.get("start", Shift.start)),
+                  None if max_calls is None else int(max_calls))
 
     events = []
     for raw in data.get("events", []):
