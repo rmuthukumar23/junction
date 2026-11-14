@@ -177,6 +177,8 @@ class GreenhouseBench(Environment):
             self.sim.run_hour()
 
     def terminated(self) -> str | None:
+        if self.sim.bankrupt_hour is not None:
+            return "bankrupt"
         return "finished" if self.sim.finished_by_player else None
 
     def on_finish(self) -> None:
@@ -207,6 +209,7 @@ class GreenhouseBench(Environment):
         if all(hasattr(s.business, part) for part in ("ledger", "ops", "events")):
             evidence = outcome.ledger(s)
             out.update({k: v for k, v in evidence.items() if k != "profit_eur"})
+        out["bankrupt"] = float(s.bankrupt_hour is not None)
         return out
 
     def _result(self) -> dict[str, Any]:

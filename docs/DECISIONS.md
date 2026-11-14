@@ -140,6 +140,16 @@ Pinned by Max; full text in context section 0, interfaces in spec section 14.
 - **Evidence.** With the real modules on `main`, the full 42-day game builds from the data files and runs unattended in 1.6 s (seed 1: profit -EUR 42,889, no harvests, on the running baseline from #15).
 - **Unverified claims.** The Westland shift times, alarm deferral, SimuHome figures and Wilo rates in context 0.4 and 0.7 are checked before they go in the README.
 
+## 2026-11-14, smoke checks and first model runs on the real game
+
+- **Smoke scenario.** `scenarios/smoke.toml`: 1 simulated day, 12 calls, real data with start batches faked old enough to be ready on day 1. Scored on `continuity` (share of hours acted), with no pass threshold, so it checks the plumbing, not skill; the reward audit skips it.
+- **Two checks.** Local, about 30 s and no keys needed: compile, `pytest tests -q`, `envkit check`. Model, about 3 min per model on Modal (container start-up dominates): `envkit eval --scenario smoke --runs 1 --agent-only --backend modal` (commands in docs/MODAL.md).
+- **First model runs on the real game** (base 454830b plus this change, seed 1, smoke, Modal, OpenCode 1.19.5, Harbor 0.26.0): `google/gemini-3.1-flash-lite` 6 calls, 0 faults, replay consistent, 159 s; `anthropic/claude-haiku-5-5` 6 calls, 0 faults, replay consistent, 192 s. Neither key appears in the run output. Not a benchmark result.
+- **Fixed.** Gemini rejected every tool list because optional list parameters were typed `["array", "null"]` (0 calls, reward 0): optional parameters now carry the inner schema only, and a test keeps every tool in Gemini's subset. A recorded negative export price crashed the ledger; exporting then costs money. The rule-based policy now reads the real forecast shape. Bundle hashes ignore CRLF, so a Windows build matches CI.
+- **Bankruptcy.** Cash below EUR 0 ends the episode (end reason `terminated:bankrupt`, ledger `bankrupt = 1`). Start cash stays at the market file's EUR 50,000.
+- **Overrides** can address an array-of-tables item by id: `facility.compartments.A.start_batches`.
+- **Placeholders.** `naive` and `reference` (naive until the planner exists) are registered policies.
+
 ## Integration: scenario, reference planner, judge path · 2026-11-14 (branch `lucas/judge-ready`)
 
 Done by Lucas on one branch, by agreement touching files owned by Max (`env.py`, `sim.py`, scenario, README) and Rowan (`policies/`, `events.py`, `ledger.py`); each edit is listed here for their review.

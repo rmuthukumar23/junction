@@ -80,7 +80,7 @@
        "profit": 0.0
       },
       "metrics": {
-       "profit_eur": -57454.3665
+       "profit_eur": -50057.9254
       },
       "reward": 0.0
      },
@@ -130,7 +130,7 @@
       "reward": 0.1129
      }
     },
-    "bundle": "633644d741e95664",
+    "bundle": "fda676fd7e291816",
     "components": {
      "profit": {
       "scale": 204356.07,
@@ -184,7 +184,7 @@
        "profit": 0.0
       },
       "metrics": {
-       "profit_eur": -53479.3681
+       "profit_eur": -50030.6461
       },
       "reward": 0.0
      },
@@ -202,7 +202,7 @@
        "profit": 0.0
       },
       "metrics": {
-       "profit_eur": -52149.8443
+       "profit_eur": -50041.5268
       },
       "reward": 0.0
      },
@@ -220,7 +220,7 @@
        "profit": 0.0
       },
       "metrics": {
-       "profit_eur": -65048.0751
+       "profit_eur": -50020.1004
       },
       "reward": 0.0
      },
@@ -270,7 +270,7 @@
       "reward": 0.2799
      }
     },
-    "bundle": "633644d741e95664",
+    "bundle": "fda676fd7e291816",
     "components": {
      "profit": {
       "scale": 212512.11,
@@ -360,7 +360,7 @@
        "profit": 0.0
       },
       "metrics": {
-       "profit_eur": -62981.0453
+       "profit_eur": -50020.6932
       },
       "reward": 0.0
      },
@@ -410,7 +410,7 @@
       "reward": 0.2685
      }
     },
-    "bundle": "633644d741e95664",
+    "bundle": "fda676fd7e291816",
     "components": {
      "profit": {
       "scale": 176011.32,
@@ -420,6 +420,53 @@
     "oracle": "reference",
     "seed": 3,
     "threshold": 0.79
+   }
+  },
+  "smoke": {
+   "1": {
+    "anchors": {
+     "absentee": {
+      "components": {
+       "acted": 0.0417
+      },
+      "metrics": {
+       "continuity": 0.0417
+      },
+      "reward": 0.0417
+     },
+     "do-nothing": {
+      "components": {
+       "acted": 0.0
+      },
+      "metrics": {
+       "continuity": 0.0
+      },
+      "reward": 0.0
+     },
+     "reference": {
+      "components": {
+       "acted": 0.0833
+      },
+      "metrics": {
+       "continuity": 0.0833
+      },
+      "reward": 0.0833
+     },
+     "stop-early": {
+      "components": {
+       "acted": 0.0833
+      },
+      "metrics": {
+       "continuity": 0.0833
+      },
+      "reward": 0.0833
+     }
+    },
+    "bundle": "a375f62551319ca1",
+    "components": {},
+    "oracle": "reference",
+    "seed": 1,
+    "threshold": null
    }
   }
  }

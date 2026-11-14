@@ -31,6 +31,14 @@ class LedgerTests(unittest.TestCase):
         book.cash_eur += 1.0                                      # money appearing from nowhere is caught
         self.assertGreater(book.conservation_error(), 0.5)
 
+    def test_exporting_at_a_negative_price_costs_money_instead_of_crashing(self):
+        """Recorded NL day-ahead prices go below zero in some hours (data/energy_prices)."""
+        book = Ledger(100.0)
+        book.price_metered(Metered(hour=2, electricity_export_kwh=50.0), EnergyPrices(0.5, 0.02, -0.01), 0.3)
+        self.assertAlmostEqual(book.cash_eur, 99.5)
+        self.assertEqual(book.totals()["electricity_sold"], -0.5)
+        self.assertEqual(book.conservation_error(), 0.0)
+
     def test_charges_are_negative_and_zero_records_nothing(self):
         book = Ledger(0.0)
         self.assertIsNone(book.charge(0, "gas", 0.0))
