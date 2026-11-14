@@ -1,7 +1,7 @@
 [project]
 name = "junction-agent-environment"
 version = "0.3.0"
-description = "Root Cause: a lettuce greenhouse AfterQuery environment and its evaluation backend for Junction 2026"
+description = "Greenhouse Bench: a greenhouse-facility AfterQuery environment and its evaluation backend for Junction 2026"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -22,9 +22,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-rootcause_app = ["static/*", "static/js/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -20,6 +20,6 @@ model_args=()
 if [[ -n "${AFTERQUERY_MODEL:-}" && " $* " != *" --model "* ]]; then
   model_args=(--model "$AFTERQUERY_MODEL")
 fi
-# ENVKIT_SCENARIO selects the scenario (default: root-cause).
+# ENVKIT_SCENARIO selects the scenario (default: normal-winter, the greenhouse bench).
 exec uv run --locked --extra eval --extra mcp --extra harbor python -m envkit.cli eval \
-  --scenario "${ENVKIT_SCENARIO:-root-cause}" ${model_args[@]+"${model_args[@]}"} "$@"
+  --scenario "${ENVKIT_SCENARIO:-normal-winter}" ${model_args[@]+"${model_args[@]}"} "$@"

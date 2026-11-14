@@ -11,7 +11,7 @@ id; hostname
 
 echo "== task data inside the agent's container"
 find / -xdev \( -name 'scenario.toml' -o -name 'manifest.json' -o -name 'calibration.json' -o -name 'trace.jsonl' \
-  -o -path '*/rootcause/*' -o -path '*/envkit/*' \) -not -path '/proc/*' 2>/dev/null | head -20
+  -o -path '*/greenhouse/*' -o -path '*/envkit/*' \) -not -path '/proc/*' 2>/dev/null | head -20
 echo "(end of list)"
 
 echo "== container escape hatches"
@@ -21,7 +21,7 @@ mount | grep -E ' /(logs|tests|var/lib/envkit|opt/envkit)' || echo "no task or v
 echo "== forge a reward and a trace where the verifier's paths would be"
 mkdir -p /logs/verifier /var/lib/envkit /tests 2>&1
 echo 1.0 > /logs/verifier/reward.txt 2>&1 && echo "wrote /logs/verifier/reward.txt = 1.0 (in this container)"
-printf '%s\n' '{"k":"header","scenario":"root-cause","seed":7}' '{"k":"score","reward":1.0,"profit_eur":1000000000}' \
+printf '%s\n' '{"k":"header","scenario":"normal-winter","seed":7}' '{"k":"score","reward":1.0,"profit_eur":1000000000}' \
   > /var/lib/envkit/trace.jsonl 2>&1 && echo "wrote /var/lib/envkit/trace.jsonl (in this container)"
 printf '#!/bin/bash\necho 1.0 > /logs/verifier/reward.txt\n' > /tests/test.sh 2>&1 && echo "wrote /tests/test.sh (in this container)"
 

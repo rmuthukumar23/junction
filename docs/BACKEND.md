@@ -1,6 +1,6 @@
 # Evaluation backend (`envkit`)
 
-`src/envkit/` is the one backend that serves, records and grades an environment as a Harbor task. It knows nothing about a particular environment. The greenhouse (`src/rootcause/env.py`) is the submitted environment. Two test fixtures exercise the features the greenhouse does not use: `src/envs/depot/` (multi-operation windows, scripted events, a calibrated composite score; scenario `tests/envkit/fixtures/depot-basic.toml`) and `src/envs/strict.py` (a fixed tool list, exact JSON types, charged invalid calls).
+`src/envkit/` is the one backend that serves, records and grades an environment as a Harbor task. It knows nothing about a particular environment. The greenhouse (`src/greenhouse/env.py`, being built; see [GREENHOUSE_SPEC](GREENHOUSE_SPEC.md)) is the submitted environment. Two test fixtures exercise the features the greenhouse does not use: `src/envs/depot/` (multi-operation windows, scripted events, a calibrated composite score; scenario `tests/envkit/fixtures/depot-basic.toml`) and `src/envs/strict.py` (a fixed tool list, exact JSON types, charged invalid calls).
 
 The design follows AfterQuery's [StoreBench](https://github.com/AfterQuery/storebench): time metered in tool operations, a world behind an MCP tool surface, and scores calibrated against scripted anchor policies. StoreBench publishes its task format and scorer but not its engine, so the engine here is written from scratch.
 
@@ -57,7 +57,7 @@ All commands run in the locked environment (`uv sync --locked --extra eval --ext
 
 `reward = sum(weight × component)`, each component in [0, 1], configured per scenario in `[scoring]`.
 
-- `mean`: the mean of ledger rates already in [0, 1]. An undefined rate is ignored, and if all are undefined the component is 0. The greenhouse uses one such component with weight 1: `normalized_profit`, which it computes itself against instance-defined bounds.
+- `mean`: the mean of ledger rates already in [0, 1]. An undefined rate is ignored, and if all are undefined the component is 0. The earlier Root Cause environment used one such component; the new greenhouse uses an `anchored` component on profit instead.
 - `anchored`: `clip01((raw - zero) / scale)`. `zero` is the best raw result among the do-nothing-style anchors; `scale` maps the best scripted judgment anchor to 0.70, leaving headroom above it. The depot fixture uses 0.7 anchored business + 0.2 reliability + 0.1 continuity, StoreBench's weights.
 
 `calibration.json` holds the constants and each anchor policy's score per scenario and seed. `envkit eval` requires every scripted Harbor run to reproduce its calibrated score exactly.
@@ -88,14 +88,14 @@ Rules that keep an environment gradeable:
 ## Recorded human play
 
 ```bash
-uv run --no-sync envkit play root-cause --record traces/alice.jsonl
+uv run --no-sync envkit play normal-winter --record traces/alice.jsonl
 ```
 
 A person at the console has the same tools, budget and information as an agent. Setting `reference = "replay:traces/alice.jsonl"` in a scenario and rebuilding makes the Harbor oracle replay that session through MCP. The console drives the same client interface as the policies, so a browser front end needs only `tools()` and `call()`.
 
 ## Reading a run
 
-Each Harbor trial directory contains `verifier/reward.txt`, `verifier/score.json` (components, ledger including the greenhouse's `fm_*` failure-mode fields, replay check, per-window timeline), and `artifacts/var/lib/envkit/trace.jsonl` (every call with its arguments and the response the agent received).
+Each Harbor trial directory contains `verifier/reward.txt`, `verifier/score.json` (components, ledger including any failure-mode fields the environment reports, replay check, per-window timeline), and `artifacts/var/lib/envkit/trace.jsonl` (every call with its arguments and the response the agent received).
 
 ## Limits
 

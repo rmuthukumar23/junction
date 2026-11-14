@@ -1,7 +1,7 @@
 # Modal handoff (Windows-friendly)
 
-Status (2026-11-14): Modal connectivity, fan-out and determinism are verified with
-standalone scripts in `test/`, and the Harbor judge's three scripted policies pass on
+Status (2026-11-14): Modal connectivity, fan-out and determinism were verified with
+standalone scripts (since removed), and the Harbor judge's three scripted policies pass on
 `--env modal` including the Compose sidecar (see the Harbor section below). Model-driven
 runs and the official event kit are still untested.
 
@@ -29,14 +29,9 @@ DeprecationWarnings are harmless. If output shows odd characters, set `PYTHONIOE
 
 ## Verify
 
-```bash
-python -m modal run test/modal_check.py --n 12 --work-seconds 5
-python -m modal run test/checkers_sim.py --games 16 --depth 6 --local-games 1
-```
-
-Cost is a few cents of CPU. Both scripts are throwaway load tests, independent of envkit.
-`checkers_sim.py` plays scripted checkers agents (random, greedy, minimax). It calls no
-AI model. For model runs through the real judge path, see "Gemini agent runs" below.
+`bash scripts/judge.sh --backend modal --smoke --output artifacts/modal-smoke` runs the
+reference once through Harbor on Modal. The earlier standalone load tests under `test/`
+were removed after they had served their purpose; their results are below.
 
 ## Visibility
 

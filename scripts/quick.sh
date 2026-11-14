@@ -7,7 +7,7 @@
 #
 # Skips the scripted Harbor runs (their scores are fixed in calibration.json; run
 # `bash scripts/judge.sh --output DIR` once to confirm the containers reproduce them).
-# Writes artifacts/quick-<time>/ with report.md and analysis.md.
+# Writes artifacts/quick-<time>/ and prints the trial report.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
@@ -31,6 +31,6 @@ runs=(--runs 1)
 status=0
 bash scripts/judge.sh --agent-only ${runs[@]+"${runs[@]}"} --output "$out" "$@" || status=$?
 if compgen -G "$out/trials/*/*/result.json" > /dev/null; then
-  PYTHONPATH=src python3 scripts/analyze.py "$out"
+  uv run --no-sync envkit report "$out"
 fi
 exit "$status"

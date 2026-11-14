@@ -79,3 +79,12 @@ Record changes here with date, decision, reason, and affected interface. Keep en
 - AfterQuery starter-kit/scoring-skeleton version and any differences from candidate Harbor task.
 - Approved frontier model identifier and credentials mapping.
 - Scenario freeze after the first official development pilot.
+
+## Greenhouse Bench replaces Root Cause · 2026-11-14
+
+- The submission becomes Greenhouse Bench ([context](GREENHOUSE_BENCH_CONTEXT.md), [spec](GREENHOUSE_SPEC.md)): a 42-day winter facility with a shared energy centre and several compartments, scored on net profit, calibrated against a planning reference.
+- Root Cause is removed in place: `src/rootcause`, `src/rootcause_app`, its tests, scenario, generated task, `docs/GREENHOUSE.md`, `docs/EXPERIMENTS.md`, `docs/root-cause-evidence.json`, and the scripts that only served it (`compare.py`, `analyze.py`, `browser_smoke.py`, `check_frontend.sh`, `play.sh`, `test/modal_check.py`). Reason: verified and superseded; git history keeps them. Evidence kept from them: the tomato version showed no gap (Gemini 4 Hydrogen beat its reference 4 of 4), and Gemini Flash-Lite and Hydrogen both solved Root Cause seed 0 at 1.0. Both results argue for a task where planning ahead, not one diagnosis, decides the score.
+- `envkit` and its depot and strict fixtures stay unchanged. Until the new scenario exists, `tests/envkit/test_integrity.py` skips and `scripts/check.sh` skips task freshness and the audit. `calibration.json` is empty. `judge.sh` defaults to scenario `normal-winter`.
+- No crop, facility, price or event value is hardcoded: they are TOML data files validated on load (spec section 3).
+- Fairness: simulated time moves only with `advance`; every model gets the same call budget; the wall-clock timeout is a safety net, and runs that hit it are labelled interrupted and rerun for model comparisons (spec 4.1).
+- Docker and Modal run the same generated task through `--backend`. Benchmark claims are confirmed on local Docker (spec 13).

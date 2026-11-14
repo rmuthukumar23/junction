@@ -5,17 +5,15 @@ cd "$repo_root"
 export PYTHONPATH="$repo_root/src:$repo_root${PYTHONPATH:+:$PYTHONPATH}"
 python3 -m compileall -q src tests
 python3 -m unittest discover -s tests -v
-# The dashboard's JavaScript must at least parse (type check runs if a TypeScript compiler is present).
-if command -v node >/dev/null 2>&1; then
-  bash scripts/check_frontend.sh
-else
-  echo "Skipped the dashboard JavaScript check: node is not installed."
-fi
 # The remaining checks need the locked environment (pytest, MCP SDK).
 if python3 -c "import pytest, mcp" 2>/dev/null; then
   python3 -m pytest tests/envkit
-  python3 -m envkit.cli check
-  python3 -m envkit.cli audit
+  if compgen -G "scenarios/*.toml" > /dev/null; then
+    python3 -m envkit.cli check
+    python3 -m envkit.cli audit
+  else
+    echo "Skipped task freshness and reward audit: no scenario in scenarios/ yet."
+  fi
 else
   echo "Skipped backend tests, task freshness and reward audit: run inside the locked environment (see README)."
 fi

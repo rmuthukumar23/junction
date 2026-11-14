@@ -21,10 +21,14 @@ from envkit.scenario import load_scenario
 from conftest import ROOT
 
 
+SUBMITTED = sorted((ROOT / "scenarios").glob("*.toml"))
+pytestmark = pytest.mark.skipif(not SUBMITTED, reason="no submitted scenario in scenarios/ yet")
+
+
 @pytest.fixture(scope="module")
 def scenario():
-    """These checks run on the committed task: the greenhouse."""
-    return load_scenario(ROOT / "scenarios" / "root-cause.toml")
+    """These checks run on the committed task: the first scenario in scenarios/."""
+    return load_scenario(SUBMITTED[0])
 
 
 def test_audit_passes(scenario):
@@ -97,7 +101,7 @@ def test_verifier_ignores_recorded_responses(scenario, tmp_path):
 
 def test_verifier_runs_with_the_standard_library_only(scenario, tmp_path):
     seed = scenario.seeds[0]
-    run_inprocess(scenario, seed, make_policy("ec-rules", scenario), tmp_path / "trace.jsonl")
+    run_inprocess(scenario, seed, make_policy("reference", scenario), tmp_path / "trace.jsonl")
     env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "VIRTUAL_ENV")}
     proc = subprocess.run(
         [sys.executable, "-S", "-m", "envkit.verify", "--bundle", ".", "--trace", str(tmp_path / "trace.jsonl"),

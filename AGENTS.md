@@ -4,7 +4,7 @@ Read `README.md`, `docs/WORKFLOW.md`, and the issue you claim before editing.
 
 ## Goal and status
 
-Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Root Cause, a lettuce greenhouse incident-response task (`docs/GREENHOUSE.md`), served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). An earlier 14-day tomato version showed no gap: Gemini 4 Hydrogen beat its reference in 4 of 4 full seasons (`docs/EXPERIMENTS.md`), which motivated this redesign. No model has played the current version. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` and `docs/EXPERIMENTS.md` for the harness and evidence.
+Build a reproducible interactive environment for Junction 2026's AfterQuery challenge. The submission is Greenhouse Bench: an agent runs a multi-compartment winter greenhouse facility with a shared energy centre for 42 simulated days, scored on net profit (`docs/GREENHOUSE_BENCH_CONTEXT.md`, build spec `docs/GREENHOUSE_SPEC.md`). It is served and graded as a Harbor task by the `envkit` backend (`docs/BACKEND.md`). The earlier Root Cause and tomato environments were removed; their history is in git and `docs/DECISIONS.md`. The greenhouse is not built yet, and no model has played it. Official event-kit compatibility, frontier-agent results and a measured performance gap remain unverified. See `docs/HARNESS.md` for the harness.
 
 ## Working together
 
@@ -24,7 +24,7 @@ Build a reproducible interactive environment for Junction 2026's AfterQuery chal
 ## Checks and handoff
 
 - Run `bash scripts/check.sh` before a PR. For the pinned full test environment, follow the setup in `README.md`.
-- Root Cause: `PYTHONPATH=src python3 scripts/compare.py` prints every comparator with its failure modes; `scripts/analyze.py <judge dir>` explains Harbor trials. The browser app `src/rootcause_app` still targets the earlier tomato version and is pending rework; keep it out of `src/rootcause`, because only the latter is bundled into the task.
+- No crop, facility, price or event value is hardcoded in Python: values live in `data/` files and are validated on load (`docs/GREENHOUSE_SPEC.md` section 3). Only the environment's top-level package (`src/greenhouse`) and the data files the scenario names are bundled into the task.
 - `tasks/` and `calibration.json` are generated. After changing anything under `src/` or `scenarios/`, run `uv run --no-sync envkit build` and commit the result; the full check fails if they are stale.
 - The judge command is `bash scripts/judge.sh --output artifacts/judge`; it reads `GEMINI_API_KEY` and `AFTERQUERY_MODEL` from `.env` (never commit it). It still needs event-kit validation.
 - Update the relevant project docs when an interface, command, decision, or benchmark result changes. End a PR handoff with the current state, verification command and result, and remaining risk.

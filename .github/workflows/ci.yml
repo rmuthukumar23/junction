@@ -37,7 +37,9 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: '0.13.8'
-      - run: bash scripts/judge.sh --smoke --output artifacts/harbor-smoke
+      # Skipped until a submitted scenario exists (the greenhouse is being rebuilt).
+      - if: hashFiles('scenarios/*.toml') != ''
+        run: bash scripts/judge.sh --smoke --output artifacts/harbor-smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:
