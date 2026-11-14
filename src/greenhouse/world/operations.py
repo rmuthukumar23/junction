@@ -9,6 +9,9 @@ Rules, all values from the market file:
   * Orders: at least the item's minimum quantity; arrive `lead_time_h` after they
     are placed; charged on arrival; cancellable (for a fee) until `dispatch_h`
     has passed. A late-delivery event pushes back the open order due soonest.
+  * CO2 (items of category "co2") is delivered into the facility's store, which
+    the facility owns (contracts.py): it never enters this stock. The caller
+    hands each delivered CO2 order to the facility.
   * Staff: wages are charged every hour from hour 0, whether or not anyone acts
     (crew x wage x shift hours / 24 per hour). Each worker gives one worker-hour
     per shift hour. Hiring is charged at once and the worker starts after the
@@ -91,7 +94,8 @@ class Operations:
         # Per-seed lead times and prices (published ranges, hidden draws), fixed at the start.
         self.lead_time_h = {i: max(1, round(_value(s.lead_time_h, rng, f"market/lead_time/{i}"))) for i, s in self.items.items()}
         self.unit_price = {i: _value(s.price_eur_per_unit, rng, f"market/price/{i}") for i, s in self.items.items()}
-        self.stock: dict[str, float] = {i: float(market.start_stock.get(i, 0.0)) for i in self.items}
+        self.stock: dict[str, float] = {i: float(market.start_stock.get(i, 0.0)) for i, spec in self.items.items()
+                                        if spec.category != "co2"}
         self.orders: list[Order] = []
         s = market.staff
         self.crew = s.start_crew                    # paid and working now
@@ -101,8 +105,6 @@ class Operations:
         self.tasks: list[Task] = []
         self._low: set[str] = set()                 # items currently below their warning level
         # Evidence for failure modes.
-        self.co2_short_hours = 0
-        self.co2_short_kg = 0.0
         self.late_deliveries = 0
         self.task_wait_h: dict[str, float] = {k: 0.0 for k in TASK_KINDS}
 
@@ -145,16 +147,6 @@ class Operations:
                                                   f"is late: now expected at hour {order.eta_hour}.")]
 
     # -- stock -------------------------------------------------------------------------
-
-    def use_co2(self, hour: int, kg: float) -> float:
-        """The energy centre draws CO2 from the store. Returns the kg actually supplied."""
-        if kg <= 0:
-            return 0.0
-        supplied = min(kg, self.stock.get("co2_kg", 0.0))
-        self.stock["co2_kg"] = self.stock.get("co2_kg", 0.0) - supplied
-        if supplied < kg - 1e-9:
-            self.co2_short_kg += kg - supplied
-        return supplied
 
     def take_seedlings(self, crop_id: str, plants: float) -> None:
         item = f"seedlings:{crop_id}"
@@ -232,8 +224,9 @@ class Operations:
         for order in self.orders:
             if order.status == "open" and order.eta_hour <= hour:
                 order.status, order.delivered_hour = "delivered", hour
-                self.stock[order.item] = self.stock.get(order.item, 0.0) + order.quantity
                 spec = self.items[order.item]
+                if spec.category != "co2":          # CO2 goes to the facility's store
+                    self.stock[order.item] = self.stock.get(order.item, 0.0) + order.quantity
                 self.ledger.charge(hour, spec.category, order.quantity * self.unit_price[order.item],
                                    f"delivery {order.id}: {order.quantity:g} {order.item}")
                 delivered.append(order)
@@ -255,13 +248,13 @@ class Operations:
                 completed.append(task)
         # Stock alarms, once each time an item falls below its warning level.
         for item, spec in self.items.items():
+            if item not in self.stock:
+                continue
             low = spec.warn_below > 0 and self.stock[item] < spec.warn_below
             if low and item not in self._low:
                 alarms.append(Alarm(hour, "stock_low", item, f"{item} stock is {self.stock[item]:g}, below "
                                                              f"{spec.warn_below:g}."))
             (self._low.add if low else self._low.discard)(item)
-        if self.stock.get("co2_kg", 0.0) <= 1e-9:
-            self.co2_short_hours += 1
         return HourResult(alarms, completed, delivered)
 
     # -- views -------------------------------------------------------------------------

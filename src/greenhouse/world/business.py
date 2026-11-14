@@ -8,10 +8,10 @@ time, wage and event rate comes from the market and event files through
 `Operations`, `Events` and `Ledger`.
 
 Two rules decided by the contract, not by operations.py:
-  * The CO2 store lives in the facility (Emre). A CO2 delivery leaves the business's
-    stock at once and is returned as a `Delivery`, which sim.py hands to
-    `facility.receive_co2`. The market's `start_stock.co2_kg` is therefore not used;
-    the facility file holds the store's start level.
+  * The CO2 store lives in the facility (Emre). Operations never puts CO2 in its
+    stock; a delivered CO2 order is returned as a `Delivery`, which sim.py hands to
+    `facility.receive_co2`. The facility file holds the store's start level, and the
+    market file refuses a CO2 start stock.
   * A harvest's grade and `price_factor` come from the crop model (Lucas). The sale
     is units x the market's crop price x price_factor.
 
@@ -30,7 +30,6 @@ from .events import DeliveryDelay, Events
 from .ledger import EnergyPrices, Grade, Ledger
 from .operations import Operations, OpsError
 
-CO2_ITEM = "co2_kg"
 
 
 def _value(param: float | Range, rng: Rng, key: str) -> float:
@@ -48,7 +47,6 @@ class Business:
         self.ledger = Ledger(market.start_cash_eur)
         self.ops = Operations(market, self.ledger, rng.stream("operations"))
         self.events = Events(events, horizon_h, rng.stream("events"))
-        self.ops.stock[CO2_ITEM] = 0.0            # the store is the facility's
         self.crop_price = {c: _value(market.crops[c].price_eur_per_unit, rng, f"market/crop_price/{c}")
                            for c in crop_ids}
         self.external_co2_eur_per_kg = _value(market.external_co2_eur_per_kg, rng, "market/external_co2")
@@ -71,22 +69,17 @@ class Business:
         prices = EnergyPrices(metered.gas_eur_per_m3, metered.import_eur_per_kwh, metered.export_eur_per_kwh)
         self.ledger.price_metered(metered, prices, self.external_co2_eur_per_kg)
         result = self.ops.end_hour(hour)
-        deliveries = []
-        for order in result.delivered:
-            if order.item == CO2_ITEM:
-                self.ops.stock[CO2_ITEM] -= order.quantity    # straight into the facility's store
-            deliveries.append(Delivery(order.id, order.item, order.quantity, hour))
-        # The facility raises its own CO2-store alarm; the business stock never holds CO2.
-        alarms = [a for a in result.alarms if not (a.kind == "stock_low" and a.target == CO2_ITEM)]
+        deliveries = [Delivery(o.id, o.item, o.quantity, hour) for o in result.delivered]
+        alarms = list(result.alarms)
         completed, effects = [], []
         for t in result.completed:
             task = self.tasks.pop(t.id)
             completed.append(task)
             if task.kind == "repair":
                 alarms += self.events.complete_repair(hour, task.target)
-                outage = self.events._active(task.target, hour + 1)
-                if outage is not None:
-                    effects.append(outage.effect())
+                effect = self.events.outage_effect(task.target, hour + 1)
+                if effect is not None:
+                    effects.append(effect)
         return HourEnd(tuple(deliveries), tuple(completed), tuple(alarms), tuple(effects))
 
     # -- requests ----------------------------------------------------------------------
@@ -121,13 +114,14 @@ class Business:
         def queue():
             hours = worker_hours
             if kind == "repair":
-                request = self.events.request_repair(hour, target)
-                hours = request.worker_hours
+                quote = self.events.repair_quote(hour, target)     # pure: a refusal below changes nothing
+                hours = quote.worker_hours
             if hours is None:
                 raise OpsError(f"{kind} needs worker_hours")
             t = self.ops.queue(hour, kind, target, float(hours), detail)
-            if kind == "repair":
-                self.ledger.charge(hour, "repairs", request.cost_eur, f"repair of {target}")
+            if kind == "repair":                                 # recorded and charged only once queued
+                self.events.record_repair(hour, target)
+                self.ledger.charge(hour, "repairs", quote.cost_eur, f"repair of {target}")
             task = Task(t.id, kind, target, t.worker_hours, hour, dict(detail))
             self.tasks[t.id] = task
             return task
@@ -150,9 +144,7 @@ class Business:
         return self.ledger.totals()
 
     def view(self, hour: int, rng: Rng) -> dict[str, Any]:
-        ops = self.ops.view()
-        ops["stock"] = {k: v for k, v in ops["stock"].items() if k != CO2_ITEM}
-        return {**ops, "money": self.ledger.view(), **self.events.view(hour)}
+        return {**self.ops.view(), "money": self.ledger.view(), **self.events.view(hour)}
 
     def rules(self) -> dict[str, Any]:
         m, s = self.market, self.market.staff
