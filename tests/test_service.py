@@ -42,10 +42,11 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 404)
 
     def test_malformed_json_is_counted(self):
-        request = Request(self.url + "/action", data=b"{broken", method="POST")
-        with urlopen(request) as response:
-            self.assertIn("error", json.load(response))
-        self.assertEqual(self.service.environment.actions_used, 1)
+        for body in (b"{broken", b'{"tool":"advance","to_time":NaN}'):
+            request = Request(self.url + "/action", data=body, method="POST")
+            with urlopen(request) as response:
+                self.assertIn("error", json.load(response))
+        self.assertEqual(self.service.environment.actions_used, 2)
 
     def test_failed_persistence_prevents_verified_collection(self):
         (self.root / "live.error").touch()

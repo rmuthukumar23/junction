@@ -25,6 +25,8 @@ def read_trial(path: Path, instance: Instance, policy: str, model: str | None) -
     try:
         record = json.loads(record_path.read_text())
         actual = verify_record(record, instance)
+        if status == "completed" and record["final"]["termination"] == "harness_interruption":
+            status = "interrupted"
         rewards = (raw.get("verifier_result") or {}).get("rewards") or {}
         if rewards.get("reward") != actual:
             raise ValueError("Harbor reward differs from independent replay")

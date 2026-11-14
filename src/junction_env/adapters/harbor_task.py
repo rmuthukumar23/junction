@@ -112,9 +112,6 @@ CMD ["python", "-m", "junction_env.adapters.service", "--instance", "/opt/instan
   environment:
     build:
       context: ./service
-    read_only: true
-    tmpfs:
-      - /state
     expose:
       - "8000"
     healthcheck:

@@ -79,8 +79,10 @@ class EpisodeService:
                         self.send_json(413, {"error": "request must be 1..16384 bytes"})
                         return
                     self.connection.settimeout(5)
-                    action = json.loads(self.rfile.read(size))
-                except (ValueError, UnicodeError):
+                    def reject_constant(value):
+                        raise ValueError("non-finite JSON number")
+                    action = json.loads(self.rfile.read(size), parse_constant=reject_constant)
+                except (ValueError, UnicodeError, RecursionError):
                     action = {"tool": "malformed_json"}
                 try:
                     self.send_json(200, service.act(action))
