@@ -28,7 +28,23 @@ def test_json_schema():
     assert p["mode"] == {"enum": ["a", "b"], "default": "a"}
     assert p["tags"]["items"] == {"type": "string"}
     assert p["limits"]["additionalProperties"] == {"type": "number"}
-    assert p["note"]["type"] == ["string", "null"]
+    assert p["note"] == {"type": "string"}          # omittable, so null is not advertised
+
+
+def test_omittable_optionals_never_advertise_null_but_still_accept_it():
+    """Gemini's function-calling validator rejects nullable unions (a nullable array
+    stopped every Gemini run on the greenhouse before its first call)."""
+    def tool_fn(self, hours: Optional[list[int]] = None, caps: Optional[dict[str, float]] = None,
+                mode: Optional[Literal["on", "off"]] = None, must: Optional[int] = ...):
+        """A tool."""
+    params = [p for p in params_of(tool_fn)]
+    props = input_schema(params)["properties"]
+    assert props["hours"] == {"type": "array", "items": {"type": "integer"}}
+    assert props["caps"] == {"type": "object", "additionalProperties": {"type": "number"}}
+    assert props["mode"] == {"enum": ["on", "off"]}
+    assert "null" not in str({k: v for k, v in props.items() if k != "must"})
+    assert validate(params, {"hours": None, "caps": None, "mode": None, "must": 1}) == \
+        {"hours": None, "caps": None, "mode": None, "must": 1}
 
 
 def test_validate_fills_defaults_and_coerces():
