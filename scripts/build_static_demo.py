@@ -52,7 +52,7 @@ def main() -> int:
         (OUT / "data" / "run" / f"{name}.json").write_text(json.dumps(game, separators=(",", ":")))
         print(f"{spec}: profit {game['profit']:,.0f}")
 
-    for f in ("index.html", "style.css", "scene.js"):
+    for f in ("index.html", "style.css", "scene.js", "tour.js"):
         shutil.copy(VIZ / f, OUT / f)
     shutil.copytree(VIZ / "vendor", OUT / "vendor")
     ui = (VIZ / "ui.js").read_text()
@@ -80,6 +80,7 @@ def main() -> int:
     (OUT / "ui.js").write_text(ui)
     html = (OUT / "index.html").read_text()
     html = re.sub(r'(<input[^>]*id="seed")', r'\1 disabled title="The online demo replays seed 1"', html, count=1)
+    html = html.replace('<script src="ui.js"></script>', '<script src="ui.js"></script>\n<script src="tour.js"></script>')   # first-visit tour
     (OUT / "index.html").write_text(html)
     (OUT / "vercel.json").write_text(json.dumps({"cleanUrls": True}) + "\n")
     size = sum(p.stat().st_size for p in OUT.rglob("*") if p.is_file()) / 1e6
