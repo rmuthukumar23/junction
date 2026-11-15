@@ -61,6 +61,7 @@ class Business:
         self.demand = {c: _value(market.crops[c].demand_per_week, rng, f"market/demand/{c}")
                        for c in market.crops if market.crops[c].demand_per_week is not None}
         self.demand_factors = {c: market.crops[c].demand_week_factors for c in market.crops}
+        self.glut_at = {c: market.crops[c].glut_at for c in market.crops}
         self.sales: dict[str, list[tuple[int, float]]] = {}     # crop -> (hour, units sold)
         self.market_loss_eur = 0.0       # evidence only: list-price value lost to selling above demand
         self.over_demand_units = 0.0
@@ -151,19 +152,20 @@ class Business:
         return base * (factors[min(hour // DEMAND_WINDOW_H, len(factors) - 1)] if factors else 1.0)
 
     def market_factor(self, crop_id: str, hour: int, units: float) -> float:
-        """Average share of the list price these units fetch. Buyers take `demand_per_week`
-        units at full price in any 7 days (DEMAND_WINDOW_H); beyond that the price falls
-        linearly to nothing at twice that volume: surplus fresh produce finds no buyer."""
+        """Average share of the list price these units fetch. Buyers take the week's demand
+        at full price in any 7 days (DEMAND_WINDOW_H); beyond that the price falls linearly
+        to nothing at `glut_at` times that volume: surplus fresh produce finds no buyer."""
         demand = self.demand_at(crop_id, hour)
         if not demand or units <= 0:
             return 1.0
         before = sum(q for h, q in self.sales.get(crop_id, []) if h > hour - DEMAND_WINDOW_H)
+        span = (self.glut_at.get(crop_id, 2.0) - 1.0) * demand     # from full price to 0
         def area(x: float) -> float:          # integral of the price share from 0 to x
             x = max(0.0, x)
             if x <= demand:
                 return x
-            y = min(x, 2 * demand) - demand
-            return demand + y - y * y / (2 * demand)
+            y = min(x, demand + span) - demand
+            return demand + y - y * y / (2 * span)
         return (area(before + units) - area(before)) / units
 
     def sell(self, hour: int, harvest: HarvestResult) -> LedgerEntry:
@@ -207,10 +209,11 @@ class Business:
         m, s = self.market, self.market.staff
         return {
             "crop_prices_eur_per_unit": {c: _published(m.crops[c].price_eur_per_unit) for c in self.crop_price},
-            "demand": {"rule": (f"Buyers take demand_per_week units of a crop at the full price in any {DEMAND_WINDOW_H} h "
+            "demand": {"rule": (f"Buyers take the week's demand of a crop at the full price in any {DEMAND_WINDOW_H} h "
                                 "(a rolling window, counted from each sale). Units beyond that sell at a price falling "
-                                "linearly from full to 0 at twice demand_per_week; nothing is paid above that. A harvest "
-                                "is priced unit by unit along this line, after the grade factor."),
+                                "linearly from full to 0 at glut_at times the week's demand; nothing is paid above that. "
+                                "A harvest is priced unit by unit along this line, after the grade factor."),
+                       "glut_at": {c: self.glut_at[c] for c in self.demand},
                        "window_h": DEMAND_WINDOW_H,
                        "demand_per_week": {c: _published(m.crops[c].demand_per_week) for c in self.demand},
                        "week_factors": {c: list(self.demand_factors[c]) for c in self.demand if self.demand_factors.get(c)},

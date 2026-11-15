@@ -1,0 +1,10 @@
+{
+ "model": "claude-sonnet-5-5",
+ "seed": 3,
+ "bundle": "a765e8ef9400a50d",
+ "reward": 0.8163,
+ "profit_eur": 926717.1465,
+ "started_at": "2026-11-15T01:01:25.791228Z",
+ "finished_at": "2026-11-15T01:20:33.058344Z",
+ "harbor_trial": "artifacts/v5b-sonnet-s3/trials/s3-agent/normal-winter-s3__UK6kidX"
+}

@@ -60,13 +60,16 @@ def days(run: Path) -> list[dict]:
     return rows
 
 
-def main() -> int:
-    index = ["# Agent trajectories", "", "Each run's full Harbor trajectory is `trajectory.json` in its folder; `DAYS.md` is the readable",
-             "day-by-day version (what the agent said, what it did, what was refused, cash after the day).", "",
-             "| Run | Score | Days | Actions | Refused | Day-by-day |", "|---|---:|---:|---:|---:|---|"]
-    for run in sorted(p for p in RUNS.iterdir() if p.is_dir()):
-        rows = days(run)
+def table(runs: Path, rel: str) -> list[str]:
+    """Write DAYS.md for every run under `runs` and return its index rows."""
+    rows_out = ["| Run | Verifier reward | Days | Actions | Refused | Day-by-day |", "|---|---:|---:|---:|---:|---|"]
+    for run in sorted(p for p in runs.iterdir() if p.is_dir() and (p / "meta.json").exists()):
         meta = json.loads((run / "meta.json").read_text())
+        if not (run / "trace.jsonl").exists():          # slimmed archive: keep the existing day-by-day log
+            link = f"[DAYS.md]({rel}/{run.name}/DAYS.md)" if (run / "DAYS.md").exists() else "–"
+            rows_out.append(f"| {run.name} | {meta.get('reward')} | – | – | – | {link} |")
+            continue
+        rows = days(run)
         out = [f"# {meta['model']}, seed {meta['seed']}: score {meta['reward']}, profit €{meta['profit_eur']:,.0f}", "",
                "| Day | What the agent said | What it did | Refused | Cash € |", "|---:|---|---|---|---:|"]
         for r in rows:
@@ -75,9 +78,24 @@ def main() -> int:
         (run / "DAYS.md").write_text("\n".join(out) + "\n")
         n_act = sum(len(r["did"]) for r in rows)
         n_ref = sum(len(r["refused"]) for r in rows)
-        index.append(f"| {run.name} | {meta['reward']} | {len(rows)} | {n_act} | {n_ref} | [DAYS.md](normal-winter/{run.name}/DAYS.md) |")
+        note = " ¹" if meta.get("note") else ""
+        rows_out.append(f"| {run.name} | {meta['reward']}{note} | {len(rows)} | {n_act} | {n_ref} | [DAYS.md]({rel}/{run.name}/DAYS.md) |")
+    return rows_out
+
+
+def main() -> int:
+    index = ["# Agent trajectories", "", "Each run's full Harbor trajectory is `trajectory.json` in its folder; `DAYS.md` is the readable",
+             "day-by-day version (what the agent said, what it did, what was refused, cash after the day).", "",
+             "## Current rules (`runs/normal-winter/`)", ""]
+    index += table(RUNS, "normal-winter") if RUNS.exists() else ["(none yet)"]
+    index += ["", "¹ Played on the current rules before the reference planner was improved; the verifier's reward is",
+              "against the earlier reference. [ANALYSIS.md](ANALYSIS.md) rescores every run against the current one."]
+    archive = ROOT / "runs" / "archive"
+    for rule_set in sorted(p for p in archive.iterdir() if p.is_dir()) if archive.exists() else []:
+        index += ["", f"## Archived: `{rule_set.name}` (earlier rules; scores are on those rules)", ""]
+        index += table(rule_set, f"archive/{rule_set.name}")
     (ROOT / "runs" / "TRAJECTORIES.md").write_text("\n".join(index) + "\n")
-    print("\n".join(index))
+    print("\n".join(index[:40]))
     return 0
 
 

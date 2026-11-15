@@ -62,6 +62,8 @@ def measure(run: dict[str, Any]) -> dict[str, Any]:
     return {
         "profit_eur": run["profit"], "revenue_eur": round(revenue), "market_loss_eur": round(loss),
         "market_loss_pct": round(100 * loss / (revenue + loss), 1) if revenue + loss > 0 else 0.0,
+        "demand_met_pct": round(100 * sum(v["full"] for v in market.get("full_price_units", {}).values())
+                                / max(1.0, sum(v["demand"] for v in market.get("full_price_units", {}).values())), 1),
         "supply_ratio": round(statistics.fmean(supply.values()), 2) if supply else None,
         "supply_by_crop": {c: round(v, 2) for c, v in supply.items()},
         "cycle_days": round(statistics.fmean((sold_h[i] - seen[i]) / 24 for i in later), 1) if later else None,
@@ -81,11 +83,13 @@ def measure(run: dict[str, Any]) -> dict[str, Any]:
 FAILURE_MODES = [   # (name, flagged when, test on measure())
     ("Floods the market", "sells more than 1.3x the published weekly demand, so its own harvests crash the price",
      lambda m: (m["supply_ratio"] or 0) > 1.3),
-    ("Leaves money to the market", "over 15% of harvest value lost to selling above demand",
-     lambda m: m["market_loss_pct"] > 15),
-    ("Idle benches", "over 40% of the floor empty on average", lambda m: m["empty_area_pct"] > 40),
+    ("Sells into a glut", "over 8% of harvest value lost to selling above the rolling week's demand (the reference loses about 3%)",
+     lambda m: m["market_loss_pct"] > 8),
+    ("Misses the demand", "under 75% of the published demand sold at full price (wrong week, too little, or into a full window)",
+     lambda m: m["demand_met_pct"] < 75),
     ("Seed stock-outs", "tries to sow with no seed in stock (did not order ahead of the lead time)", lambda m: m["seed_stockouts"] > 0),
-    ("Stops managing", "no action on 10 or more of the last 21 days", lambda m: m["idle_days_late"] >= 10),
+    ("Session ended early", "the agent stopped calling before day 42 (e.g. a reasoning step hit the output limit with no "
+     "tool call, so the harness ended the attempt); the farm ran on unattended", lambda m: m["days_played"] < 42),
     ("Malformed actions", "actions refused for unknown items or invalid arguments", lambda m: m["malformed"] > 0),
     ("Damage left standing", "storm or boiler damage unrepaired for over 2 weeks", lambda m: m["damage_hours"] > 336),
 ]
@@ -277,11 +281,11 @@ def write_markdown(res: dict, seeds: list[int], board: list[dict]) -> None:
          "## Leaderboard", "", "| Grower | Score | 95% CI | Pass rate (score ≥ 0.5) | Runs |", "|---|---:|---|---:|---:|"]
     L += [f'| {r["name"]} | {r["mean"]:.3f} | {f"{r[chr(108)+chr(111)]:.3f} – {r[chr(104)+chr(105)]:.3f}" if r["lo"] is not None else "deterministic"} | {100 * r["pass_rate"]:.0f}% | {r["n"]} |' for r in board]
     L += ["", "## Every run", "",
-          "| Run | Seed | Score | Verifier | Profit € | Revenue € | Lost to oversupply | Supply ÷ demand | Empty floor | Sow→sale (d) | Energy € | Stock-outs | Malformed | Idle late days | Failure modes |",
+          "| Run | Seed | Score | Verifier | Profit € | Revenue € | Demand met at full price | Lost to oversupply | Supply ÷ demand | Empty floor | Energy € | Stock-outs | Malformed | Idle late days | Failure modes |",
           "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
     def row(name: str, m: dict, seed: int, ver: Any) -> str:
-        return (f'| {name} | {seed} | {m["score"]:.3f} | {ver} | {m["profit_eur"]:,.0f} | {m["revenue_eur"]:,} | {m["market_loss_pct"]}% | {m["supply_ratio"]} | '
-                f'{m["empty_area_pct"]}% | {m["cycle_days"]} | {m["energy_eur"]:,} | {m["seed_stockouts"]} | {m["malformed"]} | {m["idle_days_late"]} | {", ".join(m.get("failure_modes", [])) or "–"} |')
+        return (f'| {name} | {seed} | {m["score"]:.3f} | {ver} | {m["profit_eur"]:,.0f} | {m["revenue_eur"]:,} | {m["demand_met_pct"]}% | {m["market_loss_pct"]}% | {m["supply_ratio"]} | '
+                f'{m["empty_area_pct"]}% | {m["energy_eur"]:,} | {m["seed_stockouts"]} | {m["malformed"]} | {m["idle_days_late"]} | {", ".join(m.get("failure_modes", [])) or "–"} |')
     for seed in seeds:
         L.append(row("**reference planner**", res["ladder"][str(seed)]["reference"], seed, "–"))
         for name, m in sorted(res["runs"].items(), key=lambda kv: (kv[1]["model"], kv[0])):

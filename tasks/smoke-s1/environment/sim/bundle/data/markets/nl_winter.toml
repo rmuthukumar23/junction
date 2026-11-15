@@ -27,6 +27,9 @@ demand_per_week = 4000.0
 # [DES] The buyers' order book by episode week (firm, published): the January post-holiday
 # slump, a HoReCa restocking surge, a quiet week, then a pre-Valentine surge.
 demand_week_factors = [0.6, 1.5, 0.5, 1.4, 0.7, 1.3]
+# [DES] Fresh microgreens keep a few days: a buyer takes a little over the order at a
+# discount, and nothing beyond a quarter more (the price reaches 0 at 1.25x the week's demand).
+glut_at = 1.25
 
 [crops.radish_micro]
 # Per kg. [DES] radish is the cheapest common microgreen in every price list found
@@ -35,6 +38,7 @@ price_eur_per_unit = 22.0
 # [DES] A smaller market than broccoli; full output is about 4.5 t/week.
 demand_per_week = 2500.0
 demand_week_factors = [1.4, 0.6, 1.3, 0.5, 1.5, 0.7]
+glut_at = 1.25
 
 [co2]
 # The external CO2 contract the energy centre can dose from, per kg, metered hourly.

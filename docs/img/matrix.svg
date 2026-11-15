@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 330" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">
+<rect width="1010" height="330" rx="8" fill="#0e1119"/>
+<text x="18" y="28" fill="#e9edf3" font-size="15" font-weight="bold">Score by seed and grower  (0 = nobody acts, 0.8 = reference planner, capped at 1)</text>
+<text x="152.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">nobody</text>
+<text x="152.0" y="69" fill="#e9edf3" font-size="11" text-anchor="middle">acts</text>
+<text x="264.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">naive</text>
+<text x="376.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">rule-based</text>
+<text x="488.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">stop-early</text>
+<text x="600.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">Gemini 4</text>
+<text x="600.0" y="69" fill="#e9edf3" font-size="11" text-anchor="middle">Hydrogen</text>
+<text x="712.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">Claude</text>
+<text x="712.0" y="69" fill="#e9edf3" font-size="11" text-anchor="middle">Haiku 5.5</text>
+<text x="824.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">Claude</text>
+<text x="824.0" y="69" fill="#e9edf3" font-size="11" text-anchor="middle">Sonnet 5.5</text>
+<text x="936.0" y="56" fill="#e9edf3" font-size="11" text-anchor="middle">reference</text>
+<text x="936.0" y="69" fill="#e9edf3" font-size="11" text-anchor="middle">planner</text>
+<text x="84" y="111.0" fill="#e9edf3" font-size="12" text-anchor="end">seed 1</text>
+<rect x="99" y="85" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="152.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="152.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="211" y="85" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="264.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="264.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="323" y="85" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="376.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="376.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="435" y="85" width="106" height="44" rx="4" fill="#ad462a"/>
+<text x="488.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.237</text>
+<text x="488.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="547" y="85" width="106" height="44" rx="4" fill="#479651"/>
+<text x="600.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.767</text>
+<text x="600.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3  sd 0.04</text>
+<rect x="659" y="85" width="106" height="44" rx="4" fill="#779745"/>
+<text x="712.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.657</text>
+<text x="712.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="771" y="85" width="106" height="44" rx="4" fill="#459350"/>
+<text x="824.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.784</text>
+<text x="824.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3  sd 0.04</text>
+<rect x="883" y="85" width="106" height="44" rx="4" fill="#429150"/>
+<text x="936.0" y="109.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.800</text>
+<text x="936.0" y="123.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<text x="84" y="161.0" fill="#e9edf3" font-size="12" text-anchor="end">seed 2</text>
+<rect x="99" y="135" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="152.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="152.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="211" y="135" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="264.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="264.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="323" y="135" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="376.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="376.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="435" y="135" width="106" height="44" rx="4" fill="#ad462a"/>
+<text x="488.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.237</text>
+<text x="488.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="547" y="135" width="106" height="44" rx="4" fill="#408f4f"/>
+<text x="600.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.814</text>
+<text x="600.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=2  sd 0.05</text>
+<rect x="659" y="135" width="106" height="44" rx="4" fill="#729747"/>
+<text x="712.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.668</text>
+<text x="712.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="771" y="135" width="106" height="44" rx="4" fill="#c18c2f"/>
+<text x="824.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.467</text>
+<text x="824.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=2  sd 0.29</text>
+<rect x="883" y="135" width="106" height="44" rx="4" fill="#429150"/>
+<text x="936.0" y="159.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.800</text>
+<text x="936.0" y="173.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<text x="84" y="211.0" fill="#e9edf3" font-size="12" text-anchor="end">seed 3</text>
+<rect x="99" y="185" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="152.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="152.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="211" y="185" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="264.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="264.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="323" y="185" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="376.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="376.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="435" y="185" width="106" height="44" rx="4" fill="#ae472a"/>
+<text x="488.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.243</text>
+<text x="488.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="547" y="185" width="106" height="44" rx="4" fill="#479651"/>
+<text x="600.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.767</text>
+<text x="600.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=2  sd 0.01</text>
+<rect x="659" y="185" width="106" height="44" rx="4" fill="#b19635"/>
+<text x="712.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.539</text>
+<text x="712.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<rect x="771" y="185" width="106" height="44" rx="4" fill="#449350"/>
+<text x="824.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.789</text>
+<text x="824.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=2  sd 0.03</text>
+<rect x="883" y="185" width="106" height="44" rx="4" fill="#429150"/>
+<text x="936.0" y="209.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.800</text>
+<text x="936.0" y="223.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=1</text>
+<line x1="18" x2="992" y1="232" y2="232" stroke="#8d97a8"/>
+<text x="84" y="261.0" fill="#e9edf3" font-size="12" text-anchor="end">all seeds</text>
+<rect x="99" y="235" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="152.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="152.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3</text>
+<rect x="211" y="235" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="264.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="264.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3</text>
+<rect x="323" y="235" width="106" height="44" rx="4" fill="#7a1e26"/>
+<text x="376.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.000</text>
+<text x="376.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3</text>
+<rect x="435" y="235" width="106" height="44" rx="4" fill="#ae462a"/>
+<text x="488.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.239</text>
+<text x="488.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3  sd 0.00</text>
+<rect x="547" y="235" width="106" height="44" rx="4" fill="#459451"/>
+<text x="600.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.781</text>
+<text x="600.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=7  sd 0.04</text>
+<rect x="659" y="235" width="106" height="44" rx="4" fill="#899741"/>
+<text x="712.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.622</text>
+<text x="712.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3  sd 0.06</text>
+<rect x="771" y="235" width="106" height="44" rx="4" fill="#65984b"/>
+<text x="824.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.695</text>
+<text x="824.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=7  sd 0.21</text>
+<rect x="883" y="235" width="106" height="44" rx="4" fill="#429150"/>
+<text x="936.0" y="259.0" fill="#fff" font-size="15" font-weight="bold" text-anchor="middle">0.800</text>
+<text x="936.0" y="273.0" fill="#ffffffb8" font-size="9.5" text-anchor="middle">n=3</text>
+<text x="18" y="312" fill="#8d97a8" font-size="10.5">Models: Harbor + OpenCode, normal-winter (42 days). Cell = mean of n runs, sd across runs. Scripted rows are deterministic.</text></svg>

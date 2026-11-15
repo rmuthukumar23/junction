@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from envkit.clients import InProcessClient  # noqa: E402
@@ -178,12 +178,29 @@ def play(policy: str, seed: int, runner: Any = None) -> dict[str, Any]:
     biz = sim.business
     market = {"loss_eur": round(getattr(biz, "market_loss_eur", 0.0), 2), "over_demand_units": round(getattr(biz, "over_demand_units", 0.0), 1),
               "demand_per_week": getattr(biz, "demand", {}),
-              "sold_units": {c: round(sum(q for _, q in rows), 1) for c, rows in getattr(biz, "sales", {}).items()}}
+              "sold_units": {c: round(sum(q for _, q in rows), 1) for c, rows in getattr(biz, "sales", {}).items()},
+              "full_price_units": full_price_units(biz, sim.horizon_h)}
     return {"policy": policy, "seed": seed, "hours": sim.horizon_h, "frames": frames, "alarms": alarms,
             "shift": shift, "market": market, "baseline_profit": baseline(seed), "max_calls": sc.shift.max_calls,
             "calls": calls, "compartments": compartments, "crops": crops,
             "objective": rl["objective"], "profit": round(sim.business.profit_eur(), 2),
             "elapsed_s": round(time.time() - t0, 2)}
+
+
+def full_price_units(biz: Any, horizon_h: int) -> dict[str, dict[str, float]]:
+    """Per crop: units sold at the full price (within the rolling week's demand at the hour of
+    each sale) and the published demand over the episode, from the business's sales log."""
+    out = {}
+    window = 168
+    for c, rows in getattr(biz, "sales", {}).items():
+        full, past = 0.0, []
+        for h, q in rows:
+            before = sum(x for t, x in past if t > h - window)
+            full += min(q, max(0.0, (biz.demand_at(c, h) or 0.0) - before))
+            past.append((h, q))
+        demand = sum(biz.demand_at(c, w * window) or 0.0 for w in range(-(-horizon_h // window)))
+        out[c] = {"full": round(full, 1), "demand": round(demand, 1)}
+    return out
 
 
 _BASELINE: dict[int, float] = {}
