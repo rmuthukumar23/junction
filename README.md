@@ -113,6 +113,36 @@ Frontier models land just under the planner on average, with a wide spread (Gemi
 0.73-0.82); the best run beat it. Haiku is clearly below. Every run is replayed hour by hour in
 [runs/ANALYSIS.md](runs/ANALYSIS.md).
 
+## Fine-tuning a small model (proof of concept)
+
+To check that the environment can also train agents, not only test them, we fine-tuned
+**Qwen3-4B-Instruct** (LoRA, on Modal) on the planner's daily decisions from dev seeds 1-6 and played
+it on held-out seeds it never saw. A 4B model is far smaller than the frontier models above, so the
+point is the pipeline and what it learned, not the score.
+
+- **Base model:** goes bankrupt by day 24-27. It hires past the crew cap and orders an express CO2
+  delivery that does not exist, every day (113 refused actions).
+- **Round 1** learned the daily routine: valid actions every morning (0 refused), climate and energy
+  settings, harvests and contractor bookings, all 42 days. It never ordered seed or planted, so nothing
+  new grew; on seed 104 it still reached 0.19, close to the stop-early baseline.
+- **Round 2** learned to order and plant, but not how much: it ordered about 100x too little seed.
+
+<!-- finetune:start -->
+
+| Grower | Seed 101 | Seed 104 | Seed 107 | Mean | Days played | Refused actions |
+|---|---|---|---|---:|---|---:|
+| Reference planner | 0.80 | 0.80 | 0.80 | 0.80 | 42 | 0 |
+| Qwen3-4B, base | 0.00 | 0.00 | 0.00 | 0.00 | 27†, 24†, 25† | 113 |
+| Qwen3-4B, round 1 | 0.00 | 0.19 | 0.00 | 0.06 | 42 | 0 |
+| Qwen3-4B, round 2 | 0.00 | 0.00 | 0.00 | 0.00 | 32†, 42, 42 | 58 |
+
+<sub>Held-out seeds, played in-process; 0 = nobody acts, 0.80 = the planner. † bankrupt.</sub>
+
+<!-- finetune:end -->
+
+Imitation picked up the routine quickly but not the quantities and lead times, which are the same
+interacting constraints the frontier models miss. A larger model and more rounds are the obvious next step.
+
 ## Harbor runs
 
 Each seed is a Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/): `instruction.md`,
