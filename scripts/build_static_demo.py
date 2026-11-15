@@ -5,7 +5,7 @@
 Plays the six default growers on seed 1 and two recorded model runs once, through the real
 simulator (scripts/viz/server.py), and writes everything the page needs into demo/:
 index.html, style.css, scene.js, ui.js (reading data/*.json instead of /api), vendor/, data/.
-Launching new model runs is switched off in the copy. Deploy demo/ as a static site.
+Launching new model runs is switched off in the copy, and it opens on the reference planner, maximized. Deploy demo/ as a static site.
 """
 from __future__ import annotations
 
@@ -34,8 +34,9 @@ def slug(spec: str) -> str:
 
 def main() -> int:
     server.POOL = ThreadPoolExecutor(max_workers=4)
-    if OUT.exists():
-        shutil.rmtree(OUT)
+    for old in (OUT.iterdir() if OUT.exists() else []):   # keep dot-files: .vercel/, .gitignore, .vercelignore
+        if not old.name.startswith("."):
+            shutil.rmtree(old) if old.is_dir() else old.unlink()
     (OUT / "data" / "run").mkdir(parents=True)
 
     sc = server.load_scenario(server.SCENARIO)
@@ -63,6 +64,8 @@ def main() -> int:
         ('const r = await fetch("/api/players");', 'const r = await fetch("data/players.json");'),
         ("const r = await fetch(`/api/run?player=${encodeURIComponent(p.spec)}&seed=${seed}`);",
          "const r = await fetch(runUrl(p.spec, seed));"),
+        ('if (q.get("layout")) setLayout(q.get("layout"), focus, q.get("with") ? +q.get("with") - 1 : undefined);',
+         'setLayout(q.get("layout") || "focus", focus, q.get("with") ? +q.get("with") - 1 : undefined);   // demo opens on the planner, maximized'),
         ('const j = await (await fetch("/api/jobs")).json();',
          'const j = { jobs: [], env_model: "", backend: "docker" };'),
         ('const r = await fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });',
