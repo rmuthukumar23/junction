@@ -241,3 +241,27 @@ Nothing in the game, scoring or policies changed; this makes code, generated tas
 - **README, AGENTS.md** now describe the current game (daily turn, night schedule, damage and repairs, weekly demand, 10-day seed), the current ladder and audit, the archived model runs, and the open design issues. `runs/TRAJECTORIES.md` links point at `runs/archive/<rule set>/`.
 - **Viewer** lists committed runs under `runs/` as well as `artifacts/`; runs archived under earlier rules are labelled so, and their replay shows how many responses still match (0 of 42 for `schedule-3day-seed`).
 - **Open design issues, recorded not fixed** (README "Known limits"): no model run on the current rules; rule-based goes bankrupt on days 34-38 (and the three exploits built on it), so its tests fail; harvest-early earns 0.12-0.13; `dev-winter` is not a skill test. With `ENVKIT_TEST_SCENARIO=normal-winter`, the remaining test failures are exactly these.
+
+## 2026-11-15 (night), steep glut and a burst-selling reference (Emre + Claude, branch `emre/planning-gap`)
+
+Running log of this work: [WORKLOG-planning-gap.md](WORKLOG-planning-gap.md).
+
+- **Steep glut (`glut_at = 1.25`, market file).** The price now reaches 0 at 1.25x the week's demand
+  (was 2x). With 2x, overshooting cost little, so "grow plenty" was nearly free and top models tied the
+  reference (archive `schedule-3day-seed`: Gemini 0.79, Sonnet 0.78, reference 0.80).
+- **First runs on the steep glut beat the old reference** (Gemini 0.99, Sonnet 1.00, seed 1). Their
+  sales log showed why: demand is counted over a rolling 168 h window, and they sold each crop in one
+  burst a week, sized to that week's demand, after the window had cleared. The old reference sold a
+  steady stream and so sold into the window left by the previous (bigger) week.
+- **The reference now plans the market (`policies/market_plan.py`).** Cut timing: each ready batch is
+  priced at every hour it could still sell against its own sales log and the published rule; cut today
+  only if today is best. Sowing: a small dynamic programme picks burst hours one window apart, within
+  the planting deadline, that sell the most at full price; each is sown to be ready just before its
+  hour (grow time measured from its own sowings). Before the first seed can arrive it dims the lamps
+  of a crop whose demand rises next week, so the starting batches ripen into the bigger week. Lamps at
+  85 %, no extra hire at the end.
+- **Tuning.** On dev seeds 1-6 (the scored seeds 1-3 are among them; the earlier "4-6 only" rule was
+  dropped for this round). Held-out 101/104/107, never tuned on: EUR 834/867/861 k (old reference
+  761/793/686 k). Reference profit seeds 1-3: EUR 877/894/908 k.
+- **Ladder on the new calibration** (seeds 1-3 and 101/104/107): nobody, naive, rule-based and the
+  seven exploits 0; harvest-early 0.10; stop-early 0.19-0.24; reference 0.80.

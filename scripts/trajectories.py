@@ -60,11 +60,10 @@ def days(run: Path) -> list[dict]:
     return rows
 
 
-def main() -> int:
-    index = ["# Agent trajectories", "", "Each run's full Harbor trajectory is `trajectory.json` in its folder; `DAYS.md` is the readable",
-             "day-by-day version (what the agent said, what it did, what was refused, cash after the day).", "",
-             "| Run | Score | Days | Actions | Refused | Day-by-day |", "|---|---:|---:|---:|---:|---|"]
-    for run in sorted(p for p in RUNS.iterdir() if p.is_dir()):
+def table(runs: Path, rel: str) -> list[str]:
+    """Write DAYS.md for every run under `runs` and return its index rows."""
+    rows_out = ["| Run | Score | Days | Actions | Refused | Day-by-day |", "|---|---:|---:|---:|---:|---|"]
+    for run in sorted(p for p in runs.iterdir() if p.is_dir() and (p / "meta.json").exists()):
         rows = days(run)
         meta = json.loads((run / "meta.json").read_text())
         out = [f"# {meta['model']}, seed {meta['seed']}: score {meta['reward']}, profit €{meta['profit_eur']:,.0f}", "",
@@ -75,9 +74,21 @@ def main() -> int:
         (run / "DAYS.md").write_text("\n".join(out) + "\n")
         n_act = sum(len(r["did"]) for r in rows)
         n_ref = sum(len(r["refused"]) for r in rows)
-        index.append(f"| {run.name} | {meta['reward']} | {len(rows)} | {n_act} | {n_ref} | [DAYS.md](normal-winter/{run.name}/DAYS.md) |")
+        rows_out.append(f"| {run.name} | {meta['reward']} | {len(rows)} | {n_act} | {n_ref} | [DAYS.md]({rel}/{run.name}/DAYS.md) |")
+    return rows_out
+
+
+def main() -> int:
+    index = ["# Agent trajectories", "", "Each run's full Harbor trajectory is `trajectory.json` in its folder; `DAYS.md` is the readable",
+             "day-by-day version (what the agent said, what it did, what was refused, cash after the day).", "",
+             "## Current rules (`runs/normal-winter/`)", ""]
+    index += table(RUNS, "normal-winter") if RUNS.exists() else ["(none yet)"]
+    archive = ROOT / "runs" / "archive"
+    for rule_set in sorted(p for p in archive.iterdir() if p.is_dir()) if archive.exists() else []:
+        index += ["", f"## Archived: `{rule_set.name}` (earlier rules; scores are on those rules)", ""]
+        index += table(rule_set, f"archive/{rule_set.name}")
     (ROOT / "runs" / "TRAJECTORIES.md").write_text("\n".join(index) + "\n")
-    print("\n".join(index))
+    print("\n".join(index[:40]))
     return 0
 
 
