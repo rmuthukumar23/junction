@@ -266,7 +266,7 @@ Running log of this work: [WORKLOG-planning-gap.md](WORKLOG-planning-gap.md).
 - **Ladder on the new calibration** (seeds 1-3 and 101/104/107): nobody, naive, rule-based and the
   seven exploits 0; harvest-early 0.10; stop-early 0.19-0.24; reference 0.80.
 
-## 2026-11-15, renamed to Lettuce Bench
+## 2026-11-15, renamed to LettuceBench
 
 Display name only: README, viewer, docs, scenario titles and the project description now say "Lettuce
 Bench". The Python package (`greenhouse`), the class (`GreenhouseBench`) and file names are unchanged.
