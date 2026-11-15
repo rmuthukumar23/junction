@@ -10,6 +10,17 @@ from __future__ import annotations
 
 from typing import Any
 
+CHECKS = [   # (key, pattern, short name): every check a short game is scored on
+    ("cold", "constraints", "Houses heated for the crop"),
+    ("full_window", "constraints", "Sold within the week's demand"),
+    ("left_standing", "revising", "Cut ready crops while buyers wanted them"),
+    ("idle", "revising", "No morning sat out with work waiting"),
+    ("no_pipeline", "tracking", "Seed ordered for benches freeing up"),
+    ("empty_bench", "tracking", "No empty bench without seed coming"),
+    ("no_seed", "tracking", "Only sowed with seed in stock"),
+    ("refused", "mechanics", "Every action accepted"),
+]
+
 PATTERNS = {
     "constraints": "Missing interacting constraints",
     "revising": "Not revising after new information",
@@ -36,7 +47,10 @@ def _demand_now(rules: dict, crop: str, hour: int) -> float:
 
 
 def _short(msg: str) -> str:
-    return str(msg).split("; valid arguments")[0].split(". Valid")[0][:120]
+    m = str(msg)
+    for cut in ("; valid arguments", "; items are", ". Valid", "nothing was accepted: "):
+        m = m.split(cut)[-1] if cut == "nothing was accepted: " else m.split(cut)[0]
+    return m[:110]
 
 
 def _refusals(results: list | None) -> list[str]:
