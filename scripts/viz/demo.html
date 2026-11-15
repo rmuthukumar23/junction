@@ -52,6 +52,11 @@
   @keyframes sp { to { transform: rotate(360deg); } }
   #mini { position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom) + 14px); display: none; gap: 6px; }
   #mini button { width: 40px; height: 40px; border-radius: 12px; color: #fff; font-size: 17px; }
+  #coach { position: fixed; left: 12px; right: 96px; bottom: calc(env(safe-area-inset-bottom) + 70px); border-radius: 18px; padding: 14px; font-size: 15px; display: none; z-index: 8; }
+  .coachnav { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .coachnav a { color: var(--dim); margin-right: 10px; } .coachnav button { background: #2f7d4a; border: 0; color: #fff; font-weight: 800; padding: 8px 16px; border-radius: 12px; }
+  .hl { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 20px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { outline-color: rgba(244,194,79,.3); } }
 </style>
 </head>
 <body>
@@ -69,14 +74,15 @@
   <button class="act glass" id="aSeed"><span class="i">🌱</span>Order seed</button>
   <button id="go">GO ▶</button>
 </div>
-<div id="mini"><button class="glass" id="bCam">📷</button><button class="glass" id="bZin">＋</button><button class="glass" id="bZout">－</button></div>
+<div id="mini"><button class="glass" id="bCam" title="Camera">📷</button><button class="glass" id="bRe" title="Re-centre">🎯</button><button class="glass" id="bZin" title="Nearer">＋</button><button class="glass" id="bZout" title="Further">－</button><button class="glass" id="help" title="How to play">?</button></div>
+<div id="coach" class="glass"></div>
 <div id="toast" class="glass"></div>
 
 <div id="intro" class="overlay"><div class="card glass">
   <h1>🌱 Beat the AI</h1>
   <p>Run a greenhouse for <b>2 days</b>. Each morning, tap what to do: <b>🌡️ heat</b>, <b>✂️ harvest</b>, <b>🌱 order seed</b>. Then watch the day play out.</p>
   <p>Then see how you did against <b>7 AI runs</b> by Gemini, Claude Sonnet and Claude Haiku that faced the exact same morning in our benchmark.</p>
-  <p class="small">Point your phone at a table: the greenhouse stands in your room. Tilt the phone to walk around it.</p>
+  <p class="small">📷 Allow the camera and motion when asked: the greenhouse appears in your room. Point the phone a little down at the floor or a table, then look around it. A 30-second tutorial shows you the rest.</p>
   <button class="big" id="start" disabled><span class="spin"></span> connecting…</button>
   <p class="small" style="text-align:center;margin-top:8px"><a href="#" id="noCam" style="color:var(--dim)">play without the camera</a></p>
 </div></div>
