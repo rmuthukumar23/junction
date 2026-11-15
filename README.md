@@ -20,7 +20,7 @@ short winter sun, wind (storms break glass), and the recorded electricity and ga
 
 ![Hour-by-hour variables for one grower: house temperature, CO2, humidity and light, outside weather and energy prices](docs/img/variables.png)
 
-## Why talk about chess?
+## Let's talk about chess for a second
 
 The best language models play chess at about **2000 Elo**. Stockfish plays at about **3600**. The
 expected score of player $A$ against player $B$ is
