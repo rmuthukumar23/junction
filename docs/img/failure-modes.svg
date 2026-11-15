@@ -46,11 +46,11 @@
 <text x="487.0" y="252" fill="#fff" font-size="11.5" text-anchor="middle">0/3 runs (0%)</text>
 <rect x="569" y="235" width="152" height="26" rx="4" fill="#227646"/>
 <text x="645.0" y="252" fill="#fff" font-size="11.5" text-anchor="middle">0/7 runs (0%)</text>
-<text x="238" y="284" fill="#e9edf3" font-size="11.5" text-anchor="end">Damage left standing</text>
-<rect x="253" y="267" width="152" height="26" rx="4" fill="#7a1e26"/>
-<text x="329.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">7/7 runs (100%)</text>
-<rect x="411" y="267" width="152" height="26" rx="4" fill="#7a1e26"/>
-<text x="487.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">3/3 runs (100%)</text>
-<rect x="569" y="267" width="152" height="26" rx="4" fill="#7a1e26"/>
-<text x="645.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">7/7 runs (100%)</text>
+<text x="238" y="284" fill="#e9edf3" font-size="11.5" text-anchor="end">Boiler left broken</text>
+<rect x="253" y="267" width="152" height="26" rx="4" fill="#39894d"/>
+<text x="329.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">1/7 runs (14%)</text>
+<rect x="411" y="267" width="152" height="26" rx="4" fill="#739747"/>
+<text x="487.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">1/3 runs (33%)</text>
+<rect x="569" y="267" width="152" height="26" rx="4" fill="#b3532b"/>
+<text x="645.0" y="284" fill="#fff" font-size="11.5" text-anchor="middle">5/7 runs (71%)</text>
 </svg>

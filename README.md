@@ -4,6 +4,11 @@ An agent runs a Dutch winter greenhouse for 42 simulated days, one decision a mo
 scored on net profit against a scripted production planner. Built for AfterQuery's "Break the
 Agent" (Junction 2026). Harbor task, MCP sidecar, trace-replay verifier.
 
+> **For judges: where each ask lives**
+> - **Harbor:** every seed is a standard Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/): `instruction.md`, `task.toml`, `environment/`, `tests/test.sh`, `solution/solve.sh`). Run `harbor run -p tasks/normal-winter-s1 -a opencode -m <model>`, or `bash scripts/judge.sh` for the full protocol. All 17 model runs below were Harbor 0.26 + OpenCode 1.19.5 trials.
+> - **Trajectories:** every run is committed with its Harbor trajectory (`trajectory.json`), the verifier's trace and a readable day-by-day log (`DAYS.md`). Index: [runs/TRAJECTORIES.md](runs/TRAJECTORIES.md). Example: [Gemini seed 2, EUR 963 k](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md).
+> - **True failure modes:** measured by replaying every run hour by hour ([runs/ANALYSIS.md](runs/ANALYSIS.md)). The [failure gallery](#failure-gallery) below links each one to the day it happens.
+
 ![Score by seed and grower](docs/img/matrix.svg)
 
 **Leaderboard** (normal-winter, seeds 1-3, Harbor 0.26 + OpenCode 1.19.5; 95 % bootstrap CI over runs):
@@ -22,17 +27,33 @@ Agent" (Junction 2026). Harbor task, MCP sidecar, trace-replay verifier.
   and Sonnet 0.73-0.82 (seeds 1-3). Five of 14 runs beat the reference, so it is not a ceiling. The best
   run (Gemini, seed 2, EUR 963 k) staggered several partial sales a week, each timed to land as an older
   sale left the rolling demand window. Eight of the other nine leave EUR 37-86 k on the table against it (the ninth ended on day 9).
-- **The market is the failure mode.** Demand is a published, uneven order book counted over a rolling
-  week. Runs that sell into a window the previous week already filled get nothing for it. Haiku sold
-  2.1 t of radish for EUR 2 and 2.2 t of broccoli for EUR 0 (seed 2), and met only 61-78 % of demand at
-  full price (reference 85-87 %). Every model under-sold radish in week 0, its biggest week (2.1-2.9 t of 3.5 t).
-- **Housekeeping slips under the daily turn.** Storm glass was left broken for over two weeks in 17 of
-  17 model runs (the reference repairs it the morning it sees damage). 10 of 17 runs tried to sow without
-  seed in stock, missing the 10-day lead time. Gemini sent malformed actions in 6 of 7 runs.
+- **The market is the main failure mode.** Demand is a published, uneven order book counted over a
+  rolling week. Runs that sell into a window the previous week already filled get nothing for it. Haiku
+  sold 2.1 t of radish for EUR 2 and 2.2 t of broccoli for EUR 0 (seed 2), and met only 61-78 % of demand
+  at full price (reference 85-87 %). 6 of 17 runs (all three Haiku) held back half the radish in week 0,
+  the crop's biggest week, and lost about EUR 40 k on it.
+- **Housekeeping slips under the daily turn.** 8 of 17 runs (Sonnet 6 of 7) left a tripped boiler broken
+  for over a week; the reference books the repair the morning it sees it. Gemini sent malformed actions in
+  6 of 7 runs. 10 of 17 runs tried to sow on day 11, a few hours before the day-1 seed order landed.
 - **One Sonnet run ended on day 9.** A single reasoning step used its whole 32 k-token output budget,
   returned no tool call, and the harness ended the attempt. The farm then ran on unattended (score 0.18).
   It is reported, not excluded.
 
+
+### Failure gallery
+
+One example per failure mode: the run, the day, what the agent did, what it cost. Each link opens that
+run's day-by-day log; the full Harbor trajectory is `trajectory.json` in the same folder.
+
+| Failure mode | Example | What happened | Cost |
+|---|---|---|---|
+| Sells into a full window | [Haiku, seed 2, days 29-30](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Sold 6.2 t of broccoli on days 23 and 26 (week 3), then cut 2.2 t more on days 29-30; week 4's demand is 2.8 t and those sales were still in the rolling window | 2.2 t sold for EUR 0 |
+| Wrong week for the crop | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1. It cut two of the four starting radish batches in week 0 and held the other two into week 1, behind the window | 2.1 t sold for EUR 2 |
+| Boiler left broken | [Sonnet, seed 1 (score 0.82), from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22; no heating installer was booked for the remaining 20 days | 20 days without the boiler; the run still beat the reference |
+| Session ended early | [Sonnet, seed 2, day 9](runs/normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) | One reasoning step used the whole 32 k-token output budget and returned no tool call, so the harness ended the attempt; the farm ran on with nobody acting | score 0.18 (rerun: 0.76) |
+| Malformed action | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`; the whole order, seed included, was refused (`unknown item 'part'`) | seed order a day late |
+| Sows before the seed lands | [Sonnet, seed 1, day 11](runs/normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) | Ordered seed on day 1 (10-day lead) and planted on the morning of day 11, a few hours before it arrived; refused, planted the next day | one day of growth |
+| What good play looks like | [Gemini, seed 2](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) | Staggered partial sales so each landed as an older one left the window; served every week of demand | EUR 963 k, above the reference (EUR 894 k) |
 
 ```bash
 bash scripts/judge.sh --output artifacts/judge-1                                   # reference + baselines, every seed
@@ -157,6 +178,9 @@ sidecar reachable only over MCP, and a separate verifier container replays the r
 
 - **Few runs per cell.** 2-3 runs per model per seed (Haiku 1); the CIs say so. The gap between the frontier
   models and the reference is small and within run-to-run spread; Haiku's is not.
+- **Storm glass is never fully repaired, by any grower.** In every run, the reference's included, the roof
+  glass outages stay open all season (contractor visits happen, but the outage does not clear). It costs
+  every grower the same, so it does not change rankings, but it is an open question in the repair rules.
 - **The reference is beatable.** It sells at most once per demand window and cannot slow its last sowings
   to ripen after the planting deadline; the best Gemini run did both.
 - **The rolling window has a knife edge.** A burst that finishes an hour earlier in the day than

@@ -21,25 +21,25 @@ in the simulator hour by hour, so every column is measured, and `Score` equals t
 | Run | Seed | Score | Verifier | Profit € | Revenue € | Demand met at full price | Lost to oversupply | Supply ÷ demand | Empty floor | Energy € | Stock-outs | Malformed | Idle late days | Failure modes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | **reference planner** | 1 | 0.800 | – | 876,586 | 977,734 | 85.1% | 2.7% | 0.95 | 49.7% | -37,773 | 0 | 0 | 0 | – |
-| Claude Haiku 5.5 `b7cklh5` | 1 | 0.657 | 0.6581 | 716,094 | 791,378 | 77.5% | 5.7% | 0.86 | 26.6% | -24,213 | 1 | 0 | 9 | Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `e8znndd` | 1 | 0.730 | 0.73 | 797,862 | 881,693 | 80.4% | 5.6% | 0.95 | 44.8% | -26,273 | 1 | 0 | 9 | Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `lbtq2lu` | 1 | 0.816 | 0.8173 | 894,944 | 984,577 | 85.3% | 3.9% | 0.94 | 47.4% | -35,043 | 1 | 0 | 8 | Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `qxhrmeh` | 1 | 0.806 | 1.0 | 883,005 | 968,538 | 84.9% | 3.1% | 0.95 | 40.8% | -32,124 | 1 | 0 | 10 | Seed stock-outs, Damage left standing |
-| Gemini 4 Hydrogen `8astgmr` | 1 | 0.826 | 0.8258 | 905,604 | 997,337 | 87.6% | 2.4% | 0.97 | 40.0% | -29,265 | 0 | 0 | 7 | Damage left standing |
-| Gemini 4 Hydrogen `hiup4hw` | 1 | 0.752 | 0.9905 | 822,571 | 913,008 | 85.5% | 2.9% | 0.98 | 41.5% | -33,245 | 0 | 3 | 3 | Malformed actions, Damage left standing |
-| Gemini 4 Hydrogen `plk3gpu` | 1 | 0.724 | 0.7248 | 790,975 | 891,760 | 84.2% | 4.1% | 0.97 | 34.5% | -29,533 | 0 | 2 | 6 | Malformed actions, Damage left standing |
+| Claude Haiku 5.5 `b7cklh5` | 1 | 0.657 | 0.6581 | 716,094 | 791,378 | 77.5% | 5.7% | 0.86 | 26.6% | -24,213 | 1 | 0 | 9 | Seed stock-outs, Boiler left broken |
+| Claude Sonnet 5.5 `e8znndd` | 1 | 0.730 | 0.73 | 797,862 | 881,693 | 80.4% | 5.6% | 0.95 | 44.8% | -26,273 | 1 | 0 | 9 | Seed stock-outs, Boiler left broken |
+| Claude Sonnet 5.5 `lbtq2lu` | 1 | 0.816 | 0.8173 | 894,944 | 984,577 | 85.3% | 3.9% | 0.94 | 47.4% | -35,043 | 1 | 0 | 8 | Seed stock-outs, Boiler left broken |
+| Claude Sonnet 5.5 `qxhrmeh` | 1 | 0.806 | 1.0 | 883,005 | 968,538 | 84.9% | 3.1% | 0.95 | 40.8% | -32,124 | 1 | 0 | 10 | Seed stock-outs, Boiler left broken |
+| Gemini 4 Hydrogen `8astgmr` | 1 | 0.826 | 0.8258 | 905,604 | 997,337 | 87.6% | 2.4% | 0.97 | 40.0% | -29,265 | 0 | 0 | 7 | Boiler left broken |
+| Gemini 4 Hydrogen `hiup4hw` | 1 | 0.752 | 0.9905 | 822,571 | 913,008 | 85.5% | 2.9% | 0.98 | 41.5% | -33,245 | 0 | 3 | 3 | Malformed actions |
+| Gemini 4 Hydrogen `plk3gpu` | 1 | 0.724 | 0.7248 | 790,975 | 891,760 | 84.2% | 4.1% | 0.97 | 34.5% | -29,533 | 0 | 2 | 6 | Malformed actions |
 | **reference planner** | 2 | 0.800 | – | 893,506 | 989,404 | 85.8% | 3.2% | 0.96 | 48.7% | -34,310 | 0 | 0 | 2 | – |
-| Claude Haiku 5.5 `sugfugl` | 2 | 0.668 | 0.6744 | 742,352 | 846,054 | 73.7% | 14.2% | 0.96 | 22.1% | -37,676 | 1 | 0 | 9 | Sells into a glut, Misses the demand, Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `ny8magu` | 2 | 0.176 | 0.1779 | 179,512 | 263,631 | 22.5% | 6.3% | 0.26 | 73.3% | -29,381 | 0 | 0 | 21 | Misses the demand, Session ended early, Damage left standing |
-| Claude Sonnet 5.5 `ujn7rxp` | 2 | 0.758 | 0.758 | 845,445 | 934,292 | 85.0% | 1.3% | 0.9 | 33.3% | -33,694 | 1 | 0 | 8 | Seed stock-outs, Damage left standing |
-| Gemini 4 Hydrogen `2tvqbki` | 2 | 0.861 | 0.8692 | 963,158 | 1,059,478 | 93.4% | 1.5% | 1.02 | 37.2% | -27,871 | 1 | 2 | 1 | Seed stock-outs, Malformed actions, Damage left standing |
-| Gemini 4 Hydrogen `wwifjqq` | 2 | 0.768 | 0.768 | 856,922 | 951,245 | 85.3% | 1.2% | 0.91 | 39.5% | -27,141 | 0 | 3 | 6 | Malformed actions, Damage left standing |
+| Claude Haiku 5.5 `sugfugl` | 2 | 0.668 | 0.6744 | 742,352 | 846,054 | 73.7% | 14.2% | 0.96 | 22.1% | -37,676 | 1 | 0 | 9 | Sells into a glut, Misses the demand, Seed stock-outs |
+| Claude Sonnet 5.5 `ny8magu` | 2 | 0.176 | 0.1779 | 179,512 | 263,631 | 22.5% | 6.3% | 0.26 | 73.3% | -29,381 | 0 | 0 | 21 | Misses the demand, Session ended early, Boiler left broken |
+| Claude Sonnet 5.5 `ujn7rxp` | 2 | 0.758 | 0.758 | 845,445 | 934,292 | 85.0% | 1.3% | 0.9 | 33.3% | -33,694 | 1 | 0 | 8 | Seed stock-outs, Boiler left broken |
+| Gemini 4 Hydrogen `2tvqbki` | 2 | 0.861 | 0.8692 | 963,158 | 1,059,478 | 93.4% | 1.5% | 1.02 | 37.2% | -27,871 | 1 | 2 | 1 | Seed stock-outs, Malformed actions |
+| Gemini 4 Hydrogen `wwifjqq` | 2 | 0.768 | 0.768 | 856,922 | 951,245 | 85.3% | 1.2% | 0.91 | 39.5% | -27,141 | 0 | 3 | 6 | Malformed actions |
 | **reference planner** | 3 | 0.800 | – | 907,765 | 1,008,392 | 87.2% | 5.9% | 1.01 | 50.8% | -40,846 | 0 | 0 | 0 | – |
-| Claude Haiku 5.5 `vmzikdh` | 3 | 0.539 | 0.5415 | 604,620 | 680,152 | 60.7% | 7.1% | 0.67 | 50.9% | -34,500 | 1 | 0 | 10 | Misses the demand, Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `uk6kidx` | 3 | 0.816 | 0.8163 | 926,717 | 1,019,400 | 87.4% | 7.9% | 1.05 | 38.2% | -33,098 | 1 | 0 | 13 | Seed stock-outs, Damage left standing |
-| Claude Sonnet 5.5 `vjg5l3s` | 3 | 0.762 | 0.7648 | 863,410 | 950,305 | 83.3% | 3.9% | 0.89 | 31.5% | -31,823 | 1 | 0 | 10 | Seed stock-outs, Damage left standing |
-| Gemini 4 Hydrogen `bqi5any` | 3 | 0.756 | 0.7592 | 856,930 | 954,104 | 82.7% | 9.3% | 0.97 | 42.1% | -29,322 | 0 | 3 | 5 | Sells into a glut, Malformed actions, Damage left standing |
-| Gemini 4 Hydrogen `qcga2m6` | 3 | 0.777 | 0.7769 | 880,900 | 975,415 | 87.1% | 6.8% | 1.01 | 36.1% | -32,036 | 0 | 3 | 8 | Malformed actions, Damage left standing |
+| Claude Haiku 5.5 `vmzikdh` | 3 | 0.539 | 0.5415 | 604,620 | 680,152 | 60.7% | 7.1% | 0.67 | 50.9% | -34,500 | 1 | 0 | 10 | Misses the demand, Seed stock-outs |
+| Claude Sonnet 5.5 `uk6kidx` | 3 | 0.816 | 0.8163 | 926,717 | 1,019,400 | 87.4% | 7.9% | 1.05 | 38.2% | -33,098 | 1 | 0 | 13 | Seed stock-outs |
+| Claude Sonnet 5.5 `vjg5l3s` | 3 | 0.762 | 0.7648 | 863,410 | 950,305 | 83.3% | 3.9% | 0.89 | 31.5% | -31,823 | 1 | 0 | 10 | Seed stock-outs |
+| Gemini 4 Hydrogen `bqi5any` | 3 | 0.756 | 0.7592 | 856,930 | 954,104 | 82.7% | 9.3% | 0.97 | 42.1% | -29,322 | 0 | 3 | 5 | Sells into a glut, Malformed actions |
+| Gemini 4 Hydrogen `qcga2m6` | 3 | 0.777 | 0.7769 | 880,900 | 975,415 | 87.1% | 6.8% | 1.01 | 36.1% | -32,036 | 0 | 3 | 8 | Malformed actions |
 
 ## Failure-mode definitions
 
@@ -51,7 +51,7 @@ in the simulator hour by hour, so every column is measured, and `Score` equals t
 | Seed stock-outs | tries to sow with no seed in stock (did not order ahead of the lead time) |
 | Session ended early | the agent stopped calling before day 42 (e.g. a reasoning step hit the output limit with no tool call, so the harness ended the attempt); the farm ran on unattended |
 | Malformed actions | actions refused for unknown items or invalid arguments |
-| Damage left standing | storm or boiler damage unrepaired for over 2 weeks |
+| Boiler left broken | a tripped boiler left unrepaired for over a week (the reference: about 4 days) |
 
 ## Scripted ladder (score, profit €)
 
