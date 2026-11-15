@@ -1,4 +1,15 @@
-# Two days vs the AIs (phone game)
+# Beat the AI (phone demo) and the full phone game
+
+**`/demo.html`, the peer-review demo (what `bash scripts/phone.sh` prints):** AR first. Start asks for the
+camera and motion; the greenhouse stands over the camera image and tilting the phone walks around it. Two
+mornings, three big choices on a side rail: 🌡️ heat (`set_climate` to the crops' targets plus a night schedule),
+✂️ harvest (everything ready), 🌱 order seed (about 8 benches of each crop). GO plays the day. The result card
+ranks you against the 7 AI runs on the same morning by the checks below. Without the https link the camera is
+off and the game still works.
+
+**`/play.html`, the full version:** every action, the plain-language briefing and the detailed report.
+
+# Two days vs the AIs (full version)
 
 One simulation: a person plays the first two mornings of seed 1 on a phone and is ranked against every
 recorded AI run on that seed (7 runs: Gemini 4 Hydrogen, Claude Sonnet 5.5, Claude Haiku 5.5) and the

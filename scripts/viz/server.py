@@ -807,6 +807,7 @@ def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
 
 STATIC = {"index.html": "text/html; charset=utf-8", "scene.js": "text/javascript; charset=utf-8",
           "play.html": "text/html; charset=utf-8", "play.js": "text/javascript; charset=utf-8",
+          "demo.html": "text/html; charset=utf-8", "demo.js": "text/javascript; charset=utf-8",
           "vendor/three.min.js": "text/javascript; charset=utf-8",
           "ui.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}
 
