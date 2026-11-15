@@ -15,13 +15,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Created .env. Open it, paste your key after GEMINI_API_KEY=, save, and run this again."
+  echo "Created .env. Open it, paste your provider key and the model, save, and run this again."
   exit 1
 fi
-if ! grep -Eq '^[[:space:]]*GEMINI_API_KEY=.+' .env && [[ -z "${GEMINI_API_KEY:-}" ]]; then
-  echo "GEMINI_API_KEY is empty in .env. Paste your key after GEMINI_API_KEY= and run this again."
-  exit 1
-fi
+source scripts/_require_key.sh
+require_provider_key "$@" || exit 1
 command -v uv > /dev/null || { echo "uv is not installed: https://docs.astral.sh/uv/getting-started/installation/"; exit 1; }
 if ! { docker info > /dev/null 2>&1 || podman info > /dev/null 2>&1; }; then
   echo "Neither Docker nor Podman is running. Start one (or pass --backend modal after 'modal setup')."

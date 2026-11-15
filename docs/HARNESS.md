@@ -52,8 +52,10 @@ The backend that implements this boundary is `src/envkit`; see [BACKEND](BACKEND
 - Agent timeouts keep completed-work credit; reports label them interrupted.
   Provider rate limits and other infrastructure failures are retained separately.
 
-This is the intended container boundary; schema and local transport tests alone
-are not an adversarial proof. The [Docker smoke that passed in CI](https://github.com/rmuthukumar23/junction/actions/runs/43537261501)
+This is the container boundary. Besides the schema and transport tests, a hostile-agent
+probe (`scripts/harbor_boundary_probe.sh`) and model-driven red-team trials were run on a
+separate hardening branch and did not change the score; that branch's network lockdown is
+not merged to `main`. The [Docker smoke that passed in CI](https://github.com/rmuthukumar23/junction/actions/runs/43537261501)
 ran the previous adapter, before the backend merge; see MODAL for what has
 been run on the current path. Finish with the event's 15-minute
 shell/file/protocol exploit session before submission.

@@ -31,44 +31,42 @@ uv run python scripts/viz/server.py                        # the viewer at http:
 
 `quick.sh` is the check to run after every change. It plays only the 1-day `smoke` scenario.
 
-### 2. Benchmark a model
+### 2. Keys and `.env`
+
+`cp .env.example .env` (git-ignored; keys are read from it or your shell, never printed or put on a command line).
+
+| Variable | Why it is needed | When |
+|---|---|---|
+| `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | The agent is a real model (OpenCode) that calls its provider's API while it plays. Set the one for the model you run. | Any agent run |
+| `AFTERQUERY_MODEL` | Which model plays, as `provider/model`. `--model` on any command overrides it. | Any agent run |
+| `MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` (or `modal setup`) | Lets Modal start the containers in the cloud. | Only with `--backend modal` |
+
+Nothing else needs a key. Scoring is deterministic, a replay of the recorded calls: no model or API judges the run.
+
+### 3. Run a benchmark
 
 ```bash
-cp .env.example .env     # git-ignored. Fill in ONE key, and set the model:
-#   GEMINI_API_KEY=...      for google/...     (or ANTHROPIC_API_KEY for anthropic/..., OPENAI_API_KEY for openai/...)
-#   AFTERQUERY_MODEL=google/gemini-4-hydrogen    # or pass --model <provider/model> to any command below
-
-bash scripts/model-smoke.sh                  # 1 agent attempt on the 1-day task, ~3 min: checks the chain works
-bash scripts/benchmark.sh --full --runs 3    # the benchmark: 3 attempts in parallel on normal-winter (42 days), seed 1
+bash scripts/model-smoke.sh                  # 1 attempt on the 1-day task, ~3 min: checks the whole chain works
+bash scripts/benchmark.sh --full --runs 3    # the benchmark: 3 parallel attempts on normal-winter (42 days)
 bash scripts/benchmark.sh --full --seeds 101 --runs 3   # a held-out evaluation seed
 ```
 
-`benchmark.sh` runs the agent through Harbor and OpenCode, replays its calls in a separate verifier and
-writes `artifacts/benchmark-<time>/benchmark.md`: score against the reference and the scripted
-players, the gap, and where the money went. A single 42-day run takes about 20 minutes. Without
-`--full` it plays the 14-day `dev-winter`, which only checks that the model can play. Use a fresh output
-folder each time. Development seeds are 1-6, evaluation seeds 101-108. Keys are read from `.env` or
-your shell and are never printed or put on a command line.
+Each run goes through Harbor and OpenCode, and a separate verifier replays its calls. The report is
+`artifacts/benchmark-<time>/benchmark.md`: score against the reference and scripted players, the gap, and where
+the money went. One 42-day run takes about 20 minutes. Without `--full` it plays the 14-day `dev-winter`, which
+only checks that the model can play. Development seeds are 1-6, evaluation seeds 101-108.
 
-> `benchmark.sh` and `model-smoke.sh` currently refuse to start unless `GEMINI_API_KEY` is set, even
-> for another provider. For a Claude or OpenAI model, set that key to any placeholder or call
-> `scripts/judge.sh --model anthropic/... --agent-only --runs 3 --output artifacts/NAME` directly.
-
-### 3. Run on Modal instead of local Docker (optional)
-
-Modal runs the containers in the cloud. Use it when you have no Docker, or to run many attempts at
-once: in our test of three concurrent attempts (an earlier, shorter task) all three finished on Modal,
-while on one laptop two hit infrastructure timeouts ([MODAL](docs/MODAL.md)). Modal is installed with the
-`harbor` extra above.
+**Modal (optional).** Needs a Modal account instead of Docker, and is the way to run many attempts at once.
+In our test of three concurrent attempts (an earlier, shorter task) all finished on Modal, while on one laptop
+two hit infrastructure timeouts ([MODAL](docs/MODAL.md)).
 
 ```bash
-uv run --no-sync modal setup            # once; or set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in your shell
+uv run --no-sync modal setup                 # once (Modal is installed with the harbor extra)
 bash scripts/benchmark.sh --full --runs 6 --backend modal
 ```
 
-If you have a Modal login, `benchmark.sh` picks Modal on its own; pass `--backend docker` to force local
-containers. Team members without a Modal seat use the shared token described in [MODAL](docs/MODAL.md).
-`--runs N` is the number of parallel attempts.
+With a Modal login `benchmark.sh` picks Modal itself; `--backend docker` forces local containers. `--runs N` is
+the number of parallel attempts. Teammates without a Modal seat use the shared token in [MODAL](docs/MODAL.md).
 
 ### 4. Slow checks (whole 42-day episodes, minutes each)
 
@@ -233,6 +231,16 @@ All 17 runs are committed in [runs/normal-winter/](runs/normal-winter/) ([index]
 Example: Gemini 4 Hydrogen on seed 2 ([trial.log](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/harbor/trial.log),
 [result.json](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/harbor/result.json), [DAYS.md](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)):
 19 minutes, reward **0.8692**, profit €963 k.
+
+## Anti-cheat: reward hacking and escaping the environment
+
+The agent never touches the score. Three layers, each enforced by the architecture rather than by asking the agent to behave:
+
+- **Isolation.** The agent's container holds tooling only: no scenario, seed, engine or verifier code, no Docker socket and no shared writable volume. The world runs in a separate `sim` container, reachable only on its MCP port, with exactly one tool (`submit_day`) and no reset, state, score or file route. Raw HTTP to that port obeys the same checks as an MCP client.
+- **Tamper-proof grading.** The sim appends every call to a trace and syncs it before replying. After the agent stops, Harbor collects that trace from the sim and hands it alone to a fresh verifier container, which replays the calls from the task's own scenario and seed and ignores any recorded responses. Files the agent writes are never read for scoring. A missing or ungradeable trace is an infrastructure failure, never a score of zero.
+- **No paying exploit.** `envkit audit` plays do-nothing, truncated, random, spam and harvest-everything strategies and fails if any scores well (table below). Tests cover each boundary: no task data in the agent image, tampered traces gain nothing, forged responses are ignored, and a missing trace writes no reward.
+
+A hostile-agent pen test ([`scripts/harbor_boundary_probe.sh`](scripts/harbor_boundary_probe.sh): a shell that hunts for task data, forges a reward and trace, probes every sim route and port, and looks for the Docker socket) and model-driven red-team trials were run on a separate hardening branch. None changed the score. That branch's extra network lockdown (egress allowlist, dropped capabilities) is not merged to `main` yet.
 
 <details>
 <summary><b>Scripted ladder</b>: every seed, deterministic</summary>
