@@ -14,6 +14,12 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 > - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
 > - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([other failures](#other-failures-we-found)).
 
+Each run is tracked hour by hour. These are the reference planner's house A and the outside world on
+seed 1: heating against the setpoints through a cold snap, CO2, humidity, light from lamps and the
+short winter sun, wind (storms break glass), and the recorded electricity and gas prices.
+
+![Hour-by-hour variables for one grower: house temperature, CO2, humidity and light, outside weather and energy prices](docs/img/variables.png)
+
 ## Why talk about chess?
 
 The best language models play chess at about **2000 Elo**. Stockfish plays at about **3600**. The
