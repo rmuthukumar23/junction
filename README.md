@@ -16,7 +16,7 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 
 ## How it fits together
 
-![Architecture: the agent talks to the simulator through one MCP tool, submit_day; the facility, buyers and suppliers run in a sidecar; recorded weather and prices drive storms and costs; a separate verifier replays the calls and scores profit against scripted growers](docs/img/architecture.svg)
+![How a run works: the agent's daily loop, the simulator it acts on, the recorded weather and prices that drive it, and how runs are scored](docs/img/architecture.svg)
 
 Each run is tracked hour by hour. These are the reference planner's house A and the outside world on
 seed 1: heating against the setpoints through a cold snap, CO2, humidity, light from lamps and the
