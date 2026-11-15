@@ -14,6 +14,42 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 > - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
 > - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([other failures](#other-failures-we-found)).
 
+## Getting started
+
+**You need:** Python 3.12+, [uv](https://docs.astral.sh/uv/), and Git. On Windows, run the `bash`
+commands below from Git Bash or WSL. Docker or Podman is needed only for Harbor runs and the judge
+command, not for the install, the tests or the viewer.
+
+```bash
+git clone <this repo> && cd junction
+uv sync --locked --extra eval --extra mcp --extra harbor   # install the pinned environment
+bash scripts/quick.sh                                      # run all the tests, about 30 s
+```
+
+`scripts/quick.sh` is the check to run after every change. It compiles the code, runs the whole test
+suite, rebuilds the quick tasks and confirms they are current. It plays only the 1-day `smoke`
+scenario, so it is fast and needs no API key. If it passes, your setup works.
+
+Then try it:
+
+```bash
+uv run python scripts/viz/server.py                        # the viewer, at http://localhost:8765
+uv run --no-sync envkit play normal-winter                 # play the 42 days yourself in the terminal
+```
+
+**Slow checks.** These play whole 42-day episodes (minutes each). Run them only when you are
+benchmarking, not after every change:
+
+```bash
+ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q   # tests incl. the 42-day scenario
+uv run --no-sync envkit audit normal-winter                # reward-integrity audit
+uv run --no-sync envkit anchors normal-winter              # every scripted policy's score, per seed
+uv run --no-sync python scripts/release_check.py           # before a merge to main, about 4 min
+```
+
+**Agent runs** need a provider key (`cp .env.example .env`, then edit it; it is git-ignored) and a
+running container engine. The commands are in the collapsed "Run it" section at the bottom of this README.
+
 ## What the agent has to do
 
 ![How a run works: the agent's daily loop, the simulator it acts on, the outside world that drives it, and how runs are scored](docs/img/architecture.svg)
@@ -235,9 +271,10 @@ sidecar reachable only over MCP, and a separate verifier container replays the r
 </details>
 
 <details>
-<summary><b>Run it</b>: requirements and every check</summary>
+<summary><b>Run it: agents, the judge and every check</b></summary>
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and Docker or Podman running.
+Install and the quick check are in [Getting started](#getting-started). This section needs Docker or
+Podman running for the Harbor and judge commands.
 
 ```bash
 cp .env.example .env        # put your provider key in it; it is git-ignored
