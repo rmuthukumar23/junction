@@ -1,12 +1,13 @@
-// One morning, you against a model. A real morning from a recorded model run: you pick up to 5
-// actions, the server copies the game (POST /api/challenge/play), plays your morning and the
-// model's actual morning from the same state, and then lets the model carry on exactly as it did in
-// its run. Both seasons get the official score; the reference planner's own season is the bar.
+// One playable day on a phone, against a model. A real morning from a recorded model run: you get
+// the model's briefing and its 5 actions (the same submit_day tool), the day plays out from morning
+// to evening, and the server replays the model's own morning on a copy from the same state. Then
+// both are checked for the same failure patterns (scripts/viz/failures.py), and the reference
+// planner finishes both seasons so each morning also gets a season score.
 (() => {
   const $ = (s) => document.querySelector(s);
   const eur = (v) => (v < 0 ? "−" : "") + "€" + Math.round(Math.abs(v)).toLocaleString("en-US");
   const kfmt = (v) => (Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + "M" : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + "k" : Math.round(v));
-  const HOURS_PER_SEC = 7;                 // a day plays in about 3.5 s
+  const HOURS_PER_SEC = 2.4;               // 06:00-18:00 plays in about 5 s, the night in about 1 s
   const BOARD = [["Reference planner (scripted)", 0.80], ["Gemini 4 Hydrogen (mean of 7)", 0.781],
                  ["Claude Sonnet 5.5 (mean of 7)", 0.695], ["Claude Haiku 5.5 (mean of 3)", 0.622],
                  ["Stop-early baseline", 0.24], ["Nobody acts", 0]];
@@ -210,15 +211,16 @@
   $("#go").onclick = async () => {
     if (!G || playing || done) return;
     const acts = actions();
-    $("#go").disabled = true; $("#go").textContent = "playing both seasons…";
+    $("#go").disabled = true; $("#go").textContent = "playing your day…";
     let r;
-    try { r = await post("/api/challenge/play", { id: G.id, actions: acts }); }
+    try { r = await post("/api/challenge/day", { id: G.id, actions: acts }); }
     catch (e) { toast('<span class="bad">' + e.message + "</span>"); $("#go").disabled = false; renderSheet(); return; }
-    result = r; done = true;
-    addFrames(r.you.frames || [], []);
-    target = r.you.frames && r.you.frames.length ? r.you.frames[r.you.frames.length - 1].h : target;
+    result = r.final; done = true;
+    addFrames(r.frames || [], r.alarms || []);
+    const rf = refused(r.results);
+    if (rf.length) toast(rf.map((x) => `<div class="bad">✗ ${x}</div>`).join(""), 6000);
+    target = r.frames && r.frames.length ? r.frames[r.frames.length - 1].h : target;
     playing = true; $("#sheet").classList.add("min");
-    toast("Your day is playing out…", 2500);
   };
   $("#grab").onclick = $("#sheethead").querySelector(".t").onclick = () => $("#sheet").classList.toggle("min");
   new MutationObserver(() => document.body.classList.toggle("min", $("#sheet").classList.contains("min"))).observe($("#sheet"), { attributes: true });
@@ -245,7 +247,8 @@
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     if (F.length && ids.length) {
       if (playing) {
-        hf = Math.min(target, hf + dt * HOURS_PER_SEC);
+        const hod = hf % 24, pace = hod >= 6 && hod < 18 ? HOURS_PER_SEC : HOURS_PER_SEC * 5;
+        hf = Math.min(target, hf + dt * pace);
         if (hf >= target) { playing = false; onMorning(); }
       }
       const h = Math.floor(hf);
@@ -279,20 +282,33 @@
       Object.entries((x.result || {}).refused || {}).map(([k, v]) => `${x.tool} ${k}: ${String(typeof v === "string" ? v : JSON.stringify(v)).slice(0, 90)}`)));
   }
   function finish(r) {
-    const you = r.you, m = r.model, pl = r.planner, diff = you.profit - m.profit;
-    const verdict = Math.abs(diff) < 500 ? "Same season as the model" : diff > 0 ? `You beat ${r.challenge.model} by ${eur(diff)}` : `${r.challenge.model} beat you by ${eur(-diff)}`;
-    const col = Math.abs(diff) < 500 ? "warn" : diff > 0 ? "ok" : "bad";
+    const you = r.you, m = r.model, pl = r.planner, real = r.model_real, name = r.challenge.model;
+    const groups = ["constraints", "revising", "tracking", "mechanics"];
+    const pname = { constraints: "Missing interacting constraints", revising: "Not revising after new information",
+                    tracking: "Losing track of unfinished work", mechanics: "Action mechanics" };
+    const fl = (f, g) => f.failures.filter((x) => x.pattern === g);
+    const nY = you.failures.length, nM = m.failures.length;
+    const head = nY === 0 && nM === 0 ? "A clean morning, for both of you"
+      : nY === 0 ? `Clean morning. ${name} slipped ${nM} time${nM > 1 ? "s" : ""}`
+      : `${nY} failure${nY > 1 ? "s" : ""} found in your morning`;
+    const col = nY === 0 ? "ok" : nY <= nM ? "warn" : "bad";
+    const cell = (arr) => arr.length ? arr.map((x) => `<div class="fl">${x.text}</div>`).join("") : '<div class="note">none</div>';
+    const rowsF = groups.filter((g) => fl(you, g).length || fl(m, g).length)
+      .map((g) => `<div class="pat"><div class="pn">${pname[g]}</div><div class="cmp"><div><div class="who">You</div>${cell(fl(you, g))}</div>
+                   <div><div class="who">${name}</div>${cell(fl(m, g))}</div></div></div>`).join("") ||
+      '<p class="note">Neither morning tripped a failure check.</p>';
     const list = (acts) => acts && acts.length ? acts.map((a) => `<div>· ${describe(a)}</div>`).join("") : '<div class="note">· nothing</div>';
-    const rf = refused(you.results);
-    const rows = [["You (your morning, then the model's run)", you.score, you.profit, true],
-                  [`${r.challenge.model} (its real run)`, m.score, m.profit, false],
-                  ["Reference planner (its own season)", pl.score, pl.profit, false]].sort((a, b) => b[1] - a[1]);
-    $("#endbox").innerHTML = `<h2 class="${col}">${verdict}</h2>
-      <p class="note">${r.challenge.title} · day ${r.challenge.day} · seed ${seed}. Your morning replaced the model's; after it, the model carried on exactly as it did in its run.</p>
-      <table>${rows.map((x) => `<tr class="${x[3] ? "you" : ""}"><td>${x[0]}</td><td>${(x[1] ?? 0).toFixed(3)}<div class="note">${eur(x[2])}</div></td></tr>`).join("")}</table>
-      <div class="cmp"><div><h4>You did</h4>${list(you.actions)}${rf.length ? `<div class="bad" style="font-size:11px">${rf.map((x) => "✗ " + x).join("<br>")}</div>` : ""}</div>
-        <div><h4>${r.challenge.model} did</h4>${list(m.actions)}</div></div>
-      <div class="row"><button onclick="location.reload()">Another morning</button></div>`;
+    const diff = you.profit - m.profit;
+    $("#endbox").innerHTML = `<h2 class="${col}">${head}</h2>
+      <p class="note">${r.challenge.title} · day ${r.challenge.day} · seed ${seed}. Same briefing, same 5 actions, same simulator as ${name}.</p>
+      ${rowsF}
+      <h4>Season, with the reference planner finishing after each morning</h4>
+      <table><tr class="you"><td>Your morning</td><td>${(you.score ?? 0).toFixed(3)}<div class="note">${eur(you.profit)}</div></td></tr>
+        <tr><td>${name}'s morning</td><td>${(m.score ?? 0).toFixed(3)}<div class="note">${eur(m.profit)}</div></td></tr></table>
+      <p class="note">${Math.abs(diff) < 500 ? "Your morning and the model's are worth the same." : diff > 0 ? `Your morning was worth ${eur(diff)} more.` : `The model's morning was worth ${eur(-diff)} more.`}
+        For scale: ${name}'s whole real run scored ${(real.score ?? 0).toFixed(3)}; the planner's own season ${(pl.score ?? 0).toFixed(3)}.</p>
+      <div class="cmp"><div><h4>You did</h4>${list(you.days[0].actions)}</div><div><h4>${name} did</h4>${list(m.days[0].actions)}</div></div>
+      <div class="row"><button onclick="location.reload()">Play another day</button></div>`;
     $("#end").style.display = "flex"; $("#sheet").classList.add("min");
   }
 

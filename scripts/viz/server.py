@@ -36,6 +36,7 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # failures.py
 
 from envkit.clients import InProcessClient, run_inprocess  # noqa: E402
 from envkit.core import Episode  # noqa: E402
@@ -605,45 +606,35 @@ def game_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- one-day challenge (play.html)
 #
-# A real morning from a recorded model run. The person picks that morning's actions; the game is
-# copied three ways from the same state (you, the model's actual call that morning, the reference
-# planner's own choice), each plays the day, and then the reference planner plays the rest of the
-# season in all three, so each morning gets a season profit and the official score.
+# A real morning from a recorded model run, played on a phone. The person plays the day on a copy
+# of the game; the model's recorded morning is replayed on another copy from the same state. After
+# the day both copies carry on with the model's own remaining days, so
+# each gets a season profit and the official score (the model's copy reproduces its recorded run
+# exactly). failures.detect() reads the same failure patterns off both mornings.
 
+DAYS_PLAYED = 1
 CHALLENGES = [
+    {"id": "first", "trace": "runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/trace.jsonl", "day": 0,
+     "model": "Gemini 4 Hydrogen", "title": "Opening day",
+     "blurb": "Day 0. The houses are at 5 °C, the benches are full, seed takes 10 days and a storm is forecast. "
+              "Gemini's best run (EUR 963k) started here."},
     {"id": "radish", "trace": "runs/normal-winter/claude-haiku-5-5-s2-sugfugl/trace.jsonl", "day": 2,
      "model": "Claude Haiku 5.5", "title": "Radish week",
-     "blurb": "Week 0 is radish's biggest week (3.5 t at full price); next week it drops to 1.5 t. Haiku held half its radish back. What do you cut today?"},
-    {"id": "boiler", "trace": "runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/trace.jsonl", "day": 22,
-     "model": "Claude Sonnet 5.5", "title": "The boiler is down",
-     "blurb": "The boiler tripped. It is in the briefing every morning. What do you do today?"},
-    {"id": "first", "trace": "runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/trace.jsonl", "day": 0,
-     "model": "Gemini 4 Hydrogen", "title": "The first morning",
-     "blurb": "Day 0: the houses are at 5 °C, seed takes 10 days, a storm warning is in the news. Gemini's best run started here."},
+     "blurb": "Day 2. This is radish's biggest week (3.5 t at full price); next week it drops to 1.5 t. "
+              "Haiku held half its radish back."},
+    {"id": "broccoli", "trace": "runs/normal-winter/claude-haiku-5-5-s2-sugfugl/trace.jsonl", "day": 22,
+     "model": "Claude Haiku 5.5", "title": "Broccoli rush",
+     "blurb": "Day 22. Broccoli is coming ready in every house. Demand is counted over the last 7 days, "
+              "so what you sell now fills next week too."},
 ]
 
 
-class _StopAfterFirst(InProcessClient):
-    """Gives a scripted policy a game already under way and records its first day's actions only."""
-
-    def __init__(self, episode: Episode, opening: dict[str, Any], record: list):
-        super().__init__(episode)
-        self._opening, self.record = opening, record
-
-    def opening(self) -> Any:
-        return self._opening
-
-    def call(self, tool: str, **args: Any) -> dict[str, Any]:
-        self.record.append(args.get("actions", []))
-        raise StopPolicy()
-
-
 class _Resume(InProcessClient):
-    """Lets a scripted policy pick up a game that is already under way."""
+    """Lets the reference planner pick up a game already under way (it reads only the briefing)."""
 
-    def __init__(self, episode: Episode, opening: dict[str, Any], record: list | None = None):
+    def __init__(self, episode: Episode, opening: dict[str, Any]):
         super().__init__(episode)
-        self._opening, self.record = opening, record
+        self._opening = opening
 
     def opening(self) -> Any:
         return self._opening
@@ -652,10 +643,31 @@ class _Resume(InProcessClient):
     def done(self) -> bool:
         return self._episode.done
 
-    def call(self, tool: str, **args: Any) -> dict[str, Any]:
-        if self.record is not None and not self.record:
-            self.record.append(args.get("actions", []))
-        return super().call(tool, **args)
+
+def _planner_finishes(ep: Episode, sc, rules: dict, briefing: dict | None) -> None:
+    if ep.done or not briefing:
+        return
+    try:
+        make_policy("reference", sc).run(_Resume(ep, {"rules": rules, "briefing": briefing}))
+    except StopPolicy:
+        pass
+
+
+def _market_loss(ep: Episode) -> float:
+    return float(getattr(ep.env.sim.business, "market_loss_eur", 0.0))
+
+
+def _play_morning(ep: Episode, client: InProcessClient, briefing: dict, actions: list, frames: list | None) -> dict[str, Any]:
+    sim = ep.env.sim
+    inner = sim.run_hour
+    if frames is not None:
+        sim.run_hour = lambda: (lambda a: (frames.append(frame(sim)), a)[1])(inner())
+    loss0 = _market_loss(ep)
+    r = client.call("submit_day", actions=actions)
+    sim.run_hour = inner
+    res = r.get("result") or {}
+    return {"briefing": briefing, "actions": actions, "results": res.get("results") or [], "error": r.get("error"),
+            "market_loss_eur": round(_market_loss(ep) - loss0, 2), "next": res.get("briefing")}
 
 
 def challenge_start(cid: str) -> dict[str, Any]:
@@ -676,75 +688,85 @@ def challenge_start(cid: str) -> dict[str, Any]:
     for c in calls[:ch["day"]]:
         briefing = client.call(c["tool"], **c["args"])["result"]["briefing"]
     sim.run_hour = inner
-    state = copy.deepcopy(ep)
     gid = secrets.token_hex(6)
-    while len(GAMES) > 20:
+    while len(GAMES) > 30:
         GAMES.pop(next(iter(GAMES)))
-    model_actions = calls[ch["day"]]["args"].get("actions", []) if ch["day"] < len(calls) else []
-    GAMES[gid] = {"state": state, "briefing": briefing, "rules": ep.opening.get("rules"), "sc": sc, "seed": seed,
-                  "model_actions": model_actions, "rest": calls[ch["day"] + 1:], "ch": ch, "lock": threading.Lock(),
-                  "real_profit": None}
+    you = copy.deepcopy(ep)
+    GAMES[gid] = {"base": ep, "you": you, "you_client": InProcessClient(you), "briefing": briefing, "rules": ep.opening.get("rules"),
+                  "sc": sc, "seed": seed, "calls": calls, "ch": ch, "days": [], "lock": threading.Lock()}
     from greenhouse import views
     rl = views.rules(sim)
     crops = {k: {kk: d.get(kk) for kk in ("name", "climate_targets", "harvest", "market", "planting") if kk in d}
              for k, d in rl["crops"].items() if isinstance(d, dict)}
-    compartments = {cid_: {"crop": next((b.crop_id for b in sim.batches.values() if b.compartment_id == cid_), "")}
-                    for cid_ in sim.facility.compartment_ids}
+    compartments = {c: {"crop": next((b.crop_id for b in sim.batches.values() if b.compartment_id == c), "")}
+                    for c in sim.facility.compartment_ids}
     frames = frames[-30:]
     return {"id": gid, "challenge": ch, "seed": seed, "briefing": briefing, "rules": ep.opening.get("rules"),
             "compartments": compartments, "crops": crops, "frames": frames, "alarms": [], "hours": sim.horizon_h,
-            "first_hour": frames[0]["h"], "model": ch["model"]}
+            "first_hour": frames[0]["h"], "model": ch["model"], "days_to_play": DAYS_PLAYED}
 
 
-def challenge_play(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
     import copy
+    from failures import detect
     g = GAMES.get(gid)
-    if g is None or "state" not in g:
-        raise ValueError("no such challenge (the server restarted?): start again")
-    sc, seed, opening_rules = g["sc"], g["seed"], g["rules"]
-    anchors = submit(anchor_profits, seed, str(ROOT / "scenarios" / f"{sc.id}.toml")).result()
-
-    def branch(acts: list | None, keep_frames: bool) -> dict[str, Any]:
-        ep = copy.deepcopy(g["state"])
-        sim = ep.env.sim
-        frames: list = []
-        start = sim.business.profit_eur()
-        out: dict[str, Any] = {}
-        if acts is None:                                     # the planner chooses this morning's actions itself
-            first: list = []
-            probe = copy.deepcopy(g["state"])
-            pol = make_policy("reference", sc)
-            try:
-                pol.run(_StopAfterFirst(probe, {"rules": opening_rules, "briefing": g["briefing"]}, first))
-            except StopPolicy:
-                pass
-            acts = first[0] if first else []
-        inner = sim.run_hour
-        if keep_frames:
-            sim.run_hour = lambda: (lambda a: (frames.append(frame(sim)), a)[1])(inner())
-        client = InProcessClient(ep)
-        r = client.call("submit_day", actions=acts)
-        sim.run_hour = inner
-        res = r.get("result") or {}
-        out["actions"], out["results"], out["error"] = acts, res.get("results"), r.get("error")
-        out["cash_after_day"] = round(sim.business.profit_eur() - start, 2)
-        for c in g["rest"]:                                  # then the model's own remaining days, as recorded
-            if ep.done:
-                break
-            client.call(c["tool"], **c["args"])
-        ep.finalize()
-        profit = float(ep.result().get("profit_eur", sim.business.profit_eur()))
-        out.update({"profit": round(profit, 2), "score": official_score(sc, profit, anchors)})
-        if keep_frames:
-            out["frames"] = frames[:24]
-        return out
-
+    if g is None or "you" not in g:
+        raise ValueError("no such game (the server restarted?): start again")
     with g["lock"]:
-        you = branch(actions, True)
-        model = branch(g["model_actions"], False)
-    planner = {"profit": round(max(anchors[n] for c in sc.components if c.kind == "anchored" for n in c.top_anchors), 2),
-               "score": official_score(sc, max(anchors[n] for c in sc.components if c.kind == "anchored" for n in c.top_anchors), anchors)}
-    return {"you": you, "model": model, "planner": planner, "challenge": g["ch"]}
+        if len(g["days"]) >= DAYS_PLAYED:
+            raise ValueError("this day is played")
+        ep, sim = g["you"], g["you"].env.sim
+        frames: list = []
+        alarms0 = len(sim.alarms)
+        d = _play_morning(ep, g["you_client"], g["briefing"], actions, frames)
+        g["days"].append(d)
+        g["briefing"] = d["next"]
+        out = {"day": len(g["days"]), "results": d["results"], "error": d["error"], "briefing": d["next"],
+               "frames": frames[:24], "market_loss_eur": d["market_loss_eur"],
+               "alarms": [{"h": a.hour, "kind": a.kind, "target": a.target, "text": a.text} for a in sim.alarms[alarms0:]]}
+        if len(g["days"]) < DAYS_PLAYED:
+            return out
+        sc, ch, calls, rules = g["sc"], g["ch"], g["calls"], g["rules"]
+        start = ch["day"]
+        # the model's two recorded mornings from the same state
+        mep = copy.deepcopy(g["base"])
+        mclient, mb = InProcessClient(mep), None
+        mdays = []
+        mb = g["days"][0]["briefing"]
+        for k in range(DAYS_PLAYED):
+            acts = calls[start + k]["args"].get("actions", []) if start + k < len(calls) else []
+            md = _play_morning(mep, mclient, mb, acts, None)
+            mdays.append(md)
+            mb = md["next"]
+        # then the same hands finish both seasons: the reference planner, which adapts to the state
+        # it finds; and, as a check, the model's own recorded days after its morning
+        rec = copy.deepcopy(mep)
+        _planner_finishes(ep, sc, rules, g["briefing"])
+        _planner_finishes(mep, sc, rules, mb)
+        rcl = InProcessClient(rec)
+        for c in calls[start + DAYS_PLAYED:]:
+            if rec.done:
+                break
+            rcl.call(c["tool"], **c["args"])
+        for e in (ep, mep, rec):
+            e.finalize()
+        anchors = submit(anchor_profits, g["seed"], str(ROOT / "scenarios" / f"{sc.id}.toml")).result()
+        top = max(anchors[n] for c in sc.components if c.kind == "anchored" for n in c.top_anchors)
+
+        def season(e: Episode) -> dict[str, Any]:
+            p = float(e.result().get("profit_eur", e.env.sim.business.profit_eur()))
+            return {"profit": round(p, 2), "score": official_score(sc, p, anchors)}
+
+        out["final"] = {
+            "you": {**season(ep), "days": [{"actions": x["actions"], "results": x["results"], "market_loss_eur": x["market_loss_eur"]} for x in g["days"]],
+                    "failures": detect(rules, g["days"], g["days"][-1]["next"])},
+            "model": {**season(mep), "days": [{"actions": x["actions"], "results": x["results"], "market_loss_eur": x["market_loss_eur"]} for x in mdays],
+                      "failures": detect(rules, mdays, mdays[-1]["next"])},
+            "planner": {"profit": round(top, 2), "score": official_score(sc, top, anchors)},
+            "model_real": season(rec),
+            "challenge": ch,
+        }
+        return out
 
 
 STATIC = {"index.html": "text/html; charset=utf-8", "scene.js": "text/javascript; charset=utf-8",
@@ -816,7 +838,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path in ("/api/challenge/start", "/api/challenge/play"):
+        if path in ("/api/challenge/start", "/api/challenge/day"):
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
                 if path == "/api/challenge/start":
@@ -825,7 +847,7 @@ class Handler(BaseHTTPRequestHandler):
                     acts = body.get("actions") or []
                     if not isinstance(acts, list) or len(acts) > 10:
                         raise ValueError("actions must be a list")
-                    self._json(200, challenge_play(str(body.get("id", "")), acts))
+                    self._json(200, challenge_day(str(body.get("id", "")), acts))
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return

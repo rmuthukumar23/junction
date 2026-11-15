@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Greenhouse Bench: one morning vs the AI</title>
+<title>Greenhouse Bench: one day vs the AI</title>
 <style>
   :root { --bg: #0b1020; --ink: #eef2ff; --dim: #9aa6c8; --card: rgba(14, 20, 40, .88); --line: rgba(255,255,255,.12);
           --ok: #7bd88f; --bad: #ff6b5b; --warn: #ffd166; --acc: #6cc4ff; --gold: #f4c24f; }
@@ -64,6 +64,10 @@
   .pick span { font-size: 12px; color: #cdd5ee; }
   .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-top: 6px; }
   .box { max-height: 90vh; overflow-y: auto; }
+  .pat { border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-top: 8px; }
+  .pn { font-weight: 700; font-size: 12px; color: var(--warn); margin-bottom: 4px; }
+  .who { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .fl { font-size: 12px; margin: 3px 0; color: #ffd0c8; }
   td:last-child { text-align: right; } tr.you td { color: var(--gold); font-weight: 700; }
 </style>
 </head>
@@ -92,9 +96,9 @@
 <div id="toast"></div>
 
 <div id="intro"><div class="box">
-  <h2>🌱 One morning: you vs the AI</h2>
-  <p>Pick a real morning from a recorded model run. You get the same briefing and the same <b>5 actions</b> the model had, through the same <code>submit_day</code> tool.</p>
-  <p class="note">Your morning replaces the model's. Then the model carries on exactly as it did, and both seasons get the official benchmark score. The reference planner's own season (0.80) is the bar.</p>
+  <h2>🌱 One day in the greenhouse: you vs the AI</h2>
+  <p>Pick a real morning from a recorded AI run. You get the same briefing and the same <b>5 actions</b> the model had, then the day plays out from morning to evening.</p>
+  <p class="note">Afterwards you see which failure patterns you hit, next to the model's on the same morning: missing interacting constraints, not revising after new information, losing track of unfinished work.</p>
   <div id="picks" class="picks"><span class="note">loading mornings…</span></div>
 </div></div>
 <div id="end" style="display:none"><div class="box" id="endbox"></div></div>
