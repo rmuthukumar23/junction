@@ -1,0 +1,345 @@
+{
+ "scenario": "normal-winter",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "variants": 6,
+ "drop_prob": 0.1,
+ "min_profit_frac": 0.9,
+ "rows": 1344,
+ "approx_tokens": 18124989,
+ "approx_tokens_per_row": 13485,
+ "episodes": [
+  {
+   "seed": 1,
+   "variant": 0,
+   "profit_eur": 876585.8585,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 1,
+   "variant": 1,
+   "profit_eur": 876585.8585,
+   "dropped": 3,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 1,
+   "variant": 2,
+   "profit_eur": 766669.5653,
+   "dropped": 3,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": false
+  },
+  {
+   "seed": 1,
+   "variant": 3,
+   "profit_eur": 876585.8585,
+   "dropped": 5,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 1,
+   "variant": 4,
+   "profit_eur": 876585.8585,
+   "dropped": 5,
+   "days": 42,
+   "seconds": 2.8,
+   "kept": true
+  },
+  {
+   "seed": 1,
+   "variant": 5,
+   "profit_eur": 876585.8585,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 0,
+   "profit_eur": 893505.9337,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 1,
+   "profit_eur": 893505.9337,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.8,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 2,
+   "profit_eur": 893505.9337,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.3,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 3,
+   "profit_eur": 893505.9337,
+   "dropped": 3,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 4,
+   "profit_eur": 876364.5772,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.3,
+   "kept": true
+  },
+  {
+   "seed": 2,
+   "variant": 5,
+   "profit_eur": 893505.9337,
+   "dropped": 6,
+   "days": 42,
+   "seconds": 2.3,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 0,
+   "profit_eur": 907765.1023,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 1,
+   "profit_eur": 907765.1023,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 2,
+   "profit_eur": 907765.1023,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.7,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 3,
+   "profit_eur": 907548.3938,
+   "dropped": 7,
+   "days": 42,
+   "seconds": 2.7,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 4,
+   "profit_eur": 907041.4315,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 3,
+   "variant": 5,
+   "profit_eur": 895213.8682,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 0,
+   "profit_eur": 872642.7669,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 1,
+   "profit_eur": 874557.6283,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 2,
+   "profit_eur": 872642.7669,
+   "dropped": 7,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 3,
+   "profit_eur": 872642.7669,
+   "dropped": 1,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 4,
+   "profit_eur": 872642.7669,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.6,
+   "kept": true
+  },
+  {
+   "seed": 4,
+   "variant": 5,
+   "profit_eur": 871789.5179,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.6,
+   "kept": true
+  },
+  {
+   "seed": 5,
+   "variant": 0,
+   "profit_eur": 881644.839,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 3.0,
+   "kept": true
+  },
+  {
+   "seed": 5,
+   "variant": 1,
+   "profit_eur": 806811.2894,
+   "dropped": 5,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 5,
+   "variant": 2,
+   "profit_eur": 702625.7508,
+   "dropped": 7,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": false
+  },
+  {
+   "seed": 5,
+   "variant": 3,
+   "profit_eur": 799243.4457,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.6,
+   "kept": true
+  },
+  {
+   "seed": 5,
+   "variant": 4,
+   "profit_eur": 881644.839,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 5,
+   "variant": 5,
+   "profit_eur": 874850.6408,
+   "dropped": 3,
+   "days": 42,
+   "seconds": 2.7,
+   "kept": true
+  },
+  {
+   "seed": 6,
+   "variant": 0,
+   "profit_eur": 887342.7598,
+   "dropped": 0,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 6,
+   "variant": 1,
+   "profit_eur": 748671.971,
+   "dropped": 5,
+   "days": 42,
+   "seconds": 2.9,
+   "kept": false
+  },
+  {
+   "seed": 6,
+   "variant": 2,
+   "profit_eur": 887342.7598,
+   "dropped": 4,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  },
+  {
+   "seed": 6,
+   "variant": 3,
+   "profit_eur": 720041.8806,
+   "dropped": 2,
+   "days": 42,
+   "seconds": 2.3,
+   "kept": false
+  },
+  {
+   "seed": 6,
+   "variant": 4,
+   "profit_eur": 880631.6623,
+   "dropped": 5,
+   "days": 42,
+   "seconds": 2.5,
+   "kept": true
+  },
+  {
+   "seed": 6,
+   "variant": 5,
+   "profit_eur": 880327.5939,
+   "dropped": 6,
+   "days": 42,
+   "seconds": 2.4,
+   "kept": true
+  }
+ ],
+ "code_sha": "e5f87b93b24dd165ebf227dfe3709054e70d900f",
+ "seconds": 12.6
+}

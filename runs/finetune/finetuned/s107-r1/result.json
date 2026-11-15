@@ -1,0 +1,20 @@
+{
+ "seed": 107,
+ "run": 1,
+ "reward": 0.0,
+ "profit_eur": -23283.8341,
+ "end_reason": "horizon",
+ "infrastructure_failure": null,
+ "days": 42,
+ "malformed_days": 0,
+ "truncated_days": 0,
+ "rejected_calls": 0,
+ "refused_actions": 0,
+ "seed_stockouts": 0,
+ "actions": 89,
+ "reference_profit_eur": 861105.4717,
+ "nobody_profit_eur": -23291.2759,
+ "reference_reward": 0.8,
+ "seconds": 157.6,
+ "trace": "artifacts/finetune/eval/finetuned/s107-r1/trace.jsonl"
+}

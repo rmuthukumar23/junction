@@ -265,3 +265,31 @@ Running log of this work: [WORKLOG-planning-gap.md](WORKLOG-planning-gap.md).
   761/793/686 k). Reference profit seeds 1-3: EUR 877/894/908 k.
 - **Ladder on the new calibration** (seeds 1-3 and 101/104/107): nobody, naive, rule-based and the
   seven exploits 0; harvest-early 0.10; stop-early 0.19-0.24; reference 0.80.
+
+## 2026-11-15, fine-tuning stretch goal: distil the reference into Qwen3-4B (Lukas + Claude, branch `lukas/finetune`)
+
+- **Method: distillation of the reference planner.** The rubric's optional goal is a smaller model
+  trained on experience from the environment. The reference plays dev seeds 1-6 through the agent's
+  own `submit_day` turn; each morning (briefing, own recent actions, chosen actions) is one row.
+  Variants drop one action at random before it reaches the world but keep the full choice as the
+  label, so the student also sees recovery states. RL was ruled out for time (42-turn episodes).
+- **Prompt (fine-tuning prompt).** One morning per example: a compact system prompt (scenario prompt
+  plus the rules that change decisions: market order book, action docs, objective, repairs), the
+  last 7 days of own actions, today's briefing with a 48 h forecast; about 13k tokens. The full
+  instruction (26.5k tokens a row with the briefing) made training about 18 s an example on an
+  H100, 3 h for 600 rows; the crop, facility and hidden-parameter tables are the same every season,
+  so the student learns them from the examples. A full conversation is about 200k tokens. The tool is named `env_submit_day`, OpenCode's name for it,
+  so one model runs in-process and through Harbor.
+- **Evaluation.** Base vs fine-tuned on held-out seeds 101, 104 and 107 (never in the data), scored
+  in-process with the verifier's scorer and calibration constants (held-out seeds calibrated and
+  cached under `artifacts/finetune/`). One Harbor + OpenCode run uses Harbor's `--base-url`. The
+  two harnesses are reported apart.
+- **Nothing under `src/` changed.** `src/envkit` is bundled into the tasks; all code is in
+  `scripts/finetune/`, so tasks and calibration stay current. Steps: `docs/FINETUNE.md`.
+- **Results (in-process, held-out seeds 101/104/107).**
+  - Base: bankrupt by day 24-27, score 0.
+  - Round 1, the routine: all 42 days, no refused actions, mean profit +EUR 46 k, score 0.06.
+  - Round 2, which oversampled ordering and planting: it learned to order and plant but with about
+    100x too little seed. Mean profit -EUR 39 k, score 0.
+  - Stopped there. A third round would need the crop density back in the prompt, and still
+    eight-digit arithmetic without reasoning. The fine-tuned model was not run through Harbor.

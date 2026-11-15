@@ -1,0 +1,20 @@
+{
+ "seed": 101,
+ "run": 1,
+ "reward": 0.0,
+ "profit_eur": -50047.0386,
+ "end_reason": "terminated:bankrupt",
+ "infrastructure_failure": null,
+ "days": 27,
+ "malformed_days": 0,
+ "truncated_days": 0,
+ "rejected_calls": 0,
+ "refused_actions": 44,
+ "seed_stockouts": 0,
+ "actions": 94,
+ "reference_profit_eur": 834036.0709,
+ "nobody_profit_eur": -22349.9841,
+ "reference_reward": 0.8,
+ "seconds": 53.3,
+ "trace": "artifacts/finetune/eval/base/s101-r1/trace.jsonl"
+}

@@ -43,6 +43,54 @@ Every number above is reproducible: model runs are committed with their Harbor t
 verifier's trace and a day-by-day log ([runs/TRAJECTORIES.md](runs/TRAJECTORIES.md)), and
 [runs/ANALYSIS.md](runs/ANALYSIS.md) replays each one hour by hour (`scripts/analyze_runs.py`).
 
+### Training a small model on the environment (stretch goal)
+
+Qwen3-4B-Instruct-2507 fine-tuned with LoRA (on Modal) on the reference planner's daily
+decisions from development seeds 1-6, then compared with the untouched base model on held-out
+seeds 101, 104 and 107 that it never saw. Steps and commands: [docs/FINETUNE.md](docs/FINETUNE.md).
+
+**What it learned.** The base model goes bankrupt by day 24-27 on every seed: it hires past the
+crew cap and orders an express CO2 delivery that does not exist every day (113 refused actions).
+Round 1 (192 examples, 16 min on one H100) learned the planner's daily routine: valid actions every
+morning, climate and energy settings, harvesting ready batches, booking a contractor for damage.
+It played all 42 days on every seed with no refused action and earned EUR 184 k on seed 104
+(score 0.19; mean profit +EUR 46 k against -EUR 50 k for the base model). It never ordered seed or
+planted, so once the starting batches were sold nothing new grew. Round 2 (256 more examples, 75 %
+of them ordering or planting days) learned to order seed and plant, but not the arithmetic behind
+them: it ordered about 100x too little seed (round numbers such as 1,000,000 against the planner's
+164 million), so its plantings found too little seed in stock (33 times), and it tried to plant
+into full compartments (58 refused actions in all); it did worse than round 1. Imitation transfers the routine but not the quantities and
+lead times, the same interacting constraints the frontier models miss, only far more often.
+
+<!-- finetune:start -->
+
+In-process loop (normal-winter, held-out seeds [101, 104, 107]; score 0 = nobody acts, 0.80 = the reference planner). Score with profit in brackets.
+
+| Seed | Reference profit | base (`Qwen/Qwen3-4B-Instruct-2507`) | round 1 (`greenhouse`) | round 2 (`greenhouse`) | Days played (base, round 1, round 2) |
+|---|---|---|---|---|---|
+| 101 | 834 k | 0.00 (-50 k) | 0.00 (-22 k) | 0.00 (-50 k) | 27 (bankrupt), 42, 32 (bankrupt) |
+| 104 | 867 k | 0.00 (-50 k) | 0.19 (184 k) | 0.00 (-29 k) | 24 (bankrupt), 42, 42 |
+| 107 | 861 k | 0.00 (-50 k) | 0.00 (-23 k) | 0.00 (-37 k) | 25 (bankrupt), 42, 42 |
+| **Mean** | | **0.00** (-50 k) | **0.06** (46 k) | **0.00** (-39 k) | |
+
+- **base**: refused actions 113, sowings without seed 0, over-limit days 0, infrastructure failures 0.
+- **round 1**: refused actions 0, sowings without seed 0, over-limit days 0, infrastructure failures 0.
+- **round 2**: refused actions 58, sowings without seed 33, over-limit days 0, infrastructure failures 0.
+
+<details><summary>How these numbers were made</summary>
+
+- Data: reference planner on normal-winter seeds [1, 2, 3, 4, 5, 6], 6 variants per seed (drop probability 0.1), 32 episodes kept, 1344 rows, ~18,124,989 tokens; code `e5f87b93b2`.
+- Training round 1: LoRA r=32 (alpha 64) on Qwen/Qwen3-4B-Instruct-2507, from the base model; 192 examples, 1.0 epoch, lr 0.0002, loss 0.358 → 0.059, 15.7 min on one H100 (Modal).
+- Training round 2: LoRA r=32 (alpha 64) on Qwen/Qwen3-4B-Instruct-2507, continued from round 1, 75 % of examples using place_orders, plant; 256 examples, 1.0 epoch, lr 0.0001, loss 0.093 → 0.051, 21.3 min on one H100 (Modal).
+- base: `uv run --no-sync python scripts/finetune/play_llm.py --model Qwen/Qwen3-4B-Instruct-2507 --label base` (code `e5f87b93b2`, 2026-11-15 07:26:34 EET, temperature 0.0, tool_choice auto).
+- round 1: `uv run --no-sync python scripts/finetune/play_llm.py --model greenhouse --label finetuned` (code `e5f87b93b2`, 2026-11-15 07:25:40 EET, temperature 0.0, tool_choice auto).
+- round 2: `uv run --no-sync python scripts/finetune/play_llm.py --model greenhouse --label finetuned-r2` (code `e5f87b93b2`, 2026-11-15 08:02:50 EET, temperature 0.0, tool_choice auto).
+- The in-process loop is not the Harbor/OpenCode harness; its prompt is the training prompt (a compact system prompt, own recent actions, today's briefing). Steps: [docs/FINETUNE.md](docs/FINETUNE.md).
+
+</details>
+
+<!-- finetune:end -->
+
 <details>
 <summary><b>The task</b>: what the agent controls and sees</summary>
 
@@ -216,6 +264,7 @@ After a batch of runs: `scripts/collect_runs.py <eval dir>`, `scripts/trajectori
 | `scripts/quick.sh`, `scripts/check.sh` | The 30 s check after every change; CI's check (the reward audit runs with `ENVKIT_TEST_SCENARIO=normal-winter`) |
 | `scripts/release_check.py` | Before a merge to main or the submission: quick check, benchmark tasks current, audit on every seed, scripted growers and viewer exact, README numbers vs calibration (about 4 min) |
 | `scripts/judge.sh`, `scripts/model-smoke.sh`, `scripts/benchmark.sh` | The judge command; one agent attempt on the smoke task; one model run plus a report. All read `.env` |
+| `scripts/finetune/` | The stretch goal: expert data from the reference (`gen_data.py`), LoRA training and vLLM serving on Modal (`modal_train.py`, `modal_serve.py`), the local benchmark (`play_llm.py`), the Harbor check (`harbor_run.sh`) and the README table (`report.py`). [FINETUNE](docs/FINETUNE.md) |
 | `scripts/viz/` | The viewer: `uv run python scripts/viz/server.py`, then http://localhost:8765. Six growers side by side on one clock, model runs replayed from their trace; `check_viewer.py` checks it shows the real game exactly |
 | `docs/` | [SPEC](docs/GREENHOUSE_SPEC.md), [CONTEXT](docs/GREENHOUSE_BENCH_CONTEXT.md), [BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md), [MODAL](docs/MODAL.md), [DECISIONS](docs/DECISIONS.md), [WORKFLOW](docs/WORKFLOW.md) |
 </details>
