@@ -240,7 +240,7 @@ The agent never touches the score. Three layers, each enforced by the architectu
 - **Tamper-proof grading.** The sim appends every call to a trace and syncs it before replying. After the agent stops, Harbor collects that trace from the sim and hands it alone to a fresh verifier container, which replays the calls from the task's own scenario and seed and ignores any recorded responses. Files the agent writes are never read for scoring. A missing or ungradeable trace is an infrastructure failure, never a score of zero.
 - **No paying exploit.** `envkit audit` plays do-nothing, truncated, random, spam and harvest-everything strategies and fails if any scores well (table below). Tests cover each boundary: no task data in the agent image, tampered traces gain nothing, forged responses are ignored, and a missing trace writes no reward.
 
-A hostile-agent pen test ([`scripts/harbor_boundary_probe.sh`](scripts/harbor_boundary_probe.sh): a shell that hunts for task data, forges a reward and trace, probes every sim route and port, and looks for the Docker socket) and model-driven red-team trials were run on a separate hardening branch. None changed the score. That branch's extra network lockdown (egress allowlist, dropped capabilities) is not merged to `main` yet.
+A hostile-agent pen test ([`scripts/harbor_boundary_probe.sh`](scripts/harbor_boundary_probe.sh): a shell that hunts for task data, forges a reward and trace, probes every sim route and port, and looks for the Docker socket) and model-driven red-team trials were run. None changed the score.
 
 <details>
 <summary><b>Scripted ladder</b>: every seed, deterministic</summary>
