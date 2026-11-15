@@ -9,10 +9,17 @@ failure patterns they hit, next to the model's on the same morning.
 1. **Pick a morning:** opening day (vs Gemini 4 Hydrogen's best run), radish week (vs Claude Haiku 5.5) or
    broccoli rush (vs Claude Haiku 5.5). The server replays the model's recorded calls up to that morning.
 2. **Play it:** the same briefing, the same `submit_day` tool and the same limit of 5 actions the model had.
-   The phone offers them as cards: climate, harvest, plant, seed orders, repairs, hiring.
-3. **Watch the day:** it plays out from 06:00 to 18:00 on the viewer's 3D site, then the night runs fast.
+   The phone shows the briefing in plain words (what is ready and worth how much, how much each crop's
+   buyers still want this week, seed in stock and on the way, damage, news) and offers the actions as
+   cards: sell, sow, order seed, climate, repairs, crew. Sell cards say whether a cut still fits this
+   week's demand; a 💡 hint button points at the most urgent thing.
+3. **Watch the day:** it plays out from 06:00 to 18:00 on the viewer's 3D site (cuts and sales pop up
+   over the houses), then the night runs fast. Meanwhile the server replays the model's morning and
+   finishes both seasons (`/api/challenge/report` is polled; the comparison is ready when the day ends).
 4. **Failure report** (`scripts/viz/failures.py`): the same checks run on your morning and on the model's
-   recorded morning from the same state, grouped by the README's patterns.
+   recorded morning from the same state, grouped by the README's patterns, next to the good calls each
+   made (cut a ready crop at full price, ordered seed ahead, brought the houses up to temperature, every
+   action accepted). "Watch the AI's day" replays the model's day on the same site.
 
    | Pattern | Check |
    |---|---|

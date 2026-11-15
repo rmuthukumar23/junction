@@ -706,41 +706,23 @@ def challenge_start(cid: str) -> dict[str, Any]:
             "first_hour": frames[0]["h"], "model": ch["model"], "days_to_play": DAYS_PLAYED}
 
 
-def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+def _challenge_finish(g: dict[str, Any]) -> None:
+    """The model's recorded morning from the same state, then both seasons finished by the
+    reference planner, the failure checks and the scores. Runs in a thread while the phone
+    plays the player's day."""
     import copy
-    from failures import detect
-    g = GAMES.get(gid)
-    if g is None or "you" not in g:
-        raise ValueError("no such game (the server restarted?): start again")
-    with g["lock"]:
-        if len(g["days"]) >= DAYS_PLAYED:
-            raise ValueError("this day is played")
-        ep, sim = g["you"], g["you"].env.sim
-        frames: list = []
-        alarms0 = len(sim.alarms)
-        d = _play_morning(ep, g["you_client"], g["briefing"], actions, frames)
-        g["days"].append(d)
-        g["briefing"] = d["next"]
-        out = {"day": len(g["days"]), "results": d["results"], "error": d["error"], "briefing": d["next"],
-               "frames": frames[:24], "market_loss_eur": d["market_loss_eur"],
-               "alarms": [{"h": a.hour, "kind": a.kind, "target": a.target, "text": a.text} for a in sim.alarms[alarms0:]]}
-        if len(g["days"]) < DAYS_PLAYED:
-            return out
-        sc, ch, calls, rules = g["sc"], g["ch"], g["calls"], g["rules"]
+    from failures import detect, strengths
+    try:
+        ep, sc, ch, calls, rules = g["you"], g["sc"], g["ch"], g["calls"], g["rules"]
         start = ch["day"]
-        # the model's two recorded mornings from the same state
         mep = copy.deepcopy(g["base"])
-        mclient, mb = InProcessClient(mep), None
-        mdays = []
-        mb = g["days"][0]["briefing"]
+        mclient, mb, mdays, mframes = InProcessClient(mep), g["days"][0]["briefing"], [], []
         for k in range(DAYS_PLAYED):
             acts = calls[start + k]["args"].get("actions", []) if start + k < len(calls) else []
-            md = _play_morning(mep, mclient, mb, acts, None)
+            md = _play_morning(mep, mclient, mb, acts, mframes if k == 0 else None)
             mdays.append(md)
             mb = md["next"]
-        # then the same hands finish both seasons: the reference planner, which adapts to the state
-        # it finds; and, as a check, the model's own recorded days after its morning
-        rec = copy.deepcopy(mep)
+        rec = copy.deepcopy(mep)           # the model's own recorded days after its morning: a check
         _planner_finishes(ep, sc, rules, g["briefing"])
         _planner_finishes(mep, sc, rules, mb)
         rcl = InProcessClient(rec)
@@ -757,15 +739,48 @@ def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
             p = float(e.result().get("profit_eur", e.env.sim.business.profit_eur()))
             return {"profit": round(p, 2), "score": official_score(sc, p, anchors)}
 
-        out["final"] = {
-            "you": {**season(ep), "days": [{"actions": x["actions"], "results": x["results"], "market_loss_eur": x["market_loss_eur"]} for x in g["days"]],
-                    "failures": detect(rules, g["days"], g["days"][-1]["next"])},
-            "model": {**season(mep), "days": [{"actions": x["actions"], "results": x["results"], "market_loss_eur": x["market_loss_eur"]} for x in mdays],
-                      "failures": detect(rules, mdays, mdays[-1]["next"])},
-            "planner": {"profit": round(top, 2), "score": official_score(sc, top, anchors)},
-            "model_real": season(rec),
-            "challenge": ch,
-        }
+        def side(days: list, e: Episode) -> dict[str, Any]:
+            return {**season(e), "days": [{"actions": x["actions"], "results": x["results"],
+                                           "market_loss_eur": x["market_loss_eur"]} for x in days],
+                    "failures": detect(rules, days, days[-1]["next"]), "good": strengths(rules, days, days[-1]["next"]),
+                    "day_profit": round(days[-1]["next"]["status"]["business"]["money"]["profit_so_far_eur"]
+                                        - days[0]["briefing"]["status"]["business"]["money"]["profit_so_far_eur"], 2)}
+
+        g["final"] = {"you": side(g["days"], ep), "model": side(mdays, mep),
+                      "planner": {"profit": round(top, 2), "score": official_score(sc, top, anchors)},
+                      "model_real": season(rec), "challenge": ch, "model_frames": mframes[:24]}
+    except Exception as exc:  # shown on the phone instead of hanging
+        g["final_error"] = f"{type(exc).__name__}: {exc}"
+
+
+def challenge_report(gid: str) -> dict[str, Any]:
+    g = GAMES.get(gid)
+    if g is None:
+        raise ValueError("no such game (the server restarted?): start again")
+    if g.get("final_error"):
+        raise ValueError(g["final_error"])
+    return {"ready": g.get("final") is not None, "final": g.get("final")}
+
+
+def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+    g = GAMES.get(gid)
+    if g is None or "you" not in g:
+        raise ValueError("no such game (the server restarted?): start again")
+    with g["lock"]:
+        if len(g["days"]) >= DAYS_PLAYED:
+            raise ValueError("this day is played")
+        ep, sim = g["you"], g["you"].env.sim
+        frames: list = []
+        alarms0 = len(sim.alarms)
+        d = _play_morning(ep, g["you_client"], g["briefing"], actions, frames)
+        g["days"].append(d)
+        g["briefing"] = d["next"]
+        out = {"day": len(g["days"]), "results": d["results"], "error": d["error"], "briefing": d["next"],
+               "frames": frames[:24], "market_loss_eur": d["market_loss_eur"],
+               "alarms": [{"h": a.hour, "kind": a.kind, "target": a.target, "text": a.text} for a in sim.alarms[alarms0:]]}
+        if len(g["days"]) == DAYS_PLAYED:      # the comparison runs while the phone plays the day
+            g["final"] = None
+            threading.Thread(target=_challenge_finish, args=(g,), daemon=True).start()
         return out
 
 
@@ -810,6 +825,12 @@ class Handler(BaseHTTPRequestHandler):
             half = next(p["id"] for p in builtin if p["id"].startswith("stop-after:"))
             self._json(200, {"scenario": sc.id, "title": sc.title, "builtin": builtin, "traces": traces,
                              "slots": ["reference", model, "rule-based", "naive", half, "do-nothing"]})
+            return
+        if u.path == "/api/challenge/report":
+            try:
+                self._json(200, challenge_report(q.get("id", [""])[0]))
+            except Exception as exc:
+                self._json(400, {"error": str(exc)})
             return
         if u.path == "/api/challenges":
             self._json(200, {"challenges": CHALLENGES})

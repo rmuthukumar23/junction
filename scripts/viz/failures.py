@@ -35,13 +35,17 @@ def _demand_now(rules: dict, crop: str, hour: int) -> float:
     return float(d["demand_per_week"].get(crop, 0.0)) * f[min(hour // 168, len(f) - 1)]
 
 
+def _short(msg: str) -> str:
+    return str(msg).split("; valid arguments")[0].split(". Valid")[0][:120]
+
+
 def _refusals(results: list | None) -> list[str]:
     out = []
     for r in results or []:
         if not r.get("ok"):
-            out.append(f"{r.get('tool')}: {str(r.get('error', ''))[:120]}")
+            out.append(f"{r.get('tool')}: {_short(r.get('error', ''))}")
         for k, v in ((r.get("result") or {}).get("refused") or {}).items():
-            out.append(f"{r.get('tool')} {k}: {str(v if isinstance(v, str) else v)[:120]}")
+            out.append(f"{r.get('tool')} {k}: {_short(v)}")
     return out
 
 
@@ -136,4 +140,25 @@ def detect(rules: dict, days: list[dict[str, Any]], end_briefing: dict | None) -
         if k not in seen:
             seen.add(k)
             out.append(f)
+    return out
+
+
+def strengths(rules: dict, days: list[dict[str, Any]], end_briefing: dict | None) -> list[str]:
+    """Good calls, by the same evidence: shown next to the failures so a short game reads fairly."""
+    out: list[str] = []
+    for d in days:
+        st, acts, res = d["briefing"]["status"], d["actions"] or [], d["results"] or []
+        ready = {x["id"]: x for x in st.get("batches", []) if _ready(x)}
+        cut = [x for a in acts if a.get("tool") == "harvest" for x in a.get("batch_ids", []) if x in ready]
+        if cut and d.get("market_loss_eur", 0.0) <= 500:
+            units = sum((ready[x].get("estimate") or {}).get("units", 0) for x in cut)
+            out.append(f"Cut {', '.join(cut)} when ready and sold it at full price ({units:,.0f} units).")
+        if any(a.get("tool") == "place_orders" and any(str(k).startswith("seedlings:") for k in
+               list((a.get("orders") or {}).keys()) + [o.get("item") for o in a.get("order_list") or []]) for a in acts):
+            out.append("Ordered seed ahead of the 10-day lead time.")
+        cold = [c for c, v in (st.get("settings", {}).get("climate") or {}).items() if v.get("heat_day_c", 99) < 12]
+        if cold and any(a.get("tool") == "set_climate" for a in acts):
+            out.append("Brought the houses up to growing temperature.")
+        if acts and not _refusals(res):
+            out.append(f"All {len(acts)} action{'s' if len(acts) > 1 else ''} accepted by the simulator.")
     return out
