@@ -1,0 +1,86 @@
+<!doctype html><meta charset="utf-8"><style>/* Pitch deck: flat, dark, minimal. 1280x720 stage scaled to fit. Slides are built from deck/content.md by present.js. */
+:root {
+  --bg: #0a1017; --title: #a9b4b0; --text: #b9c2be; --muted: #6f7b79; --line: #1b2530;
+  --green: #6aab88; --blue: #4f8fc0; --orange: #b98a52; --purple: #8f7ab8; --red: #c0675a; --grey: #8d9794;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #05080c; }
+body.deck { overflow: hidden; height: 100vh; font-family: Inter, "DejaVu Sans", system-ui, sans-serif; color: var(--text); }
+#stage-wrap { position: fixed; inset: 0; display: grid; place-items: center; }
+#stage { position: relative; width: 1280px; height: 720px; flex: none; background: var(--bg); overflow: hidden; }
+
+.slide { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; padding: 56px 80px; background: var(--bg); }
+.slide.on { display: flex; }
+.slide h2 { margin: 0; font-size: 54px; font-weight: 700; color: var(--title); text-align: center; letter-spacing: -.5px; }
+.body { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+.notes { display: none; }
+.slide [data-s] { visibility: hidden; opacity: 0; }
+.slide [data-s].shown { visibility: visible; opacity: 1; }
+.c-green { --c: var(--green); } .c-blue { --c: var(--blue); } .c-orange { --c: var(--orange); }
+.c-purple { --c: var(--purple); } .c-red { --c: var(--red); } .c-grey { --c: var(--grey); }
+.item { --c: var(--grey); }
+
+/* hero: picture with the name over it */
+.hero { padding: 0; }
+.hero .pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero { justify-content: center; }
+.hero h2 { font-size: 120px; color: var(--green); }
+.hero .tag { margin-top: 28px; text-align: center; font-size: 36px; font-weight: 600; color: var(--muted); }
+
+/* stats */
+.stats .body { gap: 60px; align-items: center; }
+.stat { flex: 1; text-align: center; }
+.stat b { display: block; font-size: 112px; line-height: 1.05; color: var(--c); font-weight: 700; }
+.stat span { display: block; margin-top: 14px; font-size: 28px; color: var(--c); opacity: .85; }
+
+/* cards: plain columns, coloured heading, thin top rule */
+.cards .body { gap: 56px; align-items: flex-start; padding-top: 70px; }
+.card { flex: 1; border-top: 4px solid var(--c); padding-top: 22px; }
+.card h3 { margin: 0 0 14px; font-size: 36px; color: var(--c); font-weight: 700; line-height: 1.15; }
+.card p { margin: 0; font-size: 25px; line-height: 1.4; color: var(--text); }
+
+/* flow: boxes joined by arrows */
+.flow .body { gap: 10px; align-items: stretch; padding: 56px 0 30px; }
+.step { flex: 1; min-width: 0; border: 3px solid var(--c); padding: 22px 16px; border-radius: 6px; }
+.step h3 { margin: 0 0 12px; font-size: 28px; color: var(--c); font-weight: 700; line-height: 1.15; }
+.step p { margin: 0; font-size: 20px; line-height: 1.38; color: var(--text); }
+.arrow { align-self: center; flex: none; width: 28px; text-align: center; font-size: 34px; color: var(--muted); }
+
+/* bars */
+.bars .body { flex-direction: column; justify-content: center; gap: 22px; }
+.bar { width: 100%; display: grid; grid-template-columns: 300px 1fr 90px; align-items: center; gap: 24px; }
+.bar .nm { font-size: 30px; font-weight: 600; color: var(--c); text-align: right; }
+.bar .trk { height: 34px; background: var(--line); position: relative; }
+.bar .trk i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--v) * 100%); background: var(--c); }
+.bar .val { font-size: 32px; font-weight: 700; color: var(--c); }
+
+/* image */
+.image .body { padding-top: 20px; }
+.image .fig { max-width: 100%; max-height: 100%; object-fit: contain; }
+.image.nofull h2 { color: var(--green); position: absolute; left: 44px; top: 30px; text-align: left; font-size: 62px; }
+
+/* big statement */
+.big .body { flex-direction: column; gap: 22px; text-align: center; }
+.big .b1 { font-size: 80px; font-weight: 700; color: var(--green); line-height: 1.1; }
+.big .b2 { font-size: 34px; color: var(--muted); }
+
+#dissolve { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; pointer-events: none; z-index: 5; }
+#bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 8px 16px; z-index: 6; opacity: 0; transition: opacity .2s; }
+body:hover #bar { opacity: 1; }
+#bar-cells { display: flex; gap: 4px; flex: 1; }
+#bar-cells a { flex: 1; height: 6px; background: var(--line); }
+#bar-cells a.on { background: var(--green); } #bar-cells a.done { background: var(--muted); }
+#count { font-size: 12px; color: var(--muted); }
+#notes-box { position: fixed; left: 0; right: 0; bottom: 0; max-height: 34vh; overflow: auto; background: rgba(5,8,12,.96); border-top: 2px solid var(--green); padding: 16px 24px 40px; font-size: 18px; line-height: 1.45; z-index: 7; }
+
+/* PDF: Ctrl+P, landscape, margins none, background graphics on. One page per slide, every step shown. */
+@page { size: 1280px 720px; margin: 0; }
+@media print {
+  html, body.deck { height: auto; overflow: visible; background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #stage-wrap { position: static; display: block; }
+  #stage { transform: none !important; height: auto; overflow: visible; }
+  .slide { position: relative; display: flex !important; width: 1280px; height: 720px; break-after: page; page-break-after: always; }
+  .slide [data-s] { visibility: visible !important; opacity: 1 !important; }
+  #dissolve, #bar, #notes-box { display: none !important; }
+}
+ body.deck{font-family:Inter,"Segoe UI","DejaVu Sans",sans-serif} @media print{.slide{display:flex!important}}</style><body class="deck"><div id="stage-wrap"><div id="stage"><section class="slide hero on"><h2>LettuceBench</h2><div class="tag">Can an AI run a greenhouse for 42 days?</div></section><section class="slide stats on"><h2>Dutch glasshouses</h2><div class="body"><div class="stat item c-green"><b>~10,000</b><span>hectares under glass</span></div><div class="stat item c-orange"><b>~9%</b><span>of all Dutch natural gas</span></div><div class="stat item c-blue"><b>1,000+</b><span>combined heat and power engines</span></div></div></section><section class="slide cards on"><h2>The operator&#x27;s day</h2><div class="body"><div class="card item c-green"><h3>Plants</h3><p>What to plant and when, when to harvest</p></div><div class="card item c-orange"><h3>Climate</h3><p>Heat, light and CO2 for each house</p></div><div class="card item c-blue"><h3>Energy</h3><p>Gas, power and a heat buffer, shared by all houses</p></div><div class="card item c-purple"><h3>Business</h3><p>Crew, orders, repairs, who to sell to</p></div></div></section><section class="slide flow on"><h2>Everything is linked</h2><div class="body"><div class="step item c-orange"><h3>Order seed</h3><p>Arrives in 10 days</p></div><div class="arrow">→</div><div class="step item c-green"><h3>Plant</h3><p>Needs heat, light and CO2</p></div><div class="arrow">→</div><div class="step item c-green"><h3>Grow</h3><p>Climate sets how fast</p></div><div class="arrow">→</div><div class="step item c-purple"><h3>Harvest</h3><p>Only a short window of top quality</p></div><div class="arrow">→</div><div class="step item c-blue"><h3>Sell</h3><p>Buyers want a set amount each week</p></div></div></section><section class="slide cards on"><h2>Why it is hard</h2><div class="body"><div class="card item c-orange"><h3>Plan ahead</h3><p>Seeds, orders and gas take days to arrive</p></div><div class="card item c-blue"><h3>Share limits</h3><p>One energy centre, three houses. Every choice is a trade-off.</p></div><div class="card item c-red"><h3>Adapt</h3><p>Storms and breakdowns break the plan</p></div></div></section><section class="slide flow on"><h2>The environment</h2><div class="body"><div class="step item c-green"><h3>Data files</h3><p>Recorded weather, power and gas prices. Crops, equipment, costs.</p></div><div class="arrow">→</div><div class="step item c-blue"><h3>Scenario</h3><p>Picks the data: a 42-day winter, which crops, how many houses.</p></div><div class="arrow">→</div><div class="step item c-orange"><h3>Seed</h3><p>One number. Same seed, same weather, prices and breakdowns.</p></div><div class="arrow">→</div><div class="step item c-blue"><h3>Simulator</h3><p>Plain code, no AI. Runs the farm hour by hour. Deterministic.</p></div><div class="arrow">→</div><div class="step item c-purple"><h3>Agent</h3><p>The model. One tool, submit_day: up to 5 actions a day.</p></div></div></section><section class="slide flow on"><h2>A day</h2><div class="body"><div class="step item c-grey"><h3>Night</h3><p>Nobody is on site. The farm runs on its own.</p></div><div class="arrow">→</div><div class="step item c-orange"><h3>06:00</h3><p>Read the night report and the forecast. Decide.</p></div><div class="arrow">→</div><div class="step item c-green"><h3>submit_day</h3><p>Up to 5 actions: climate, planting, orders, crew, repairs</p></div></div></section><section class="slide cards on"><h2>Realism</h2><div class="body"><div class="card item c-green"><h3>The Netherlands</h3><p>Real hourly weather, power and gas prices</p></div><div class="card item c-orange"><h3>The biology</h3><p>Every crop has its own growth model. Light, heat and CO2 set growth, growth sets the kilos to sell.</p></div><div class="card item c-blue"><h3>The equipment</h3><p>A standard Dutch set-up with a gas engine, boiler, heat buffer</p></div></div></section><section class="slide flow on"><h2>Scoring</h2><div class="body"><div class="step item c-purple"><h3>Replay</h3><p>A separate process replays every recorded action</p></div><div class="arrow">→</div><div class="step item c-blue"><h3>Recalculate</h3><p>Same season, same world, from scratch</p></div><div class="arrow">→</div><div class="step item c-green"><h3>Net profit</h3><p>Sales minus costs, in euros</p></div></div></section><section class="slide bars on"><h2>17 runs. 3 seeds.</h2><div class="body"><div class="bar item c-grey"><span class="nm">Nobody acts</span><span class="trk"><i style="--v:0.00"></i></span><span class="val">0.00</span></div><div class="bar item c-grey"><span class="nm">Stop early</span><span class="trk"><i style="--v:0.24"></i></span><span class="val">0.24</span></div><div class="bar item c-orange"><span class="nm">Claude Haiku</span><span class="trk"><i style="--v:0.62"></i></span><span class="val">0.62</span></div><div class="bar item c-purple"><span class="nm">Claude Sonnet</span><span class="trk"><i style="--v:0.70"></i></span><span class="val">0.70</span></div><div class="bar item c-blue"><span class="nm">Gemini</span><span class="trk"><i style="--v:0.78"></i></span><span class="val">0.78</span></div><div class="bar item c-green"><span class="nm">Reference solution</span><span class="trk"><i style="--v:0.80"></i></span><span class="val">0.80</span></div></div></section><section class="slide image on"><h2>Where it failed</h2><div class="body"><div class="cards" style="gap:56px;align-items:flex-start;padding-top:70px;width:100%"><div class="card item c-blue"><h3>Planner</h3><p>Keeps weekly sales inside the demand window.</p></div><div class="card item c-red"><h3>Haiku</h3><p>Sold 6.2 t in week 3, then 2.2 t more in week 4 while the window was still full. Those 2.2 t earned &euro;0.</p></div><div class="card item c-green"><h3>Lesson</h3><p>Models know the rules, but lose the plan over weeks.</p></div></div></div></section><section class="slide stats on"><h2>The same mistakes, again</h2><div class="body"><div class="stat item c-red"><b>8 of 17</b><span>left the boiler broken over a week</span></div><div class="stat item c-orange"><b>10 of 17</b><span>planted before the seed arrived</span></div><div class="stat item c-purple"><b>6 of 7</b><span>Gemini runs sent malformed actions</span></div></div></section><section class="slide hero on"><h2>Beat the AI</h2><div class="tag">Play two mornings. Get ranked against 7 AI runs.</div></section></div></div>
