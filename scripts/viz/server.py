@@ -808,6 +808,8 @@ def challenge_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
 STATIC = {"index.html": "text/html; charset=utf-8", "scene.js": "text/javascript; charset=utf-8",
           "play.html": "text/html; charset=utf-8", "play.js": "text/javascript; charset=utf-8",
           "demo.html": "text/html; charset=utf-8", "demo.js": "text/javascript; charset=utf-8",
+          "present.html": "text/html; charset=utf-8", "present.js": "text/javascript; charset=utf-8",
+          "present.css": "text/css; charset=utf-8",
           "vendor/three.min.js": "text/javascript; charset=utf-8",
           "ui.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}
 
@@ -850,6 +852,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._send(200, body, STATIC[name])
             return
+        if name.startswith("deck/") and "/" not in name[5:] and name[5:].rsplit(".", 1)[-1] in ("md", "png", "svg"):
+            f = HERE / "deck" / name[5:]               # deck/content.md is the slide text; images sit beside it
+            if f.is_file():
+                ct = {".md": "text/plain; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png"}[f.suffix]
+                self._send(200, f.read_bytes(), ct)
+                return
+        if name.startswith("img/") and "/" not in name[4:] and name[4:].rsplit(".", 1)[-1] in ("svg", "png"):
+            f = ROOT / "docs" / "img" / name[4:]       # the slides reuse the README figures
+            if f.is_file():
+                self._send(200, f.read_bytes(), "image/svg+xml" if f.suffix == ".svg" else "image/png")
+                return
         q = parse_qs(u.query)
         if u.path == "/api/players":
             sc = load_scenario(SCENARIO)
