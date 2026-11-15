@@ -1120,6 +1120,158 @@
     "Damage left standing"
    ]
   },
+  "claude-sonnet-5-5-s1-e8znndd": {
+   "profit_eur": 797861.97,
+   "revenue_eur": 881693,
+   "market_loss_eur": 51853,
+   "market_loss_pct": 5.6,
+   "demand_met_pct": 80.4,
+   "supply_ratio": 0.95,
+   "supply_by_crop": {
+    "broccoli_micro": 0.96,
+    "radish_micro": 0.95
+   },
+   "cycle_days": 8.7,
+   "empty_area_pct": 44.8,
+   "energy_eur": -26273,
+   "seed_eur": -35850,
+   "damage_hours": 966,
+   "days_played": 42,
+   "idle_days_late": 9,
+   "actions": 52,
+   "refused": 2,
+   "seed_stockouts": 1,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -1046.41,
+    24433.66,
+    23191.97,
+    45706.96,
+    78644.7,
+    121095.25,
+    156353.59,
+    222533.85,
+    221557.82,
+    284277.99,
+    265024.27,
+    282377.7,
+    280728.51,
+    279479.8,
+    278228.39,
+    276821.8,
+    275436.31,
+    344889.07,
+    343527.8,
+    342493.07,
+    398080.73,
+    396896.69,
+    465152.26,
+    464122.47,
+    463111.87,
+    493026.37,
+    492009.39,
+    490983.0,
+    489749.41,
+    488362.1,
+    486981.6,
+    578560.36,
+    577408.58,
+    668882.75,
+    668009.29,
+    667202.57,
+    666404.65,
+    665593.78,
+    664772.35,
+    798917.97,
+    798389.97,
+    797861.97
+   ],
+   "score": 0.73,
+   "verifier_reward": 0.73,
+   "model": "claude-sonnet-5-5",
+   "seed": 1,
+   "failure_modes": [
+    "Seed stock-outs",
+    "Damage left standing"
+   ]
+  },
+  "claude-sonnet-5-5-s1-lbtq2lu": {
+   "profit_eur": 894943.83,
+   "revenue_eur": 984577,
+   "market_loss_eur": 39642,
+   "market_loss_pct": 3.9,
+   "demand_met_pct": 85.3,
+   "supply_ratio": 0.94,
+   "supply_by_crop": {
+    "broccoli_micro": 1.03,
+    "radish_micro": 0.85
+   },
+   "cycle_days": 8.1,
+   "empty_area_pct": 47.4,
+   "energy_eur": -35043,
+   "seed_eur": -37470,
+   "damage_hours": 966,
+   "days_played": 42,
+   "idle_days_late": 8,
+   "actions": 67,
+   "refused": 3,
+   "seed_stockouts": 1,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -1213.41,
+    -2828.56,
+    50487.2,
+    105858.27,
+    120632.92,
+    143676.69,
+    157514.44,
+    254047.84,
+    253352.31,
+    283502.28,
+    264350.09,
+    299065.25,
+    297583.84,
+    296000.1,
+    294387.28,
+    292711.74,
+    291050.46,
+    361646.38,
+    340790.27,
+    404140.75,
+    402756.92,
+    518910.52,
+    517544.54,
+    516198.26,
+    514824.71,
+    539037.98,
+    537770.87,
+    595050.13,
+    593746.61,
+    592475.45,
+    591217.11,
+    589949.15,
+    588717.98,
+    661721.42,
+    737848.05,
+    736437.1,
+    735536.37,
+    757473.7,
+    756633.27,
+    755715.95,
+    754829.37,
+    894943.83
+   ],
+   "score": 0.8163,
+   "verifier_reward": 0.8173,
+   "model": "claude-sonnet-5-5",
+   "seed": 1,
+   "failure_modes": [
+    "Seed stock-outs",
+    "Damage left standing"
+   ]
+  },
   "claude-sonnet-5-5-s1-qxhrmeh": {
    "profit_eur": 883005.14,
    "revenue_eur": 968538,
@@ -1192,9 +1344,82 @@
    "model": "claude-sonnet-5-5",
    "seed": 1,
    "failure_modes": [
-    "Idle benches",
     "Seed stock-outs",
-    "Stops managing",
+    "Damage left standing"
+   ]
+  },
+  "gemini-4-hydrogen-s1-8astgmr": {
+   "profit_eur": 905603.96,
+   "revenue_eur": 997337,
+   "market_loss_eur": 24317,
+   "market_loss_pct": 2.4,
+   "demand_met_pct": 87.6,
+   "supply_ratio": 0.97,
+   "supply_by_crop": {
+    "broccoli_micro": 0.97,
+    "radish_micro": 0.97
+   },
+   "cycle_days": 9.4,
+   "empty_area_pct": 40.0,
+   "energy_eur": -29265,
+   "seed_eur": -35240,
+   "damage_hours": 691,
+   "days_played": 42,
+   "idle_days_late": 7,
+   "actions": 62,
+   "refused": 0,
+   "seed_stockouts": 0,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -1123.84,
+    23814.83,
+    22525.64,
+    77564.24,
+    97271.18,
+    117872.85,
+    154463.7,
+    219030.92,
+    217944.32,
+    251265.35,
+    261537.25,
+    291708.4,
+    290332.35,
+    288966.26,
+    287565.76,
+    286117.01,
+    284670.43,
+    283313.69,
+    342206.11,
+    340901.21,
+    339674.06,
+    518417.72,
+    516244.03,
+    514980.9,
+    513239.18,
+    511948.5,
+    538301.29,
+    537087.97,
+    534503.82,
+    608404.03,
+    667926.45,
+    666574.24,
+    676503.89,
+    675268.72,
+    700402.08,
+    699139.98,
+    775113.15,
+    774119.26,
+    773128.72,
+    865311.02,
+    864598.67,
+    905603.96
+   ],
+   "score": 0.8258,
+   "verifier_reward": 0.8258,
+   "model": "gemini-4-hydrogen",
+   "seed": 1,
+   "failure_modes": [
     "Damage left standing"
    ]
   },
@@ -1270,7 +1495,6 @@
    "model": "gemini-4-hydrogen",
    "seed": 1,
    "failure_modes": [
-    "Idle benches",
     "Malformed actions",
     "Damage left standing"
    ]
@@ -1423,6 +1647,7 @@
    "model": "claude-haiku-5-5",
    "seed": 2,
    "failure_modes": [
+    "Sells into a glut",
     "Misses the demand",
     "Seed stock-outs",
     "Damage left standing"
@@ -1501,8 +1726,236 @@
    "seed": 2,
    "failure_modes": [
     "Misses the demand",
-    "Idle benches",
     "Session ended early",
+    "Damage left standing"
+   ]
+  },
+  "claude-sonnet-5-5-s2-ujn7rxp": {
+   "profit_eur": 845444.74,
+   "revenue_eur": 934292,
+   "market_loss_eur": 12360,
+   "market_loss_pct": 1.3,
+   "demand_met_pct": 85.0,
+   "supply_ratio": 0.9,
+   "supply_by_crop": {
+    "broccoli_micro": 0.95,
+    "radish_micro": 0.84
+   },
+   "cycle_days": 10.9,
+   "empty_area_pct": 33.3,
+   "energy_eur": -33694,
+   "seed_eur": -35760,
+   "damage_hours": 966,
+   "days_played": 42,
+   "idle_days_late": 8,
+   "actions": 69,
+   "refused": 1,
+   "seed_stockouts": 1,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -905.28,
+    -2539.75,
+    -3717.34,
+    49340.99,
+    102126.24,
+    100731.72,
+    135611.12,
+    201763.01,
+    230198.71,
+    229236.27,
+    247676.44,
+    246367.79,
+    307215.4,
+    305923.61,
+    304612.47,
+    303309.13,
+    302024.06,
+    294410.63,
+    293202.37,
+    369277.03,
+    368079.64,
+    366848.55,
+    457179.37,
+    539998.95,
+    523984.43,
+    522791.58,
+    521610.1,
+    519762.75,
+    518551.11,
+    553809.18,
+    552579.88,
+    603345.54,
+    602120.22,
+    650625.87,
+    649002.95,
+    647736.93,
+    646496.14,
+    645134.52,
+    643737.97,
+    642360.11,
+    737542.97,
+    845444.74
+   ],
+   "score": 0.758,
+   "verifier_reward": 0.758,
+   "model": "claude-sonnet-5-5",
+   "seed": 2,
+   "failure_modes": [
+    "Seed stock-outs",
+    "Damage left standing"
+   ]
+  },
+  "gemini-4-hydrogen-s2-2tvqbki": {
+   "profit_eur": 963158.43,
+   "revenue_eur": 1059478,
+   "market_loss_eur": 15753,
+   "market_loss_pct": 1.5,
+   "demand_met_pct": 93.4,
+   "supply_ratio": 1.02,
+   "supply_by_crop": {
+    "broccoli_micro": 1.04,
+    "radish_micro": 1.0
+   },
+   "cycle_days": 9.0,
+   "empty_area_pct": 37.2,
+   "energy_eur": -27871,
+   "seed_eur": -40350,
+   "damage_hours": 787,
+   "days_played": 42,
+   "idle_days_late": 1,
+   "actions": 144,
+   "refused": 3,
+   "seed_stockouts": 1,
+   "malformed": 2,
+   "daily_profit": [
+    -132.0,
+    -932.62,
+    -2379.21,
+    17373.46,
+    79703.69,
+    101644.58,
+    123455.96,
+    140236.46,
+    170430.27,
+    202654.26,
+    200321.34,
+    247252.08,
+    245943.48,
+    306972.88,
+    304739.85,
+    303304.44,
+    301833.65,
+    300360.51,
+    355790.66,
+    354710.5,
+    353430.0,
+    415453.07,
+    510883.14,
+    509692.02,
+    521317.31,
+    519925.26,
+    518550.91,
+    546390.62,
+    605146.5,
+    602840.7,
+    660956.94,
+    659539.4,
+    658198.04,
+    656947.9,
+    655699.34,
+    768475.72,
+    767394.84,
+    806490.1,
+    839938.63,
+    838931.86,
+    837871.7,
+    836826.57,
+    963158.43
+   ],
+   "score": 0.8609,
+   "verifier_reward": 0.8692,
+   "model": "gemini-4-hydrogen",
+   "seed": 2,
+   "failure_modes": [
+    "Seed stock-outs",
+    "Malformed actions",
+    "Damage left standing"
+   ]
+  },
+  "gemini-4-hydrogen-s2-wwifjqq": {
+   "profit_eur": 856922.14,
+   "revenue_eur": 951245,
+   "market_loss_eur": 11967,
+   "market_loss_pct": 1.2,
+   "demand_met_pct": 85.3,
+   "supply_ratio": 0.91,
+   "supply_by_crop": {
+    "broccoli_micro": 0.93,
+    "radish_micro": 0.89
+   },
+   "cycle_days": 9.9,
+   "empty_area_pct": 39.5,
+   "energy_eur": -27141,
+   "seed_eur": -39650,
+   "damage_hours": 811,
+   "days_played": 42,
+   "idle_days_late": 6,
+   "actions": 77,
+   "refused": 3,
+   "seed_stockouts": 0,
+   "malformed": 3,
+   "daily_profit": [
+    -132.0,
+    -986.21,
+    -2240.77,
+    16599.47,
+    47012.19,
+    98581.31,
+    97338.94,
+    133742.76,
+    198396.8,
+    225614.57,
+    253955.32,
+    252953.64,
+    231216.8,
+    294110.23,
+    291486.06,
+    289596.64,
+    288277.14,
+    286971.4,
+    266831.03,
+    265593.72,
+    264013.51,
+    338885.49,
+    336957.73,
+    417892.12,
+    416705.99,
+    415453.81,
+    493734.92,
+    492525.08,
+    491348.21,
+    489187.45,
+    578182.65,
+    576933.1,
+    575669.15,
+    574441.2,
+    652202.06,
+    651087.58,
+    649876.32,
+    648670.49,
+    690173.58,
+    764828.68,
+    763915.08,
+    763003.27,
+    856922.14
+   ],
+   "score": 0.768,
+   "verifier_reward": 0.768,
+   "model": "gemini-4-hydrogen",
+   "seed": 2,
+   "failure_modes": [
+    "Malformed actions",
     "Damage left standing"
    ]
   },
@@ -1579,9 +2032,159 @@
    "seed": 3,
    "failure_modes": [
     "Misses the demand",
-    "Idle benches",
     "Seed stock-outs",
-    "Stops managing",
+    "Damage left standing"
+   ]
+  },
+  "claude-sonnet-5-5-s3-uk6kidx": {
+   "profit_eur": 926717.15,
+   "revenue_eur": 1019400,
+   "market_loss_eur": 87625,
+   "market_loss_pct": 7.9,
+   "demand_met_pct": 87.4,
+   "supply_ratio": 1.05,
+   "supply_by_crop": {
+    "broccoli_micro": 1.07,
+    "radish_micro": 1.02
+   },
+   "cycle_days": 10.1,
+   "empty_area_pct": 38.2,
+   "energy_eur": -33098,
+   "seed_eur": -37664,
+   "damage_hours": 966,
+   "days_played": 42,
+   "idle_days_late": 13,
+   "actions": 50,
+   "refused": 1,
+   "seed_stockouts": 1,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -1158.21,
+    -2509.86,
+    63071.15,
+    86938.32,
+    85773.57,
+    84514.13,
+    140797.11,
+    208091.88,
+    242845.28,
+    241870.18,
+    292550.0,
+    291172.97,
+    313712.93,
+    312351.16,
+    310762.16,
+    309450.85,
+    308147.06,
+    306931.64,
+    305741.3,
+    382852.23,
+    381742.38,
+    500095.41,
+    557416.92,
+    546611.47,
+    545040.3,
+    543529.57,
+    542021.31,
+    540576.96,
+    539018.11,
+    537469.6,
+    665893.26,
+    720317.57,
+    718969.38,
+    717676.64,
+    716463.01,
+    715147.16,
+    713822.67,
+    712421.86,
+    711032.61,
+    868784.93,
+    927245.15,
+    926717.15
+   ],
+   "score": 0.8163,
+   "verifier_reward": 0.8163,
+   "model": "claude-sonnet-5-5",
+   "seed": 3,
+   "failure_modes": [
+    "Seed stock-outs",
+    "Damage left standing"
+   ]
+  },
+  "claude-sonnet-5-5-s3-vjg5l3s": {
+   "profit_eur": 863410.11,
+   "revenue_eur": 950305,
+   "market_loss_eur": 38198,
+   "market_loss_pct": 3.9,
+   "demand_met_pct": 83.3,
+   "supply_ratio": 0.89,
+   "supply_by_crop": {
+    "broccoli_micro": 1.03,
+    "radish_micro": 0.75
+   },
+   "cycle_days": 11.2,
+   "empty_area_pct": 31.5,
+   "energy_eur": -31823,
+   "seed_eur": -37250,
+   "damage_hours": 966,
+   "days_played": 42,
+   "idle_days_late": 10,
+   "actions": 48,
+   "refused": 1,
+   "seed_stockouts": 1,
+   "malformed": 0,
+   "daily_profit": [
+    -132.0,
+    -1058.18,
+    -2375.62,
+    -3990.29,
+    84405.66,
+    83125.02,
+    81855.4,
+    101169.79,
+    168874.32,
+    202825.61,
+    201790.09,
+    180633.05,
+    267563.15,
+    266421.75,
+    289282.76,
+    308248.21,
+    306969.96,
+    305708.17,
+    304529.12,
+    303362.29,
+    302210.75,
+    338273.55,
+    337117.39,
+    421128.14,
+    420000.01,
+    489584.46,
+    488460.71,
+    487335.52,
+    486255.56,
+    485085.26,
+    483931.86,
+    523945.84,
+    522744.07,
+    615404.31,
+    657064.62,
+    655990.59,
+    654826.68,
+    653536.07,
+    652173.39,
+    650811.26,
+    649661.8,
+    823955.7,
+    863410.11
+   ],
+   "score": 0.7619,
+   "verifier_reward": 0.7648,
+   "model": "claude-sonnet-5-5",
+   "seed": 3,
+   "failure_modes": [
+    "Seed stock-outs",
     "Damage left standing"
    ]
   },
@@ -1657,7 +2260,83 @@
    "model": "gemini-4-hydrogen",
    "seed": 3,
    "failure_modes": [
-    "Idle benches",
+    "Sells into a glut",
+    "Malformed actions",
+    "Damage left standing"
+   ]
+  },
+  "gemini-4-hydrogen-s3-qcga2m6": {
+   "profit_eur": 880899.67,
+   "revenue_eur": 975415,
+   "market_loss_eur": 71520,
+   "market_loss_pct": 6.8,
+   "demand_met_pct": 87.1,
+   "supply_ratio": 1.01,
+   "supply_by_crop": {
+    "broccoli_micro": 1.06,
+    "radish_micro": 0.96
+   },
+   "cycle_days": 10.3,
+   "empty_area_pct": 36.1,
+   "energy_eur": -32036,
+   "seed_eur": -36500,
+   "damage_hours": 686,
+   "days_played": 42,
+   "idle_days_late": 8,
+   "actions": 68,
+   "refused": 3,
+   "seed_stockouts": 0,
+   "malformed": 3,
+   "daily_profit": [
+    -132.0,
+    -1007.42,
+    -2388.03,
+    27045.11,
+    87042.14,
+    108116.69,
+    106247.2,
+    104960.18,
+    178004.54,
+    176726.3,
+    212477.1,
+    247811.41,
+    278254.34,
+    293475.71,
+    292053.71,
+    308006.55,
+    306519.25,
+    305039.46,
+    303648.04,
+    302281.7,
+    285829.13,
+    335973.5,
+    334645.27,
+    332655.76,
+    515113.71,
+    513718.55,
+    512383.82,
+    511051.55,
+    509783.21,
+    530664.29,
+    529291.78,
+    582376.25,
+    674028.31,
+    672680.11,
+    671387.38,
+    670413.36,
+    669097.51,
+    667365.13,
+    665964.32,
+    664575.07,
+    816672.0,
+    881427.67,
+    880899.67
+   ],
+   "score": 0.7769,
+   "verifier_reward": 0.7769,
+   "model": "gemini-4-hydrogen",
+   "seed": 3,
+   "failure_modes": [
     "Malformed actions",
     "Damage left standing"
    ]
@@ -1678,11 +2357,21 @@
    "id": "gemini-4-hydrogen",
    "name": "Gemini 4 Hydrogen",
    "kind": "model",
-   "mean": 0.7440666666666665,
-   "lo": 0.7239,
-   "hi": 0.7563,
-   "n": 3,
+   "mean": 0.7805428571428571,
+   "lo": 0.7511142857142856,
+   "hi": 0.8143857142857144,
+   "n": 7,
    "pass_rate": 1.0
+  },
+  {
+   "id": "claude-sonnet-5-5",
+   "name": "Claude Sonnet 5.5",
+   "kind": "model",
+   "mean": 0.6949142857142857,
+   "lo": 0.5181,
+   "hi": 0.7992428571428573,
+   "n": 7,
+   "pass_rate": 0.8571428571428571
   },
   {
    "id": "claude-haiku-5-5",
@@ -1693,16 +2382,6 @@
    "hi": 0.6679,
    "n": 3,
    "pass_rate": 1.0
-  },
-  {
-   "id": "claude-sonnet-5-5",
-   "name": "Claude Sonnet 5.5",
-   "kind": "model",
-   "mean": 0.49095,
-   "lo": 0.1762,
-   "hi": 0.8057,
-   "n": 2,
-   "pass_rate": 0.5
   },
   {
    "id": "stop-early",
@@ -1749,39 +2428,31 @@
   "Gemini 4 Hydrogen": {
    "Floods the market": [
     0,
-    3
+    7
    ],
-   "Leaves money to the market": [
-    0,
-    3
+   "Sells into a glut": [
+    1,
+    7
    ],
    "Misses the demand": [
     0,
-    3
-   ],
-   "Idle benches": [
-    2,
-    3
+    7
    ],
    "Seed stock-outs": [
-    0,
-    3
+    1,
+    7
    ],
    "Session ended early": [
     0,
-    3
-   ],
-   "Stops managing": [
-    0,
-    3
+    7
    ],
    "Malformed actions": [
-    3,
-    3
+    6,
+    7
    ],
    "Damage left standing": [
-    3,
-    3
+    7,
+    7
    ]
   },
   "Claude Haiku 5.5": {
@@ -1789,16 +2460,12 @@
     0,
     3
    ],
-   "Leaves money to the market": [
-    0,
+   "Sells into a glut": [
+    1,
     3
    ],
    "Misses the demand": [
     2,
-    3
-   ],
-   "Idle benches": [
-    1,
     3
    ],
    "Seed stock-outs": [
@@ -1807,10 +2474,6 @@
    ],
    "Session ended early": [
     0,
-    3
-   ],
-   "Stops managing": [
-    1,
     3
    ],
    "Malformed actions": [
@@ -1825,39 +2488,31 @@
   "Claude Sonnet 5.5": {
    "Floods the market": [
     0,
-    2
+    7
    ],
-   "Leaves money to the market": [
+   "Sells into a glut": [
     0,
-    2
+    7
    ],
    "Misses the demand": [
     1,
-    2
-   ],
-   "Idle benches": [
-    2,
-    2
+    7
    ],
    "Seed stock-outs": [
-    1,
-    2
+    6,
+    7
    ],
    "Session ended early": [
     1,
-    2
-   ],
-   "Stops managing": [
-    1,
-    2
+    7
    ],
    "Malformed actions": [
     0,
-    2
+    7
    ],
    "Damage left standing": [
-    2,
-    2
+    7,
+    7
    ]
   }
  }

@@ -103,3 +103,16 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
   sells into a glut (>8 % of value lost; reference ~3 %), misses the demand (<75 % met), seed stock-outs,
   session ended early, malformed actions, damage left standing. "Idle benches" and "stops managing" were
   dropped: the capped market makes idle benches correct, and the best runs act little late in the season.
+
+## Final batch and report (17 runs on the current rules)
+- Rescored against the current reference (`runs/ANALYSIS.md`): Gemini 0.781 (CI 0.75-0.81, 7 runs, range
+  0.72-0.86), Sonnet 0.695 (CI 0.52-0.80, 7 runs; 0.781 without the day-9 session end), Haiku 0.622 (3 runs),
+  reference 0.800. 5 of 14 frontier runs beat the reference.
+- Honest read: the frontier models average just under the planner with a wide spread; the gap is not
+  large or consistent. Haiku is clearly below. Clear, measured failure modes: storm damage left standing
+  (17/17 runs), seed stock-outs (10/17), malformed actions (Gemini 6/7), selling into a full demand window
+  and under-selling week-0 radish, one session ended by an output-length step.
+- README rewritten: matrix first, leaderboard and findings, everything else in collapsible sections.
+  `scripts/release_check.py --fast` passes.
+- Next options to widen the gap honestly: (1) a stronger reference that slows the last sowings and makes
+  partial sales per window (the best Gemini run shows ~EUR 70 k headroom on seed 2); (2) more runs per cell.

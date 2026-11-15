@@ -10,11 +10,20 @@ day-by-day version (what the agent said, what it did, what was refused, cash aft
 | claude-haiku-5-5-s1-b7cklh5 | 0.6581 | 42 | 45 | 1 | [DAYS.md](normal-winter/claude-haiku-5-5-s1-b7cklh5/DAYS.md) |
 | claude-haiku-5-5-s2-sugfugl | 0.6744 | 42 | 43 | 1 | [DAYS.md](normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) |
 | claude-haiku-5-5-s3-vmzikdh | 0.5415 | 42 | 51 | 1 | [DAYS.md](normal-winter/claude-haiku-5-5-s3-vmzikdh/DAYS.md) |
+| claude-sonnet-5-5-s1-e8znndd | 0.73 | 42 | 52 | 2 | [DAYS.md](normal-winter/claude-sonnet-5-5-s1-e8znndd/DAYS.md) |
+| claude-sonnet-5-5-s1-lbtq2lu | 0.8173 | 42 | 67 | 3 | [DAYS.md](normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) |
 | claude-sonnet-5-5-s1-qxhrmeh | 1.0 ¹ | 42 | 69 | 1 | [DAYS.md](normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) |
 | claude-sonnet-5-5-s2-ny8magu | 0.1779 | 9 | 26 | 0 | [DAYS.md](normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) |
+| claude-sonnet-5-5-s2-ujn7rxp | 0.758 | 42 | 69 | 1 | [DAYS.md](normal-winter/claude-sonnet-5-5-s2-ujn7rxp/DAYS.md) |
+| claude-sonnet-5-5-s3-uk6kidx | 0.8163 | 42 | 50 | 1 | [DAYS.md](normal-winter/claude-sonnet-5-5-s3-uk6kidx/DAYS.md) |
+| claude-sonnet-5-5-s3-vjg5l3s | 0.7648 | 42 | 48 | 1 | [DAYS.md](normal-winter/claude-sonnet-5-5-s3-vjg5l3s/DAYS.md) |
+| gemini-4-hydrogen-s1-8astgmr | 0.8258 | 42 | 62 | 0 | [DAYS.md](normal-winter/gemini-4-hydrogen-s1-8astgmr/DAYS.md) |
 | gemini-4-hydrogen-s1-hiup4hw | 0.9905 ¹ | 42 | 96 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) |
 | gemini-4-hydrogen-s1-plk3gpu | 0.7248 | 42 | 133 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s1-plk3gpu/DAYS.md) |
+| gemini-4-hydrogen-s2-2tvqbki | 0.8692 | 42 | 144 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) |
+| gemini-4-hydrogen-s2-wwifjqq | 0.768 | 42 | 77 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s2-wwifjqq/DAYS.md) |
 | gemini-4-hydrogen-s3-bqi5any | 0.7592 | 42 | 106 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s3-bqi5any/DAYS.md) |
+| gemini-4-hydrogen-s3-qcga2m6 | 0.7769 | 42 | 68 | 3 | [DAYS.md](normal-winter/gemini-4-hydrogen-s3-qcga2m6/DAYS.md) |
 
 ¹ Played on the current rules before the reference planner was improved; the verifier's reward is
 against the earlier reference. [ANALYSIS.md](ANALYSIS.md) rescores every run against the current one.

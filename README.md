@@ -6,7 +6,33 @@ Agent" (Junction 2026). Harbor task, MCP sidecar, trace-replay verifier.
 
 ![Score by seed and grower](docs/img/matrix.svg)
 
-<!-- RESULTS -->
+**Leaderboard** (normal-winter, seeds 1-3, Harbor 0.26 + OpenCode 1.19.5; 95 % bootstrap CI over runs):
+
+| Grower | Score | 95% CI | Runs | Runs above the reference |
+|---|---:|---|---:|---:|
+| Reference planner (scripted) | 0.800 | deterministic | 3 | – |
+| Gemini 4 Hydrogen | 0.781 | 0.751 – 0.814 | 7 | 2 of 7 |
+| Claude Sonnet 5.5 | 0.695 (0.781 without the run that ended on day 9) | 0.518 – 0.799 | 7 | 3 of 7 |
+| Claude Haiku 5.5 | 0.622 | 0.539 – 0.668 | 3 | 0 of 3 |
+| Stop-early / harvest-early / naive / nobody | 0.24 / 0.10 / 0 / 0 | deterministic | 3 each | – |
+
+**What we found** ([runs/ANALYSIS.md](runs/ANALYSIS.md), every run replayed hour by hour):
+
+- **On average, the frontier models land just under the planner, with a wide spread.** Gemini scores 0.72-0.86
+  and Sonnet 0.73-0.82 (seeds 1-3). Five of 14 runs beat the reference, so it is not a ceiling. The best
+  run (Gemini, seed 2, EUR 963 k) staggered several partial sales a week, each timed to land as an older
+  sale left the rolling demand window. The other nine leave EUR 37-86 k on the table against it.
+- **The market is the failure mode.** Demand is a published, uneven order book counted over a rolling
+  week. Runs that sell into a window the previous week already filled get nothing for it. Haiku sold
+  2.1 t of radish for EUR 2 and 2.2 t of broccoli for EUR 0 (seed 2), and met only 61-78 % of demand at
+  full price (reference 85-87 %). Every model under-sold radish in week 0, its biggest week (2.1-2.9 t of 3.5 t).
+- **Housekeeping slips under the daily turn.** Storm glass was left broken for over two weeks in 17 of
+  17 model runs (the reference repairs it the morning it sees damage). 10 of 17 runs tried to sow without
+  seed in stock, missing the 10-day lead time. Gemini sent malformed actions in 6 of 7 runs.
+- **One Sonnet run ended on day 9.** A single reasoning step used its whole 32 k-token output budget,
+  returned no tool call, and the harness ended the attempt. The farm then ran on unattended (score 0.18).
+  It is reported, not excluded.
+
 
 ```bash
 bash scripts/judge.sh --output artifacts/judge-1                                   # reference + baselines, every seed
@@ -129,7 +155,10 @@ sidecar reachable only over MCP, and a separate verifier container replays the r
 <details>
 <summary><b>Known limits</b></summary>
 
-- **Few runs per cell.** Each model has one run per seed on the current rules; the CIs say so.
+- **Few runs per cell.** 2-3 runs per model per seed (Haiku 1); the CIs say so. The gap between the frontier
+  models and the reference is small and within run-to-run spread; Haiku's is not.
+- **The reference is beatable.** It sells at most once per demand window and cannot slow its last sowings
+  to ripen after the planting deadline; the best Gemini run did both.
 - **The rolling window has a knife edge.** A burst that finishes an hour earlier in the day than
   last week's is still inside the window and must wait a day. It is the published rule and the
   same for everyone, but it makes the last hour of a harvest matter.
