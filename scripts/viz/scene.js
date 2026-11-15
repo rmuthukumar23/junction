@@ -11,6 +11,8 @@ const makeScene = (opts = {}) => {
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
   let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
+  // AR mode (phone): a perspective camera turned by the phone's own orientation, so the site stays put in the room
+  let arOn = false, arQ = null, arK = 1, arYaw0 = null, pcam = null, ocam = null, envK = 1, blob = null;
   let az = Math.PI / 4, el = 0.6, zoom = opts.zoom || 1, layerLbl, bubbles = [], workers = [], lastHour = -1, flashes = [];
   let rt, post, postScene, postCam, crisp = true, shadows = true;
   let see = false, pix = PIX, field = { kind: "temp", opacity: 0.35 }, fog = true, shards = [], rings = [], prevPanes = {}, crews = {};
@@ -56,6 +58,7 @@ const makeScene = (opts = {}) => {
     postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-10, 10, 10, -10, -200, 400);
+    ocam = camera; pcam = new THREE.PerspectiveCamera(62, 1, 0.5, 2000);
     world.amb = new THREE.AmbientLight(0xffffff, 0.4); scene.add(world.amb);
     world.hemi = new THREE.HemisphereLight(0xbfdfff, 0x3a5030, 0.35); scene.add(world.hemi);
     world.sun = new THREE.DirectionalLight(0xfff2d0, 0.9); world.sun.position.set(-30, 40, 20); scene.add(world.sun);
@@ -85,6 +88,13 @@ const makeScene = (opts = {}) => {
     world.x0 = -span / 2 - 6; world.span = span + 22;
     // ground, path and road
     world.ground = new THREE.Mesh(new THREE.BoxGeometry(world.span + 30, 1, 46), lambert(0x3d5a3a)); world.ground.position.set(world.x0 + world.span / 2, -0.5, 2); scene.add(world.ground);
+    {  // a soft contact shadow under the site, shown in AR so it sits on the table or floor
+      const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+      const gr = g.createRadialGradient(64, 64, 8, 64, 64, 64); gr.addColorStop(0, "rgba(0,0,0,0.55)"); gr.addColorStop(0.55, "rgba(0,0,0,0.35)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+      blob = new THREE.Mesh(new THREE.PlaneGeometry(world.span + 60, 80), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+      blob.rotation.x = -Math.PI / 2; blob.position.set(world.x0 + world.span / 2, -1.05, 2); blob.renderOrder = -1; blob.visible = false; scene.add(blob);
+    }
     const road = box(world.span + 30, 0.06, 4, lambert(0x3c3f48)); road.position.set(world.x0 + world.span / 2, 0.03, ROAD_Z); scene.add(road);
     for (let x = world.x0 - 12; x < world.x0 + world.span + 14; x += 3) { const d = box(1.4, 0.07, 0.18, basic(0x9a9da6)); d.position.set(x, 0.05, ROAD_Z); scene.add(d); }
     const path = box(world.span, 0.04, 1.6, lambert(0x7a6a52)); path.position.set(world.x0 + world.span / 2, 0.02, HD / 2 + 3.2); scene.add(path);
@@ -443,8 +453,10 @@ const makeScene = (opts = {}) => {
     const sky = mixc("#0b1230", "#7fb2e0", day).lerp(col(0xf0a060), twi * 0.35);
     renderer.setClearColor(sky, see ? 0 : 1); scene.fog = fog && !see ? (scene.fog || new THREE.Fog(sky, 110, 190)) : null; if (scene.fog) scene.fog.color = sky;
     post.uniforms.see.value = see ? 1 : 0;
-    world.amb.intensity = 0.18 + day * 0.35; world.amb.color = mixc("#7080c0", "#ffffff", day);
-    world.hemi.intensity = 0.15 + day * 0.35; world.sun.intensity = day * 0.85;
+    const lday = arOn ? Math.max(day, 0.55) : day, lk = arOn ? envK : 1;
+    world.amb.intensity = (0.18 + lday * 0.35) * lk; world.amb.color = mixc("#7080c0", "#ffffff", lday);
+    world.hemi.intensity = (0.15 + lday * 0.35) * lk; world.sun.intensity = lday * 0.85 * lk;
+    if (blob) blob.visible = arOn;
     const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(world.x0 + world.span / 2 - Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25); world.sun.castShadow = shadows && day > 0.05;
     const snowy = meta.snowAt[h] === 1; world.ground.material.color = col(snowy ? 0xdfe8ee : 0x3d5a3a);
     // houses
@@ -502,7 +514,7 @@ const makeScene = (opts = {}) => {
     if (fl.visible) { const a = fl.geometry.attributes.position, v = snow ? 3 : 18;
       for (let i = 0; i < a.count; i++) { let y = a.getY(i) - v * dt; if (y < 0) y += 22; a.setY(i, y); a.setX(i, a.getX(i) + f.out.wind * 0.15 * dt); }
       a.needsUpdate = true; }
-    placeCamera(); resize();
+    if (arOn && arQ) placeAR(); else { camera = ocam; placeCamera(); } resize();
     if (crisp) {
       const w = renderer.domElement.width, h = renderer.domElement.height;
       if (rt.width !== w || rt.height !== h) { rt.setSize(w, h); post.uniforms.res.value.set(w, h); }
@@ -511,6 +523,18 @@ const makeScene = (opts = {}) => {
     labels(f, dt);
   }
 
+  function placeAR() {
+    // The site stands on the floor/table ahead of where the phone pointed when AR started: gravity
+    // (pitch and roll) comes from the phone; heading is taken relative to that first reading. Dragging
+    // spins the site; zoom moves it nearer or further.
+    camera = pcam;
+    const cx = world.x0 + world.span / 2, D = world.span * 1.35 * arK, H = D * 0.7;   // a phone held ~35° down looks at the site
+    if (arYaw0 === null) arYaw0 = new THREE.Euler().setFromQuaternion(arQ, "YXZ").y;
+    const w = az - Math.PI / 4;
+    pcam.position.set(cx + Math.sin(w) * D, H, 2 + Math.cos(w) * D);
+    pcam.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), w - arYaw0).multiply(arQ);
+    pcam.aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight); pcam.updateProjectionMatrix();
+  }
   function placeCamera() {
     const cx = world.x0 + world.span / 2, d = 120, aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
     camera.position.set(cx + Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, Math.cos(az) * Math.cos(el) * d);
@@ -582,6 +606,8 @@ const makeScene = (opts = {}) => {
   function settings(o) { if (o.field) field = { ...field, ...o.field }; if (o.fog != null) fog = o.fog; if (o.pix) pix = o.pix;
     if (o.crisp != null) crisp = o.crisp; if (o.shadows != null) shadows = o.shadows;
     if (o.see != null) see = !!o.see; if (o.az != null) az = o.az; if (o.el != null) el = clamp(o.el, 0.15, 1.35); if (o.zoom != null) zoom = clamp(o.zoom, 0.6, 3);
-    return { az, el, zoom }; }
+    if (o.ar != null) { arOn = !!o.ar; arYaw0 = null; } if (o.arq) arQ = o.arq; if (o.env != null) envK = clamp(o.env, 0.4, 1.6);
+    if (o.arDist != null) arK = clamp(o.arDist, 0.35, 3);
+    return { az, el, zoom, arDist: arK }; }
   return { init, setData, render, bubble, flash, reset, settings, FIELDS };
 };

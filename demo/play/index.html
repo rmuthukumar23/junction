@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:,">
+<title>LettuceBench: beat the AI</title>
+<style>
+  :root { --ink: #fff; --dim: rgba(255,255,255,.7); --glass: rgba(10, 14, 28, .62); --line: rgba(255,255,255,.18);
+          --ok: #7bd88f; --bad: #ff6b5b; --warn: #ffd166; --gold: #f4c24f;
+          --sans: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; background: #0b1020; color: var(--ink); overflow: hidden; font: 15px/1.35 var(--sans); }
+  #cam { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; touch-action: none; }
+  .scene-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .scene-labels > div { position: absolute; left: 0; top: 0; white-space: nowrap; font: 700 10px ui-monospace, Menlo, monospace;
+                        padding: 1px 5px; background: rgba(0,0,0,.55); border-radius: 4px; }
+  .scene-labels .bubble { border: 1px solid; background: rgba(0,0,0,.75); font-size: 12px; padding: 3px 8px; }
+  .scene-labels b.cold { color: #6cc4ff; } .scene-labels b.hot { color: var(--bad); } .scene-labels b.ok { color: var(--ok); }
+  .glass { background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+  #top { position: fixed; top: calc(env(safe-area-inset-top) + 8px); left: 10px; right: 10px; display: flex; gap: 8px; align-items: flex-start; pointer-events: none; }
+  #clock { border-radius: 14px; padding: 7px 11px; } #clock b { font-size: 16px; } #clock .s { font-size: 11px; color: var(--dim); }
+  #money { margin-left: auto; border-radius: 14px; padding: 7px 11px; text-align: right; } #money b { color: var(--gold); font-size: 16px; } #money .s { font-size: 11px; color: var(--dim); }
+  #tip { position: fixed; left: 10px; right: 92px; top: calc(env(safe-area-inset-top) + 66px); border-radius: 14px; padding: 9px 12px; font-size: 14px; display: none; }
+
+  /* the decision rail: a slim column on the right, the greenhouse keeps the screen */
+  #rail { position: fixed; right: 10px; top: 50%; transform: translateY(-50%); display: none; flex-direction: column; gap: 10px; align-items: center; }
+  .act { width: 72px; border-radius: 20px; padding: 10px 4px 8px; text-align: center; color: var(--ink); font: 600 11px var(--sans); }
+  .act .i { font-size: 28px; display: block; line-height: 1.1; }
+  .act.on { background: rgba(47, 125, 74, .85); border-color: #7bd88f; box-shadow: 0 0 0 2px #7bd88f inset; }
+  .act.off { opacity: .4; }
+  #go { width: 72px; height: 72px; border-radius: 50%; border: 2px solid #7bd88f; background: #2f7d4a; color: #fff; font: 800 13px var(--sans); }
+  #go:disabled { opacity: .5; }
+  button { font-family: var(--sans); cursor: pointer; }
+  button:active { transform: scale(.95); }
+
+  #toast { position: fixed; left: 10px; right: 92px; bottom: calc(env(safe-area-inset-bottom) + 14px); border-radius: 14px; padding: 9px 12px; font-size: 14px; display: none; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+  .card { border-radius: 22px; padding: 20px; max-width: 420px; width: 100%; max-height: 92vh; overflow-y: auto; }
+  .card h1 { margin: 0 0 6px; font-size: 26px; } .card h2 { margin: 0 0 4px; font-size: 22px; } .card p { margin: 6px 0; color: #dfe5f7; }
+  .big { width: 100%; margin-top: 12px; padding: 15px; border-radius: 16px; border: 0; background: #2f7d4a; color: #fff; font: 800 18px var(--sans); }
+  .small { color: var(--dim); font-size: 12px; }
+  .rank { margin: 10px 0; } .rank div { display: flex; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .rank .you { color: var(--gold); font-weight: 800; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: #fff; border-radius: 50%; animation: sp 1s linear infinite; vertical-align: -2px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  #mini { position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom) + 14px); display: none; gap: 6px; }
+  #mini button { width: 40px; height: 40px; border-radius: 12px; color: #fff; font-size: 17px; }
+  #coach { position: fixed; left: 12px; right: 96px; bottom: calc(env(safe-area-inset-bottom) + 70px); border-radius: 18px; padding: 14px; font-size: 15px; display: none; z-index: 8; }
+  .coachnav { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .coachnav a { color: var(--dim); margin-right: 10px; } .coachnav button { background: #2f7d4a; border: 0; color: #fff; font-weight: 800; padding: 8px 16px; border-radius: 12px; }
+  .hl { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 20px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { outline-color: rgba(244,194,79,.3); } }
+</style>
+</head>
+<body>
+<video id="cam" autoplay playsinline muted></video>
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="top">
+  <div id="clock" class="glass"><b>LettuceBench</b><div class="s">beat the AI</div></div>
+  <div id="money" class="glass" style="display:none"><b>€0</b><div class="s">profit</div></div>
+</div>
+<div id="tip" class="glass"></div>
+<div id="rail">
+  <button class="act glass" id="aHeat"><span class="i">🌡️</span>Heat</button>
+  <button class="act glass" id="aCut"><span class="i">✂️</span>Harvest</button>
+  <button class="act glass" id="aSeed"><span class="i">🌱</span>Order seed</button>
+  <button id="go">GO ▶</button>
+</div>
+<div id="mini"><button class="glass" id="bCam" title="Camera">📷</button><button class="glass" id="bRe" title="Re-centre">🎯</button><button class="glass" id="bZin" title="Nearer">＋</button><button class="glass" id="bZout" title="Further">－</button><button class="glass" id="help" title="How to play">?</button></div>
+<div id="coach" class="glass"></div>
+<div id="toast" class="glass"></div>
+
+<div id="intro" class="overlay"><div class="card glass">
+  <h1>🌱 Beat the AI</h1>
+  <p>Run a greenhouse for <b>2 days</b>. Each morning, tap what to do: <b>🌡️ heat</b>, <b>✂️ harvest</b>, <b>🌱 order seed</b>. Then watch the day play out.</p>
+  <p>Then see how you did against <b>7 AI runs</b> by Gemini, Claude Sonnet and Claude Haiku that faced the exact same morning in our benchmark.</p>
+  <p class="small">📷 Allow the camera and motion when asked: the greenhouse appears in your room. Point the phone a little down at the floor or a table, then look around it. A 30-second tutorial shows you the rest.</p>
+  <button class="big" id="start" disabled><span class="spin"></span> connecting…</button>
+  <p class="small" style="text-align:center;margin-top:8px"><a href="#" id="noCam" style="color:var(--dim)">play without the camera</a></p>
+</div></div>
+<div id="end" class="overlay" style="display:none"><div class="card glass" id="endcard"></div></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="scene.js"></script>
+<script>window.STATIC_DATA = "data/";</script>
+<script src="demo.js"></script>
+</body>
+</html>

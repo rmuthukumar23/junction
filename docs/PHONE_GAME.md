@@ -1,6 +1,17 @@
 # Beat the AI (phone demo) and the full phone game
 
-**`/demo.html`, the peer-review demo (what `bash scripts/phone.sh` prints):** AR first. Start asks for the
+**Hosted, any device:** `scripts/build_phone_demo.py` plays all 64 possible two-day plans (three on/off choices
+a morning, two mornings) through the real simulator and writes `demo/play/`: the page plus the results as
+static files. It is served at `/play` on the static demo site (the same `demo/` folder Vercel serves), so a
+reviewer opens the link and plays with no server. A 4-step tutorial runs the first time (the ? button repeats it).
+
+**AR:** with the camera and motion allowed, the page switches to a perspective camera turned by the phone's own
+orientation: pitch and roll from gravity, heading relative to where the phone pointed at the start (🎯 re-centres).
+The site sits on the floor or table ahead with a soft contact shadow; its lighting follows the camera image's
+brightness; + and − move it nearer or further; dragging spins it. This is 3-degree-of-freedom AR (Safari has no
+WebXR): it follows turning and tilting, not walking.
+
+**`/demo.html` on the live server (what `bash scripts/phone.sh` prints):** AR first. Start asks for the
 camera and motion; the greenhouse stands over the camera image and tilting the phone walks around it. Two
 mornings, three big choices on a side rail: 🌡️ heat (`set_climate` to the crops' targets plus a night schedule),
 ✂️ harvest (everything ready), 🌱 order seed (about 8 benches of each crop). GO plays the day. The result card
