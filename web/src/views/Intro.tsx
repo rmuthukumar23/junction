@@ -29,19 +29,15 @@ export function Intro() {
       <div className="sky" />
       <canvas ref={cv} className="scene" aria-label="Two fighters with icon heads clash a shovel and a pitchfork in a greenhouse" />
       <div className="content">
-        <div className="title"><BigText text="GREENHOUSE BENCH" scale={6} width={400} /></div>
-        <div className="bottom">
-          <div className="px-panel lines">
-            <div>An AI agent runs a 3-compartment winter greenhouse and its energy centre for 42 simulated days.</div>
-            <div>It reads sensors, sets heating, light and CO2, orders stock, plants, harvests and fixes breakdowns through tools.</div>
-            <div>It is scored on net profit against doing nothing. Watch any recorded run as a living pixel greenhouse.</div>
-          </div>
-          <div className="btns">
-            <a className="px-btn primary" href="#/runs">Watch a run</a>
-            <a className="px-btn" href="#/stats">Stats</a>
-            <a className="px-btn" href="#/how">How it works</a>
-          </div>
+        <div className="title">
+          <BigText text="GREENHOUSE BENCH" scale={3} />
+          <p className="sub">AI agents run a winter greenhouse. Scored on net profit.</p>
         </div>
+        <nav className="nav">
+          <a className="px-btn sm" href="#/stats">Stats</a>
+          <a className="px-btn sm" href="#/how">How it works</a>
+        </nav>
+        <div className="cta"><a className="px-btn primary" href="#/runs">Watch a run</a></div>
       </div>
     </div>
   );

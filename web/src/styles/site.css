@@ -58,19 +58,15 @@ select, input { font: inherit; background: var(--px-field); color: var(--px-ink)
 .intro .scene { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: block; background: var(--px-sky); }
 .intro .content { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 14px; pointer-events: none; }
 .intro .content > * { pointer-events: auto; }
-.intro .title { background: var(--px-panel); border: 4px solid var(--px-edge); box-shadow: 5px 5px 0 var(--px-shadow); padding: 8px 14px; max-width: 100%; }
-.intro .bottom { width: 100%; display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
-.intro .lines { text-align: left; font-size: 13px; display: grid; gap: 6px; width: min(380px, 100%); }
-.intro .lines div::before { content: "> "; color: var(--px-edge); }
-.intro .btns { display: flex; flex-direction: column; gap: 10px; width: min(240px, 100%); }
-.intro .btns .px-btn { text-align: center; padding: 9px 12px; background: var(--px-panel); }
-.intro .btns .px-btn.primary { background: var(--px-accent); }
-.intro .btns .px-btn:hover { background: var(--px-field); }
+/* The artwork stays clear: a compact title with one line of context at the top, two small links top-right, one big button at the bottom centre. */
+.intro .title { background: var(--px-panel); border: 4px solid var(--px-edge); box-shadow: 5px 5px 0 var(--px-shadow); padding: 8px 14px 10px; max-width: min(100%, 520px); text-align: center; }
+.intro .title .sub { margin: 6px 0 0; font-size: 12px; color: var(--px-dim); }
+.intro .nav { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; pointer-events: auto; }
+.intro .cta { display: flex; justify-content: center; }
+.intro .cta .px-btn { font-size: 16px; padding: 12px 28px; letter-spacing: 2px; }
 @media (max-width: 760px) {
-  .intro .bottom { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
-  .intro .btns { flex-direction: row; width: 100%; } .intro .btns .px-btn { flex: 1; padding: 9px 4px; font-size: 11px; letter-spacing: 0; }
-  .intro .lines { width: 100%; font-size: 12px; }
-  .intro .lines div:nth-child(n+2) { display: none; }
+  .intro .nav { top: auto; bottom: 74px; right: auto; left: 50%; transform: translateX(-50%); }
+  .intro .title .sub { display: none; }
 }
 .bigtitle { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 
