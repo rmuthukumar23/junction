@@ -25,7 +25,7 @@ show() {  # a link, and a QR code if qrencode is installed (brew install qrencod
   command -v qrencode >/dev/null && qrencode -t ANSIUTF8 -m 1 "$2"
 }
 echo
-echo "  Lettuce Bench phone game is running. Open on the phone:"
+echo "  LettuceBench phone game is running. Open on the phone:"
 show "Same Wi-Fi:   http://$IP:$PORT/play.html" "http://$IP:$PORT/play.html"
 echo "  (If the page does not load, allow incoming connections for python when macOS asks,"
 echo "   or check that the phone is on the same Wi-Fi and not on a guest network.)"
