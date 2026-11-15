@@ -13,7 +13,7 @@ const makeScene = (opts = {}) => {
   let renderer, scene, camera, canvas, stage, meta = {}, t = 0, ids = [], houses = {}, ec = {}, world = {};
   let az = Math.PI / 4, el = 0.6, zoom = opts.zoom || 1, layerLbl, bubbles = [], workers = [], lastHour = -1, flashes = [];
   let rt, post, postScene, postCam, crisp = true, shadows = true;
-  let pix = PIX, field = { kind: "temp", opacity: 0.35 }, fog = true, shards = [], rings = [], prevPanes = {}, crews = {};
+  let see = false, pix = PIX, field = { kind: "temp", opacity: 0.35 }, fog = true, shards = [], rings = [], prevPanes = {}, crews = {};
   const lambert = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
   const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
   const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -21,7 +21,7 @@ const makeScene = (opts = {}) => {
   // ---------------- building the world ----------------
   function init(cv) {
     canvas = cv; stage = cv.parentElement;
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: !!opts.transparent });
     renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap;   // hard-edged pixel shadows
     // Pixel-art finish: the scene is drawn small into a target with depth, then a full-screen
@@ -31,10 +31,10 @@ const makeScene = (opts = {}) => {
     rt.depthTexture = new THREE.DepthTexture(1, 1);
     post = new THREE.ShaderMaterial({
       uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, res: { value: new THREE.Vector2(1, 1) },
-                  levels: { value: 20 }, edge: { value: 0.0012 }, outline: { value: 0.62 } },
+                  levels: { value: 20 }, edge: { value: 0.0012 }, outline: { value: 0.62 }, see: { value: 0 } },
       vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
       fragmentShader: `
-        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float levels; uniform float edge; uniform float outline;
+        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float levels; uniform float edge; uniform float outline; uniform float see;
         varying vec2 vUv;
         float d(vec2 o) { return texture2D(tDepth, vUv + o / res).r; }
         float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -43,6 +43,7 @@ const makeScene = (opts = {}) => {
           for (int k = 0; k < 16; k++) if (k == i) return m[k] / 16.0 - 0.5; return 0.0; }
         void main() {
           vec3 c = texture2D(tColor, vUv).rgb; float z = d(vec2(0.0));
+          if (see > 0.5 && z > 0.99999) { gl_FragColor = vec4(0.0); return; }   // see-through: camera shows behind the site
           float dz = max(max(d(vec2(1.,0.)) - z, d(vec2(-1.,0.)) - z), max(d(vec2(0.,1.)) - z, d(vec2(0.,-1.)) - z));
           float l = lum(c), dl = max(abs(lum(texture2D(tColor, vUv + vec2(1.,0.) / res).rgb) - l), abs(lum(texture2D(tColor, vUv + vec2(0.,1.) / res).rgb) - l));
           if (dz > edge) c *= outline;                                   // silhouette: the nearer object gets a dark rim
@@ -440,7 +441,8 @@ const makeScene = (opts = {}) => {
     // sky and light
     const twi = (hd > 7 && hd < 10) || (hd > 15 && hd < 18) ? clamp(1 - Math.abs(day - 0.15) * 4, 0, 1) : 0;
     const sky = mixc("#0b1230", "#7fb2e0", day).lerp(col(0xf0a060), twi * 0.35);
-    renderer.setClearColor(sky); scene.fog = fog ? (scene.fog || new THREE.Fog(sky, 110, 190)) : null; if (scene.fog) scene.fog.color = sky;
+    renderer.setClearColor(sky, see ? 0 : 1); scene.fog = fog && !see ? (scene.fog || new THREE.Fog(sky, 110, 190)) : null; if (scene.fog) scene.fog.color = sky;
+    post.uniforms.see.value = see ? 1 : 0;
     world.amb.intensity = 0.18 + day * 0.35; world.amb.color = mixc("#7080c0", "#ffffff", day);
     world.hemi.intensity = 0.15 + day * 0.35; world.sun.intensity = day * 0.85;
     const sunA = Math.PI * clamp((hd - 8.3) / 8.7, 0, 1); world.sun.position.set(world.x0 + world.span / 2 - Math.cos(sunA) * 40, 10 + Math.sin(sunA) * 30, 25); world.sun.castShadow = shadows && day > 0.05;
@@ -578,6 +580,8 @@ const makeScene = (opts = {}) => {
     crews = {}; prevPanes = {}; lastHour = -1;
   }
   function settings(o) { if (o.field) field = { ...field, ...o.field }; if (o.fog != null) fog = o.fog; if (o.pix) pix = o.pix;
-    if (o.crisp != null) crisp = o.crisp; if (o.shadows != null) shadows = o.shadows; }
+    if (o.crisp != null) crisp = o.crisp; if (o.shadows != null) shadows = o.shadows;
+    if (o.see != null) see = !!o.see; if (o.az != null) az = o.az; if (o.el != null) el = clamp(o.el, 0.15, 1.35); if (o.zoom != null) zoom = clamp(o.zoom, 0.6, 3);
+    return { az, el, zoom }; }
   return { init, setData, render, bubble, flash, reset, settings, FIELDS };
 };
