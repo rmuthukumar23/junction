@@ -176,6 +176,7 @@ recorded calls ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
 | `src/envkit/` | Evaluation backend: episode engine, MCP server, trace-replay verifier, Harbor task generator, calibration, audit, judge ([BACKEND](docs/BACKEND.md)) |
 | `src/envs/` | Small fixtures for the backend's own tests; not part of the submission |
 | `scripts/quick.sh` | The quick check (about 30 s, no benchmark scenario): run after every change |
+| `scripts/release_check.py` | Before a merge to main or the submission: quick check, benchmark tasks current, audit on every seed, scripted growers and viewer exact, README numbers vs calibration (about 4 min) |
 | `scripts/judge.sh`, `scripts/model-smoke.sh` | The judge command (benchmark; only when asked); one agent attempt on the smoke task. Both read `.env` |
 | `scripts/check.sh` | CI's check; the reward audit runs only with `ENVKIT_TEST_SCENARIO=normal-winter` |
 | `scripts/benchmark.sh` | One model run plus a report of its score against the scripted ladder (`--full` for normal-winter) |
