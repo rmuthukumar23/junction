@@ -1,4 +1,4 @@
-# Lettuce Bench
+# LettuceBench
 
 **An AI agent runs a Dutch winter greenhouse for 42 days. One decision each morning, real weather and
 energy prices, scored on profit against a scripted planner.**
