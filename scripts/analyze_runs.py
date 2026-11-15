@@ -71,6 +71,7 @@ def measure(run: dict[str, Any]) -> dict[str, Any]:
         "energy_eur": round(money.get("electricity_bought_eur", 0.0) + money.get("gas_eur", 0.0) + money.get("electricity_sold_eur", 0.0)),
         "seed_eur": round(money.get("seedlings_eur", 0.0)),
         "damage_hours": sum(1 for f in frames if f["faults"]),
+        "boiler_down_hours": sum(1 for f in frames if "boiler" in f["faults"]),
         "days_played": sum(1 for c in calls if c["tool"] == "submit_day"),
         "idle_days_late": sum(1 for d in range(21, 42) if d not in active),
         "actions": len(acts), "refused": len(refused),
@@ -91,7 +92,7 @@ FAILURE_MODES = [   # (name, flagged when, test on measure())
     ("Session ended early", "the agent stopped calling before day 42 (e.g. a reasoning step hit the output limit with no "
      "tool call, so the harness ended the attempt); the farm ran on unattended", lambda m: m["days_played"] < 42),
     ("Malformed actions", "actions refused for unknown items or invalid arguments", lambda m: m["malformed"] > 0),
-    ("Damage left standing", "storm or boiler damage unrepaired for over 2 weeks", lambda m: m["damage_hours"] > 336),
+    ("Boiler left broken", "a tripped boiler left unrepaired for over a week (the reference: about 4 days)", lambda m: m["boiler_down_hours"] > 168),
 ]
 
 # ---------------------------------------------------------------- charts: plain SVG, no dependencies

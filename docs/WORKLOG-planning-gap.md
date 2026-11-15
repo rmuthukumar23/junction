@@ -116,3 +116,13 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
   `scripts/release_check.py --fast` passes.
 - Next options to widen the gap honestly: (1) a stronger reference that slows the last sowings and makes
   partial sales per window (the best Gemini run shows ~EUR 70 k headroom on seed 2); (2) more runs per cell.
+
+## README for judges, failure gallery, two corrections
+- Added a "For judges" box (Harbor / trajectories / true failure modes, each with links) and a failure
+  gallery (one run and day per failure mode, linked to its `DAYS.md`).
+- Correction: "storm glass left broken in 17 of 17 runs" was wrong as a model failure. The glass outages
+  stay open all season in every run, the reference's included. Replaced by "Boiler left broken"
+  (8 of 17 runs, Sonnet 6 of 7; the reference repairs it in about 4 days). The glass issue is a known limit.
+- Correction: "every model under-sold radish in week 0" was wrong; it is 6 of 17 runs (all three Haiku).
+- "Seed stock-outs" are day-11 plantings a few hours before the day-1 order landed (one day lost), now
+  described as that.
