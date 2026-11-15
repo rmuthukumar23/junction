@@ -96,3 +96,13 @@ and Sonnet match it in about a third of runs and never twice on the same seed (p
 - No public page with the "Break the Agent" rubric was found; the rubric in
   docs/GREENHOUSE_BENCH_CONTEXT.md (gap 30, difficulty 30, reward integrity 25, craft 15; 10-min demo,
   rerun reference + 3 agent runs + do-nothing + stop-early, 15-min exploit hunt) remains the source.
+
+## 6. Is the microgreen glut realistic? (04:20)
+
+Short answer: yes, the mechanic is defensible, but cite it as "demand is thin and inconsistent", not as a measured price curve.
+- Industry guides name **inconsistent demand** as the main wholesale microgreen risk (seasonality, trends, substitutes) and recommend dropping prices when you have excess stock. Source: BlueCart, "Microgreens Sustainability" (bluecart.com/blog/wholesale-microgreens-sustainability).
+- Alberta Agriculture's microgreen cost sheets (Agdex 16612) model a fixed $6,000/month overhead over a 960-tray/month capacity and warn that the final price must follow the local market, not cost-plus. That matches our structure: fixed overhead + capacity cap + a market that caps volume.
+- Fresh Origins' founder told FreshPlaza it is hard to tell whether the market is even growing, because microgreens are a niche product — i.e. a small buyer pool, which is exactly why a steep glut is plausible.
+- No public source gives a price-elasticity number for microgreens, so our `glut_at` 1.25 is a design choice. Say so in the README if asked ("stylised, not calibrated").
+
+Pitch use: one line — "The market punishes flooding it, as small specialty-produce markets do; the threshold is a design parameter, documented."
