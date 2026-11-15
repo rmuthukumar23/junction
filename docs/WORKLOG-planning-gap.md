@@ -83,3 +83,23 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
 - The models' seed-1 runs, rescored: Gemini 0.75, Sonnet 0.80.
 - 9 model runs in flight on these rules (Gemini, Sonnet, Haiku x seeds 1-3; artifacts/v5-*). The rules
   have not changed since the v4 runs, so a later change to the reference only rescales their scores.
+
+## First batch on the current rules (03:00-03:20)
+- Verifier rewards (calibration at launch): Gemini s1 0.725, s2 0.869, s3 0.759; Haiku s1 0.658, s2 0.674,
+  s3 0.542; Sonnet s2 0.178, s3 0.765; Sonnet s1 and a second run of every Gemini/Sonnet cell in flight.
+- **Sonnet s2 ended on day 9**: one step spent its 32 k-token output budget on reasoning and returned no
+  tool call (`"reason":"length"` in `agent/opencode.txt`); OpenCode ended the attempt and the farm ran on
+  unattended. Recorded as the failure mode "Session ended early"; the cell is being re-run.
+- **Gemini s2 beat the reference (EUR 963 k vs 894 k).** It staggered several partial sales per week, each
+  landing as an older sale left the rolling window, and its slower lighting made the last sowings ripen
+  late enough to sell on day 41, so it served broccoli week 2 and radish week 5 that the reference skips.
+  Tried in the reference: a beam search over partial sales; it finds the same 13.6 t as one burst a
+  window, because the planting deadline caps the last sale near day 39.5. Reverted. The remaining
+  headroom is slowing the last sowings so they ripen after the deadline-limited date.
+- Failure modes seen: selling into a full window (Haiku s2: 2.1 t radish for EUR 2 and 2.2 t broccoli for
+  EUR 0; Haiku s3: 2.3 t radish for EUR 0), under-selling radish in week 0 (its biggest week; every model
+  sold 2.1-2.9 t of 3.5 t), seed stock-outs (Haiku), storm glass left broken for weeks.
+- Analysis: new metric "demand met at full price" (reference 85 %); failure modes now: floods the market,
+  sells into a glut (>8 % of value lost; reference ~3 %), misses the demand (<75 % met), seed stock-outs,
+  session ended early, malformed actions, damage left standing. "Idle benches" and "stops managing" were
+  dropped: the capped market makes idle benches correct, and the best runs act little late in the season.
