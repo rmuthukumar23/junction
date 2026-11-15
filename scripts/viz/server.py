@@ -1,4 +1,4 @@
-"""Greenhouse Bench viewer: six growers on the same greenhouse, side by side, replayed from the real simulator.
+"""Lettuce Bench viewer: six growers on the same greenhouse, side by side, replayed from the real simulator.
 
     .venv/bin/python scripts/viz/server.py            # then open http://localhost:8765
     .venv/bin/python scripts/viz/server.py --port 9000 --scenario dev-winter
