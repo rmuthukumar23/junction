@@ -10,74 +10,92 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 
 > **For judges: where each ask lives**
 >
-> - **Harbor:** each seed is a standard Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/)). `harbor run -p tasks/normal-winter-s1 -a opencode -m <model>`, or `bash scripts/judge.sh` for the full protocol. All 17 model runs below are Harbor 0.26 + OpenCode 1.19.5 trials.
+> - **Harbor:** each seed is a standard Harbor task, and all 17 model runs are Harbor 0.26 + OpenCode 1.19.5 trials with their Harbor logs committed ([Harbor runs](#harbor-runs)).
 > - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
 > - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([other failures](#other-failures-we-found)).
 
-## How it fits together
+## What the agent has to do
 
-![How a run works: the agent's daily loop, the simulator it acts on, the recorded weather and prices that drive it, and how runs are scored](docs/img/architecture.svg)
+![How a run works: the agent's daily loop, the simulator it acts on, the outside world that drives it, and how runs are scored](docs/img/architecture.svg)
 
-Each run is tracked hour by hour. These are the reference planner's house A and the outside world on
-seed 1: heating against the setpoints through a cold snap, CO2, humidity, light from lamps and the
-short winter sun, wind (storms break glass), and the recorded electricity and gas prices.
+The agent runs a facility for 42 simulated days: one energy centre (gas CHP, gas boiler, heat
+buffer, CO2 store, grid connection) and three houses, broccoli microgreens in A and B and radish
+microgreens in C, each holding batches of different ages at the start.
+
+- **One call a morning.** At 06:00 it calls `submit_day` with up to 5 actions, then the day and
+  night run with nobody acting. There are no read tools: the briefing each call returns is all it sees.
+- **Actions:** day climate and energy settings, a night schedule, orders (seed, CO2, spare parts)
+  that arrive days later, hiring and releasing staff, planting, harvests and contractor repairs.
+- **The outside world** is recorded Dutch data (KNMI De Bilt weather, day-ahead electricity, TTF
+  gas), the same for every agent on a seed. Storms break roof glass and the boiler can trip; both stay
+  broken until a booked contractor has the parts.
+- **Nothing is hidden.** The instruction gives the growth equations, prices, lead times, staff
+  rules, event rates and the buyers' weekly order book.
+
+Every hour is simulated and recorded. This is the planner's house A and the outside world on seed 1:
 
 ![Hour-by-hour variables for one grower: house temperature, CO2, humidity and light, outside weather and energy prices](docs/img/variables.png)
 
-## Let's talk about chess for a second
+## Why it is hard
 
-The best language models play chess at about **2000 Elo**. Stockfish plays at about **3600**. The
-expected score of player $A$ against player $B$ is
+- **Demand is a firm, uneven order book.** Buyers take a published volume within any rolling
+  week (broccoli 4 t × [0.6, 1.5, 0.5, 1.4, 0.7, 1.3], radish 2.5 t × [1.4, 0.6, 1.3, 0.5, 1.5, 0.7]);
+  beyond it the price falls to zero at 1.25×.
+- **Lead times.** Seed takes 10 days and sowing closes 8-12 days before the end, so each week's
+  sowing is ordered about two weeks ahead.
+- **Harvest timing.** A ready crop keeps its top grade for about 2 days, then sells at 60 %.
+- **Nobody acts between turns.** Storm damage and a boiler trip wait for the next morning.
 
-$$
-E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}
-$$
+Three failure patterns are known from research on agents, and all three showed up in our 17 model runs:
 
-so a 1600-point gap means the model scores about $0.0001$: it essentially never wins.
+1. **Missing interacting constraints.** Rolling-week demand, a 10-day seed lead time and a 2-day
+   grade window have to be respected at once. Haiku sold 2.2 t of broccoli for €0 into a week that
+   was already full (figure below); 6 of 17 runs held radish past its biggest week.
+2. **Not revising after new information.** The boiler outage was in every morning's briefing, yet 8
+   of 17 runs left it broken for over a week. The planner books the repair the next morning.
+3. **Losing track of unfinished work.** 10 of 17 runs planted before their seed order had landed,
+   and one run stopped acting on day 9, mid-plan.
 
-The model knows every rule. It loses because a game is many moves that interact, and an engine never
-stops checking them. The research points to three failure patterns:
+Nothing is hidden, no tool is broken, and the planner reads exactly the briefing the agent reads, so
+every euro between them is a decision.
 
-1. **Missing interacting constraints**
-2. **Not revising after new information**
-3. **Losing track of unfinished work**
+![Broccoli sales against the rolling-week demand, the planner and a Haiku run on the same seed](docs/img/market-window.svg)
 
-## What we noticed in our greenhouse
+<sub>The planner keeps the blue area (sold in the last 7 days) under the green line (demand in force). Haiku
+sold 6.2 t in week 3, then cut 2.2 t more in week 4 while that was still in the window: €0.</sub>
 
-Every rule is in the agent's instructions, and our scripted planner reads the same briefing the agent
-reads. The same three patterns showed up in the 17 model runs:
+### Other failures we found
 
-1. **Missing interacting constraints.** Demand is counted over a rolling week, seed takes 10 days and a
-   crop keeps its top grade for about 2 days. Haiku sold 2.2 t of broccoli for €0 into a week that was
-   already full (figure below).
-2. **Not revising after new information.** The boiler outage was in every morning's briefing, yet 8 of
-   17 runs left it broken for over a week. The planner books the repair the next morning.
-3. **Losing track of unfinished work.** 10 of 17 runs planted before their seed order had landed, and
-   one run stopped acting on day 9, mid-plan.
+Beyond the market losses above, one example each, linked to the day it happens in that run's log:
 
-### Why this matters
+| Pattern | Example | What happened | Cost |
+|---|---|---|---|
+| 1 Interacting constraints | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1; it held two of four starting batches into week 1, behind the window (6 of 17 runs) | 2.1 t sold for €2 |
+| 2 Not revising | [Sonnet, seed 1, from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22 and was in every briefing after; no repair was booked in 20 days (8 of 17 runs left it over a week) | 20 days without the boiler |
+| 2 Not revising | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`, so the whole order, seed included, was refused (malformed actions in 6 of 7 Gemini runs) | seed a day late |
+| 3 Unfinished work | [Sonnet, seed 1, day 11](runs/normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) | Ordered seed on day 1 with a 10-day lead and planted on day 11, a few hours before it landed (10 of 17 runs) | one day of growth |
+| 3 Unfinished work | [Sonnet, seed 2, day 9](runs/normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) | One reasoning step used the whole 32 k-token output budget and returned no action; the harness ended the attempt | score 0.18 (rerun 0.76) |
+| Good play | [Gemini, seed 2](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) | Staggered partial sales so each landed as an older one left the window, and served every week of demand | €963 k, above the planner's €894 k |
 
-A benchmark only measures planning if the planner's edge comes from the same information the agent
-has. Nothing here is hidden, no tool is broken, and the planner reads exactly the briefing the agent
-reads. So every euro between them is a decision, and the three patterns say which kind of decision.
-These are the failures that matter when agents run real operations: inventory with lead times,
-schedules with deadlines, equipment that breaks while nobody is watching.
+## How it is scored
 
-### How we found the problem
+`score = clip(0.8 × (profit − profit_nobody) / (profit_planner − profit_nobody), 0, 1)`
 
-1. **The first version was too forgiving.** Selling 20 % over the week's demand still paid about 80 % of the price, so
-   "grow plenty" was enough and the top models tied the old reference (0.79 vs 0.80).
-2. **We made oversupply costly.** The price now reaches zero at 1.25x the week's demand. On the first
-   runs Gemini scored 0.99 and Sonnet 1.00: they had beaten our reference.
-3. **The trajectories showed why.** Logging every sale showed that the models sold in weekly bursts,
-   while the reference sold a steady stream into weeks that were already full. The old reference was
-   weak, not the models strong.
-4. **We rebuilt the planner around that.** It now prices every harvest against the rolling window and
-   plans sowings with a dynamic programme: +14 % profit on held-out seeds it was never tuned on.
-5. **Then we ran 17 model trials on it and read every trajectory.** The losses fell into the three
-   patterns above.
+- **Profit is the only thing scored.** `profit_nobody` is the profit when nobody acts on that seed;
+  the reference planner sits at 0.8, which leaves headroom above it. Constants per seed are in
+  `calibration.json`.
+- **The verifier replays the agent's recorded calls** in a fresh container and writes one number in
+  [0, 1] to `/logs/verifier/reward.txt`. The agent's container holds no scenario, seed or engine; the
+  world runs in a sidecar reachable only over MCP ([BACKEND](docs/BACKEND.md), [HARNESS](docs/HARNESS.md)).
+- **The reference planner** ([reference.py](src/greenhouse/policies/reference.py),
+  [market_plan.py](src/greenhouse/policies/market_plan.py)) plays through the same `submit_day` turn
+  and reads only what the agent reads. It prices every ready batch against the published market
+  rule, plans its sowings with a small dynamic programme, and books repairs the morning it sees
+  damage. Our first planner was too weak: on the first runs Gemini scored 0.99 and Sonnet 1.00, and
+  their sales logs showed why (they sold in weekly bursts, it sold into full weeks). The rebuilt one
+  earns 14 % more on held-out seeds it was never tuned on.
 
-## What the runs show
+## Results
 
 ![Score by seed and grower](docs/img/matrix.svg)
 
@@ -89,104 +107,32 @@ schedules with deadlines, equipment that breaks while nobody is watching.
 | Claude Haiku 5.5 | 0.622 | 0.539 – 0.668 | 3 | 0 of 3 |
 | Stop-early / harvest-early / naive / nobody | 0.24 / 0.10 / 0 / 0 | deterministic | 3 each | – |
 
-<sub>* 0.781 without the run whose session ended on day 9. 0 = nobody acts, 0.8 = the planner, capped at 1. Seeds 1-3; held-out seeds 101-108 use other weather and prices.</sub>
+<sub>* 0.781 without the run whose session ended on day 9. Seeds 1-3; Harbor 0.26 + OpenCode 1.19.5.</sub>
 
 Frontier models land just under the planner on average, with a wide spread (Gemini 0.72-0.86, Sonnet
-0.73-0.82). The best run beat it, so the planner is not a ceiling. Haiku is clearly below. The money is
-lost in the market, where all three patterns meet. Buyers take a published volume within any rolling
-week; anything sold while the window is already full fetches almost nothing:
+0.73-0.82); the best run beat it. Haiku is clearly below. Every run is replayed hour by hour in
+[runs/ANALYSIS.md](runs/ANALYSIS.md).
 
-![Broccoli sales against the rolling-week demand, the planner and a Haiku run on the same seed](docs/img/market-window.svg)
+## Harbor runs
 
-<sub>The planner keeps the blue area (sold in the last 7 days) under the green line (demand in force). Haiku
-sold 6.2 t in week 3, then cut 2.2 t more in week 4 while that was still in the window: €0.</sub>
-
-### Other failures we found
-
-The market figure above is the biggest loss. These are the other failures we found reading the
-trajectories, one example each, linked to the day it happens in that run's log (the full Harbor
-trajectory is `trajectory.json` in the same folder).
-
-| Pattern | Example | What happened | Cost |
-|---|---|---|---|
-| 1 Interacting constraints | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1; it held two of four starting batches into week 1, behind the window (6 of 17 runs did this) | 2.1 t sold for €2 |
-| 2 Not revising | [Sonnet, seed 1, from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22 and the outage was in every briefing after; no repair was booked in 20 days (8 of 17 runs left it over a week) | 20 days without the boiler |
-| 2 Not revising | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`, so the whole order, seed included, was refused (Gemini sent malformed actions in 6 of 7 runs) | seed a day late |
-| 3 Unfinished work | [Sonnet, seed 1, day 11](runs/normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) | Ordered seed on day 1 with a 10-day lead and planted on day 11, a few hours before it landed (10 of 17 runs) | one day of growth |
-| 3 Unfinished work | [Sonnet, seed 2, day 9](runs/normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) | One reasoning step used the whole 32 k-token output budget and returned no action; the harness ended the attempt mid-season | score 0.18 (rerun 0.76) |
-| Good play | [Gemini, seed 2](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) | Staggered partial sales so each landed as an older one left the window, and served every week of demand | €963 k, above the planner's €894 k |
+Each seed is a Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/): `instruction.md`,
+`task.toml`, `environment/Dockerfile`, `tests/`, `solution/`), played with OpenCode:
 
 ```bash
-bash scripts/judge.sh --output artifacts/judge-1                                     # planner + baselines, every seed
-bash scripts/judge.sh --model anthropic/claude-sonnet-5-5 --output artifacts/judge-2 # plus 3 agent attempts (key in .env)
+harbor run -p tasks/normal-winter-s1 -a opencode -m <provider/model>
+bash scripts/judge.sh --model anthropic/claude-sonnet-5-5 --output artifacts/judge-1   # 3 attempts per seed, plus the baselines
 ```
 
-Every number here is reproducible: `scripts/analyze_runs.py` replays each committed run hour by hour,
-and `scripts/readme_figures.py` redraws the figures above.
+All 17 runs are committed in [runs/normal-winter/](runs/normal-winter/) ([index](runs/TRAJECTORIES.md)). Each folder holds:
 
+- `harbor/`: Harbor's own record: `trial.log`, `result.json`, `config.json`, and the verifier's `reward.txt`
+- `trajectory.json`: the full trajectory (every message, tool call and response)
+- `DAYS.md`: the same run as a readable day-by-day log
+- `trace.jsonl` and `score.json`: the calls the verifier replayed and its ledger
 
-<details>
-<summary><b>The task</b>: what the agent controls and sees</summary>
-
-One energy centre (gas CHP, gas boiler, heat buffer, CO2 store, grid connection) serves three
-compartments: broccoli microgreens in A and B, radish microgreens in C, each holding batches of
-different ages at the start. Each morning at 06:00 the agent makes one call, `submit_day`, with up
-to 5 actions; then the day and the night run with nobody acting. There are no read tools: the
-briefing returned by each call is everything it sees.
-
-Actions: day climate and energy settings, a night schedule, orders (seed, CO2, spare parts) that
-arrive days later, hiring and releasing staff (with a notice period), planting, harvests and
-contractor repairs (queued on the crew's worker-hours). Storms on the recorded wind break roof
-glass and the boiler can trip; both stay broken until a booked contractor has the parts. Weather
-and energy prices are recorded Dutch series (KNMI De Bilt, day-ahead electricity, TTF gas), the
-same for every agent on a seed.
-
-Everything needed is in the task instruction (`Environment.opening()`): the growth equations,
-prices, lead times, staff rules, event rates and the buyers' weekly order book. Nothing is hidden
-that a careful planner would need. Crops, facility, climate, market and events are data files
-under `data/`, so a new vegetable or facility is a new file, not new code.
-</details>
-
-<details>
-<summary><b>Why it is hard</b>: the decisions that separate growers</summary>
-
-- **Demand is a firm, uneven order book.** Buyers take a published volume a week (broccoli 4 t x
-  [0.6, 1.5, 0.5, 1.4, 0.7, 1.3], radish 2.5 t x [1.4, 0.6, 1.3, 0.5, 1.5, 0.7]) in any rolling
-  168 h, at full price; beyond it the price falls to 0 at 1.25x. Selling a steady stream into a
-  small week that follows a big one sells into the glut the big week left in the window.
-- **Lead times.** Seed takes 10 days to arrive and a crop may only be planted while it can still
-  finish, so the sowing for a week is ordered about two weeks before it, and the last sowings
-  close 8-12 days before the end.
-- **Harvest timing is in the rules.** A ready crop keeps its top grade for 1.9 (radish) to 2.5
-  (broccoli) days, then sells at 60 %. Holding a batch for a better week has a deadline.
-- **The starting batches ripen in week 0, the big broccoli week is week 1.** Full light ripens
-  them into a glut; fewer lamp hours delay them into the week that wants them (and save power).
-- **Nobody acts at night or during the day.** Storm damage and a boiler trip wait until the next
-  morning, and a repair needs a contractor, the parts on site and day-shift hours.
-- **Energy is a system.** The CHP makes lamp power, heat and CO2 from gas; whether that pays
-  depends on hourly prices that sometimes go negative.
-</details>
-
-<details>
-<summary><b>The score</b></summary>
-
-`score = clip(0.8 x (profit - profit_nobody) / (profit_reference - profit_nobody), 0, 1)`
-
-`profit_nobody` is the profit when nobody acts on that seed (baseline settings kept, wages and
-energy paid, nothing harvested). The reference planner sits at 0.8, which leaves headroom above
-it. Constants per seed are in `calibration.json`; the verifier recomputes the profit by replaying
-the agent's recorded calls in a fresh container. Nothing else is scored.
-
-**The reference planner** ([reference.py](src/greenhouse/policies/reference.py),
-[market_plan.py](src/greenhouse/policies/market_plan.py)) plays through the same `submit_day`
-turn and reads only what the agent reads. It prices every ready batch at every hour it could
-still sell, against its own sales log and the published market rule, and cuts only on the best
-one; it picks the week's sale hours with a small dynamic programme (one window apart, inside the
-planting deadline) and sows each burst to ripen just before its hour, with the grow time measured
-from its own sowings; it dims the lamps of the starting batches whose market is next week; it
-books contractors and orders parts the morning it sees damage. Tuned on dev seeds 1-6; on the
-held-out seeds 101, 104 and 107 (never tuned on) it earns EUR 834-867 k, as on the dev seeds.
-</details>
+Example: Gemini 4 Hydrogen on seed 2 ([trial.log](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/harbor/trial.log),
+[result.json](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/harbor/result.json), [DAYS.md](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)):
+19 minutes, reward **0.8692**, profit €963 k.
 
 <details>
 <summary><b>Scripted ladder</b>: every seed, deterministic</summary>
@@ -296,7 +242,7 @@ After a batch of runs: `scripts/collect_runs.py <eval dir>`, `scripts/trajectori
 | `tasks/`, `calibration.json` | Generated by `envkit build`; committed; do not edit by hand |
 | `src/envkit/` | Evaluation backend: episode engine, MCP server, trace-replay verifier, Harbor task generator, calibration, audit, judge ([BACKEND](docs/BACKEND.md)) |
 | `src/envs/` | Small fixtures for the backend's own tests; not part of the submission |
-| `runs/` | Committed model runs (trace, verifier score, Harbor trajectory, `DAYS.md`), `ANALYSIS.md`, `TRAJECTORIES.md`; earlier rule sets under `runs/archive/` |
+| `runs/` | Committed model runs (Harbor log in `harbor/`, trajectory, verifier trace and score, `DAYS.md`), `ANALYSIS.md`, `TRAJECTORIES.md`; earlier rule sets under `runs/archive/` |
 | `scripts/{collect_runs,trajectories,analyze_runs}.py` | Collect Harbor trials, write day-by-day logs, replay and analyse every run (matrix, leaderboard, failure modes) |
 | `scripts/quick.sh`, `scripts/check.sh` | The 30 s check after every change; CI's check (the reward audit runs with `ENVKIT_TEST_SCENARIO=normal-winter`) |
 | `scripts/release_check.py` | Before a merge to main or the submission: quick check, benchmark tasks current, audit on every seed, scripted growers and viewer exact, README numbers vs calibration (about 4 min) |
