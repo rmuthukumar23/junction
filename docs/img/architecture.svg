@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1340 900" font-family="Georgia, 'Times New Roman', serif"><defs><marker id="a4a6fb5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4a6fb5"/></marker><marker id="aa8743a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a8743a"/></marker><marker id="a3f7a49" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3f7a49"/></marker><marker id="a888" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#888"/></marker><marker id="a9b7a3a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9b7a3a"/></marker><marker id="aa0566a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a0566a"/></marker></defs><rect width="1340" height="900" fill="#ffffff"/><rect x="16" y="10" width="536" height="392" rx="14" fill="#eef2fb" stroke="#4a6fb5" stroke-width="2.2"/>
+<path d="M30,10 h508 a14,14 0 0 1 14,14 v44 h-536 v-44 a14,14 0 0 1 14,-14 z" fill="#4a6fb5" fill-opacity="0.16"/>
+<line x1="16" y1="68" x2="552" y2="68" stroke="#4a6fb5" stroke-width="1.5"/>
+<text x="284.0" y="51.24" font-size="34" font-weight="bold" text-anchor="middle"><tspan font-size="30.6">🤖</tspan>  Greenhouse Agent</text>
+<text x="284" y="98" font-size="19" text-anchor="middle" font-weight="normal" fill="#666" font-style="italic">Harness-agnostic (OpenCode via Harbor in our runs)</text>
+<rect x="42" y="130" width="234" height="118" rx="8" fill="#eef2fb" stroke="#4a6fb5" stroke-width="1.6"/>
+<text x="159.0" y="160" font-size="18" text-anchor="middle" font-weight="bold" fill="#222">Climate &amp; Lamps</text>
+<text x="159.0" y="230" font-size="30" text-anchor="middle" font-weight="normal" fill="#222">🌡️</text>
+<rect x="292" y="130" width="234" height="118" rx="8" fill="#eef2fb" stroke="#4a6fb5" stroke-width="1.6"/>
+<text x="409.0" y="160" font-size="18" text-anchor="middle" font-weight="bold" fill="#222">Energy Centre</text>
+<text x="409.0" y="230" font-size="30" text-anchor="middle" font-weight="normal" fill="#222">⚡</text>
+<rect x="42" y="264" width="234" height="118" rx="8" fill="#eef2fb" stroke="#4a6fb5" stroke-width="1.6"/>
+<text x="159.0" y="294" font-size="18" text-anchor="middle" font-weight="bold" fill="#222">Sowing &amp; Harvest</text>
+<text x="159.0" y="364" font-size="30" text-anchor="middle" font-weight="normal" fill="#222">🌱</text>
+<rect x="292" y="264" width="234" height="118" rx="8" fill="#eef2fb" stroke="#4a6fb5" stroke-width="1.6"/>
+<text x="409.0" y="294" font-size="18" text-anchor="middle" font-weight="bold" fill="#222">Orders, Crew &amp; Repairs</text>
+<text x="409.0" y="364" font-size="30" text-anchor="middle" font-weight="normal" fill="#222">📦</text>
+<rect x="574" y="10" width="116" height="762" rx="14" fill="#f3effa" stroke="#7b5ea7" stroke-width="2.2"/>
+<path d="M588,10 h88 a14,14 0 0 1 14,14 v44 h-116 v-44 a14,14 0 0 1 14,-14 z" fill="#7b5ea7" fill-opacity="0.16"/>
+<line x1="574" y1="68" x2="690" y2="68" stroke="#7b5ea7" stroke-width="1.5"/>
+<text x="632.0" y="48.36" font-size="26" font-weight="bold" text-anchor="middle"><tspan font-size="23.400000000000002">🔌</tspan>  MCP</text>
+<text x="632" y="100" font-size="19" text-anchor="middle" font-weight="normal" fill="#666" font-style="italic">1 tool</text>
+<text x="632" y="124" font-size="15" text-anchor="middle" font-weight="normal" fill="#555">submit_day</text>
+<line x1="554" y1="186" x2="708" y2="186" stroke="#4a6fb5" stroke-width="4" marker-end="url(#a4a6fb5)"/>
+<text x="632" y="214" font-size="15" text-anchor="middle" font-weight="bold" fill="#3d5f9e">up to 5</text>
+<text x="632" y="233" font-size="15" text-anchor="middle" font-weight="bold" fill="#3d5f9e">actions</text>
+<text x="632" y="252" font-size="15" text-anchor="middle" font-weight="bold" fill="#3d5f9e">a morning</text>
+<line x1="712" y1="278" x2="556" y2="278" stroke="#a8743a" stroke-width="4" marker-end="url(#aa8743a)"/>
+<text x="632" y="306" font-size="15" text-anchor="middle" font-weight="bold" fill="#8a5a24">briefing:</text>
+<text x="632" y="325" font-size="15" text-anchor="middle" font-weight="bold" fill="#8a5a24">status,</text>
+<text x="632" y="344" font-size="15" text-anchor="middle" font-weight="bold" fill="#8a5a24">alarms,</text>
+<text x="632" y="363" font-size="15" text-anchor="middle" font-weight="bold" fill="#8a5a24">forecast</text>
+<rect x="712" y="10" width="618" height="444" rx="14" fill="#eef6ee" stroke="#4f8a55" stroke-width="2.2"/>
+<path d="M726,10 h590 a14,14 0 0 1 14,14 v44 h-618 v-44 a14,14 0 0 1 14,-14 z" fill="#4f8a55" fill-opacity="0.16"/>
+<line x1="712" y1="68" x2="1330" y2="68" stroke="#4f8a55" stroke-width="1.5"/>
+<text x="1021.0" y="51.24" font-size="34" font-weight="bold" text-anchor="middle"><tspan font-size="30.6">🏡</tspan>  Greenhouse Bench</text>
+<text x="1021" y="96" font-size="19" text-anchor="middle" font-weight="normal" fill="#666" font-style="italic">the real simulator, in a sidecar container</text>
+<rect x="728" y="116" width="586" height="136" rx="10" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="744" y="152" font-size="27" text-anchor="start" font-weight="bold" fill="#222"><tspan font-size="26">🌿</tspan> Facility</text>
+<text x="1298" y="150" font-size="18" text-anchor="end" font-weight="normal" fill="#555">3 houses · 4,986 m²</text>
+<rect x="740" y="176" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="807.0" y="210.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">🥦</tspan> Broccoli A·B</text>
+<rect x="883" y="176" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="950.0" y="210.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">🌱</tspan> Radish C</text>
+<rect x="1026" y="176" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="1093.0" y="210.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">🔥</tspan> CHP · Boiler</text>
+<rect x="1169" y="176" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="1236.0" y="210.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">👷</tspan> Crew</text>
+<line x1="1021" y1="256" x2="1021" y2="286" stroke="#3f7a49" stroke-width="3" marker-end="url(#a3f7a49)"/>
+<rect x="728" y="290" width="586" height="140" rx="10" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="744" y="326" font-size="27" text-anchor="start" font-weight="bold" fill="#222"><tspan font-size="26">🧺</tspan> Buyers &amp; Suppliers</text>
+<text x="1298" y="324" font-size="18" text-anchor="end" font-weight="normal" fill="#555">weekly order book</text>
+<rect x="740" y="352" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="807.0" y="386.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">📅</tspan> Rolling week</text>
+<rect x="883" y="352" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="950.0" y="386.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">📉</tspan> Glut at 1.25×</text>
+<rect x="1026" y="352" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="1093.0" y="386.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">⏳</tspan> Seed in 10 d</text>
+<rect x="1169" y="352" width="134" height="56" rx="8" fill="#eef6ee" stroke="#4f8a55" stroke-width="1.6"/>
+<text x="1236.0" y="386.0" font-size="13.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="15.5">🔧</tspan> Contractors</text>
+<line x1="1021" y1="458" x2="1021" y2="474" stroke="#888" stroke-width="3" marker-end="url(#a888)"/>
+<rect x="712" y="478" width="618" height="294" rx="14" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="2.2" stroke-dasharray="7 6"/>
+<path d="M726,478 h590 a14,14 0 0 1 14,14 v44 h-618 v-44 a14,14 0 0 1 14,-14 z" fill="#e2e2e2"/>
+<text x="740" y="520" font-size="30" text-anchor="start" font-weight="bold" fill="#222"><tspan font-size="28">🎲</tspan> Recorded World</text>
+<text x="1312" y="518" font-size="17" text-anchor="end" font-weight="normal" fill="#777" font-style="italic">schedule unseen; rates published</text>
+<rect x="740" y="550" width="562" height="108" rx="10" fill="#f7f1e3" stroke="#9b7a3a" stroke-width="1.6"/>
+<text x="790" y="594" font-size="28" text-anchor="middle" font-weight="normal" fill="#222">🌬️</text>
+<text x="790" y="634" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">Wind</text>
+<line x1="824" y1="588" x2="870" y2="588" stroke="#a8743a" stroke-width="2.5" marker-end="url(#aa8743a)"/>
+<text x="906" y="594" font-size="28" text-anchor="middle" font-weight="normal" fill="#222">🌩️</text>
+<text x="906" y="634" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">Storm</text>
+<line x1="940" y1="588" x2="986" y2="588" stroke="#a8743a" stroke-width="2.5" marker-end="url(#aa8743a)"/>
+<text x="1022" y="594" font-size="28" text-anchor="middle" font-weight="normal" fill="#222">🪟</text>
+<text x="1022" y="634" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">Glass breaks</text>
+<line x1="1056" y1="588" x2="1102" y2="588" stroke="#a8743a" stroke-width="2.5" marker-end="url(#aa8743a)"/>
+<text x="1138" y="594" font-size="28" text-anchor="middle" font-weight="normal" fill="#222">🌡️</text>
+<text x="1138" y="634" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">Heat leaks</text>
+<line x1="1172" y1="588" x2="1218" y2="588" stroke="#a8743a" stroke-width="2.5" marker-end="url(#aa8743a)"/>
+<text x="1254" y="594" font-size="28" text-anchor="middle" font-weight="normal" fill="#222">🔥</text>
+<text x="1254" y="634" font-size="15" text-anchor="middle" font-weight="bold" fill="#222">Gas burnt</text>
+<text x="1021" y="680" font-size="13.5" text-anchor="middle" font-weight="normal" fill="#777">KNMI De Bilt weather · day-ahead electricity · TTF gas, the same for every agent on a seed</text>
+<rect x="740" y="696" width="180" height="56" rx="8" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1.6"/>
+<text x="830.0" y="730.0" font-size="14.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16.5">🌩️</tspan> Storms</text>
+<rect x="930" y="696" width="180" height="56" rx="8" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1.6"/>
+<text x="1020.0" y="730.0" font-size="14.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16.5">🧯</tspan> Boiler trips</text>
+<rect x="1120" y="696" width="180" height="56" rx="8" fill="#f4f4f4" stroke="#9a9a9a" stroke-width="1.6"/>
+<text x="1210.0" y="730.0" font-size="14.5" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16.5">🚚</tspan> Late deliveries</text>
+<rect x="16" y="418" width="536" height="354" rx="14" fill="#f7f1e3" stroke="#9b7a3a" stroke-width="2.2"/>
+<path d="M30,418 h508 a14,14 0 0 1 14,14 v44 h-536 v-44 a14,14 0 0 1 14,-14 z" fill="#9b7a3a" fill-opacity="0.16"/>
+<line x1="16" y1="476" x2="552" y2="476" stroke="#9b7a3a" stroke-width="1.5"/>
+<text x="284.0" y="459.24" font-size="34" font-weight="bold" text-anchor="middle"><tspan font-size="30.6">📊</tspan>  Evaluation</text>
+<rect x="30" y="490" width="508" height="84" rx="10" fill="#f7f1e3" stroke="#9b7a3a" stroke-width="1.6"/>
+<text x="46" y="524" font-size="19" text-anchor="start" font-weight="bold" fill="#222"><tspan font-size="22">📅</tspan> Day 1</text>
+<text x="524" y="524" font-size="19" text-anchor="end" font-weight="bold" fill="#222">Day 42 <tspan font-size="22">📅</tspan></text>
+<line x1="150" y1="518" x2="420" y2="518" stroke="#9b7a3a" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a9b7a3a)"/>
+<text x="284" y="508" font-size="16" text-anchor="middle" font-weight="bold" fill="#222">one turn each morning, 06:00</text>
+<text x="284" y="560" font-size="15" text-anchor="middle" font-weight="normal" fill="#222">⏱ 1 call = 1 day · the day and night run with nobody acting</text>
+<rect x="30" y="584" width="508" height="88" rx="10" fill="#f7f1e3" stroke="#9b7a3a" stroke-width="1.6"/>
+<text x="284" y="612" font-size="21" text-anchor="middle" font-weight="bold" fill="#222">Score: profit only</text>
+<text x="284" y="646" font-size="17" text-anchor="middle" font-weight="normal" fill="#222">0.8 × (profit − nobody) / (planner − nobody)</text>
+<text x="284" y="664" font-size="13.5" text-anchor="middle" font-weight="normal" fill="#666" font-style="italic">replayed by a separate verifier container</text>
+<rect x="30" y="682" width="508" height="80" rx="10" fill="#f7f1e3" stroke="#9b7a3a" stroke-width="1.6"/>
+<text x="284" y="704" font-size="18" text-anchor="middle" font-weight="bold" fill="#222">Calibrated against scripted growers</text>
+<line x1="56" y1="730" x2="512" y2="730" stroke="#555" stroke-width="1.5"/>
+<line x1="56" y1="725" x2="56" y2="735" stroke="#555" stroke-width="1.5"/>
+<text x="56.0" y="752" font-size="13" text-anchor="middle" font-weight="normal" fill="#444">nobody</text>
+<line x1="107" y1="725" x2="107" y2="735" stroke="#555" stroke-width="1.5"/>
+<text x="106.66666666666666" y="718" font-size="13" text-anchor="middle" font-weight="normal" fill="#444">harvest-early</text>
+<line x1="178" y1="725" x2="178" y2="735" stroke="#555" stroke-width="1.5"/>
+<text x="177.6" y="752" font-size="13" text-anchor="middle" font-weight="normal" fill="#444">stop-early</text>
+<line x1="461" y1="725" x2="461" y2="735" stroke="#555" stroke-width="1.5"/>
+<text x="461.3333333333333" y="752" font-size="13" text-anchor="middle" font-weight="normal" fill="#444">planner</text>
+<line x1="461" y1="716" x2="461" y2="740" stroke="#2e7d32" stroke-width="3" stroke-dasharray="4 3"/>
+<text x="467.3333333333333" y="724" font-size="13" text-anchor="start" font-weight="bold" fill="#2e7d32">0.8</text>
+<line x1="632" y1="852" x2="632" y2="778" stroke="#a0566a" stroke-width="4" marker-end="url(#aa0566a)"/>
+<rect x="16" y="790" width="1314" height="100" rx="14" fill="#fbf0f2" stroke="#a0566a" stroke-width="2.2"/>
+<text x="36" y="850" font-size="28" text-anchor="start" font-weight="bold" fill="#222"><tspan font-size="28">🛳️</tspan> Harbor runs</text>
+<text x="262" y="850" font-size="19" text-anchor="start" font-weight="normal" fill="#666" font-style="italic">17 trials · Gemini, Sonnet, Haiku</text>
+<rect x="668" y="812" width="210" height="58" rx="8" fill="#fbf0f2" stroke="#a0566a" stroke-width="1.6"/>
+<text x="773.0" y="847.0" font-size="14" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16">🗂️</tspan> Trajectories</text>
+<rect x="888" y="812" width="210" height="58" rx="8" fill="#fbf0f2" stroke="#a0566a" stroke-width="1.6"/>
+<text x="993.0" y="847.0" font-size="14" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16">🔁</tspan> Hour-by-hour replay</text>
+<rect x="1108" y="812" width="210" height="58" rx="8" fill="#fbf0f2" stroke="#a0566a" stroke-width="1.6"/>
+<text x="1213.0" y="847.0" font-size="14" text-anchor="middle" font-weight="bold" fill="#222"><tspan font-size="16">⚖️</tspan> Same budget &amp; grading</text></svg>
