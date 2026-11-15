@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 454" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">
+<rect width="1000" height="454" rx="8" fill="#0e1119"/>
+<text x="20" y="30" fill="#e9edf3" font-size="15" font-weight="bold">Three ways a strong model loses to a planner</text>
+<text x="330" y="56" fill="#8d97a8" font-size="11">where it bites in the greenhouse</text>
+<text x="665" y="56" fill="#8d97a8" font-size="11">measured in the 17 model runs</text>
+<rect x="14" y="70" width="972" height="116" rx="6" fill="#161b26" stroke="#2a3242"/>
+<text x="34" y="114" fill="#ffc857" font-size="30" font-weight="bold">1</text>
+<text x="70" y="108" fill="#e9edf3" font-size="14" font-weight="bold">Missing interacting</text>
+<text x="70" y="128" fill="#e9edf3" font-size="14" font-weight="bold">constraints</text>
+<text x="330" y="104" fill="#e9edf3" font-size="11">Demand is counted over a rolling week, seed</text>
+<text x="330" y="122" fill="#e9edf3" font-size="11">takes 10 days, a crop keeps top grade 2 days,</text>
+<text x="330" y="140" fill="#e9edf3" font-size="11">sowing closes 8-12 days before the end.</text>
+<text x="665" y="104" fill="#ffb4a2" font-size="11">Haiku sold 2.2 t of broccoli for €0 into a</text>
+<text x="665" y="122" fill="#ffb4a2" font-size="11">window already full; 6 of 17 runs held radish</text>
+<text x="665" y="140" fill="#ffb4a2" font-size="11">past its biggest week (about €40 k each).</text>
+<rect x="14" y="198" width="972" height="116" rx="6" fill="#161b26" stroke="#2a3242"/>
+<text x="34" y="242" fill="#ffc857" font-size="30" font-weight="bold">2</text>
+<text x="70" y="236" fill="#e9edf3" font-size="14" font-weight="bold">Not revising after</text>
+<text x="70" y="256" fill="#e9edf3" font-size="14" font-weight="bold">new information</text>
+<text x="330" y="232" fill="#e9edf3" font-size="11">Every morning's briefing lists outages,</text>
+<text x="330" y="250" fill="#e9edf3" font-size="11">refusals and what sold. Nothing changes</text>
+<text x="330" y="268" fill="#e9edf3" font-size="11">unless the agent acts on it.</text>
+<text x="665" y="232" fill="#ffb4a2" font-size="11">8 of 17 runs left a tripped boiler broken</text>
+<text x="665" y="250" fill="#ffb4a2" font-size="11">for over a week (Sonnet 6 of 7). The planner</text>
+<text x="665" y="268" fill="#ffb4a2" font-size="11">books the repair the next morning.</text>
+<rect x="14" y="326" width="972" height="116" rx="6" fill="#161b26" stroke="#2a3242"/>
+<text x="34" y="370" fill="#ffc857" font-size="30" font-weight="bold">3</text>
+<text x="70" y="364" fill="#e9edf3" font-size="14" font-weight="bold">Losing track of</text>
+<text x="70" y="384" fill="#e9edf3" font-size="14" font-weight="bold">unfinished work</text>
+<text x="330" y="360" fill="#e9edf3" font-size="11">42 turns of 5 actions: orders in transit,</text>
+<text x="330" y="378" fill="#e9edf3" font-size="11">batches ripening, sowings planned 10 days</text>
+<text x="330" y="396" fill="#e9edf3" font-size="11">ahead of the week they sell in.</text>
+<text x="665" y="360" fill="#ffb4a2" font-size="11">10 of 17 runs planted before their seed had</text>
+<text x="665" y="378" fill="#ffb4a2" font-size="11">landed. One run spent its output budget on</text>
+<text x="665" y="396" fill="#ffb4a2" font-size="11">reasoning on day 9 and never acted again.</text>
+</svg>
