@@ -130,7 +130,7 @@
       "reward": 0.1038
      }
     },
-    "bundle": "db6daf6953a864af",
+    "bundle": "ccb3e42c1c4cfea4",
     "components": {
      "profit": {
       "scale": 417064.97,
@@ -270,7 +270,7 @@
       "reward": 0.1574
      }
     },
-    "bundle": "db6daf6953a864af",
+    "bundle": "ccb3e42c1c4cfea4",
     "components": {
      "profit": {
       "scale": 420022.2,
@@ -410,7 +410,7 @@
       "reward": 0.1691
      }
     },
-    "bundle": "db6daf6953a864af",
+    "bundle": "ccb3e42c1c4cfea4",
     "components": {
      "profit": {
       "scale": 438373.29,
@@ -472,12 +472,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.0994
+       "profit": 0.0993
       },
       "metrics": {
        "profit_eur": 88789.1034
       },
-      "reward": 0.0994
+      "reward": 0.0993
      },
      "exploit:never-harvest": {
       "components": {
@@ -529,7 +529,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 875467.6834
+       "profit_eur": 876585.8585
       },
       "reward": 0.8
      },
@@ -544,18 +544,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2372
+       "profit": 0.2369
       },
       "metrics": {
        "profit_eur": 243577.9492
       },
-      "reward": 0.2372
+      "reward": 0.2369
      }
     },
-    "bundle": "e7aab7d490414a52",
+    "bundle": "a765e8ef9400a50d",
     "components": {
      "profit": {
-      "scale": 1122841.57,
+      "scale": 1124239.29,
       "zero": -22805.5736
      }
     },
@@ -612,12 +612,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.0975
+       "profit": 0.0966
       },
       "metrics": {
        "profit_eur": 88350.2675
       },
-      "reward": 0.0975
+      "reward": 0.0966
      },
      "exploit:never-harvest": {
       "components": {
@@ -669,7 +669,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 884732.1904
+       "profit_eur": 893505.9337
       },
       "reward": 0.8
      },
@@ -684,18 +684,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2398
+       "profit": 0.2375
       },
       "metrics": {
        "profit_eur": 249617.7585
       },
-      "reward": 0.2398
+      "reward": 0.2375
      }
     },
-    "bundle": "e7aab7d490414a52",
+    "bundle": "a765e8ef9400a50d",
     "components": {
      "profit": {
-      "scale": 1133666.69,
+      "scale": 1144633.87,
       "zero": -22201.1596
      }
     },
@@ -752,12 +752,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.0978
+       "profit": 0.0975
       },
       "metrics": {
        "profit_eur": 90453.1588
       },
-      "reward": 0.0978
+      "reward": 0.0975
      },
      "exploit:never-harvest": {
       "components": {
@@ -809,7 +809,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 904162.9024
+       "profit_eur": 907765.1023
       },
       "reward": 0.8
      },
@@ -824,18 +824,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2435
+       "profit": 0.2426
       },
       "metrics": {
        "profit_eur": 259293.7449
       },
-      "reward": 0.2435
+      "reward": 0.2426
      }
     },
-    "bundle": "e7aab7d490414a52",
+    "bundle": "a765e8ef9400a50d",
     "components": {
      "profit": {
-      "scale": 1158879.46,
+      "scale": 1163382.21,
       "zero": -22940.6654
      }
     },
@@ -884,7 +884,7 @@
       "reward": 0.0417
      }
     },
-    "bundle": "168e1e3a71a82050",
+    "bundle": "5e63c2e198c6dbee",
     "components": {},
     "oracle": "reference",
     "seed": 1,

@@ -67,3 +67,19 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
 - Known weak spots of the reference: the starting batches ripen into a glut in weeks 0-1 (models
   ran fewer lamp hours, which slows them); a burst that finishes an hour earlier than last week's
   is blocked by the window and slips a day (knife edge of the rolling window); lamp hours.
+
+## Change 4: reference tuned further (03:00-03:30)
+- Hold back the starting batches: before the first seed can arrive (the seed lead time), a crop whose
+  demand rises next week gets 10 of its lamp hours dark, so its starting batches ripen into the bigger
+  week instead of a glut (broccoli: x0.6 -> x1.5; radish, x1.4 -> x0.6, keeps full light).
+- Bursts sown for demand x 1.1 / (1.05 x ready weight x density); lamps at 85 %; first grow-time guess
+  0.7 x nominal days; ready 0.8 day before the burst; the last burst may be held up to 70 % of the
+  top-grade days after ripening (sowing deadline).
+- Tried and dropped: releasing a worker, more crew, fewer lamp hours after day 10 (all break the burst
+  timing: a burst that finishes an hour earlier than last week's is blocked by the rolling window).
+- Reference profit: seeds 1-3 EUR 877 / 894 / 908 k, seeds 1-6 mean 887 k; held-out seeds 101/104/107
+  EUR 834 / 867 / 861 k (old reference: 761 / 793 / 686 k). Note: this round was tuned on seeds 1-6,
+  which include the scored seeds 1-3; the held-out seeds show it does not depend on them.
+- The models' seed-1 runs, rescored: Gemini 0.75, Sonnet 0.80.
+- 9 model runs in flight on these rules (Gemini, Sonnet, Haiku x seeds 1-3; artifacts/v5-*). The rules
+  have not changed since the v4 runs, so a later change to the reference only rescales their scores.

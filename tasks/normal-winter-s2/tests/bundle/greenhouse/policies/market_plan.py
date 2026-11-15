@@ -31,9 +31,10 @@ class MarketPlan:
     burst_yield = 1.05            # expected kg per m2 at the cut, as a share of ready weight x sowing density
     grow_frac = 0.7               # sow-to-ready time as a share of nominal days, until the crop's own is measured
     grade_safety_days = 0.3       # treat a batch as this much older when checking it keeps a grade
-    ready_lead_days = 0.5         # aim to be ready this long before the target week starts
+    ready_lead_days = 0.8         # aim to be ready this long before the target week starts
     max_hold_days = 6             # look this many mornings ahead when timing a cut
     end_sale_margin_days = 0.5    # the last burst sells at least this long before the end
+    hold_share = 0.7              # share of the top-grade days a last burst may be held after ripening
     late_in_week = 0.01           # a burst's value falls this share per day it sells into its week (slack for late ripening)
     sale_hour = 12                # hour of day a burst cut at the 06:00 round is sold by
 
@@ -195,7 +196,7 @@ class MarketPlan:
         last_fixed = max((at for (c, _), at in self.burst_fixed.items() if c == crop_id), default=-1e9)
         first = max(first, last_fixed + w_h - 1)
         last = min(self.horizon - 24.0 * self.end_sale_margin_days,     # sold in time, and sown while allowed
-                   self.plant_deadline(self.crops[crop_id]) + 24.0 * (self.grow_days(crop_id) + self.ready_lead_days))
+                   self.plant_deadline(self.crops[crop_id]) + 24.0 * (self.grow_days(crop_id) + self.top_grade_days(crop_id)))
         grid = [24.0 * d + self.sale_hour for d in range(int(self.horizon // 24))
                 if first <= 24.0 * d + self.sale_hour <= last]
         if not grid:
@@ -216,6 +217,15 @@ class MarketPlan:
             else:
                 i += 1
         return out
+
+    def top_grade_days(self, crop_id: str) -> float:
+        """Days a ready batch can be held and still sell at the top grade, less a margin."""
+        crop = self.crops[crop_id]
+        loss = float(crop["stress"].get("ready_loss_per_day", 0.0))
+        if loss <= 0:
+            return 0.0
+        days = (1.0 - float(crop["market"]["grades"][0]["min_quality"])) / loss
+        return max(0.0, days * self.hold_share)
 
     def sow_today(self, crop_id: str, hour: float) -> tuple[float, float] | None:
         """(sale hour, kg) of the burst to sow this morning: the first planned burst, if a
