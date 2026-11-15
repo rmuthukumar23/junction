@@ -30,19 +30,15 @@
 
   // ---------------- choosing a morning ----------------
   fetch("/api/challenges").then((r) => r.json()).then((d) => {
-    const box = $("#picks"); box.innerHTML = "";
-    for (const c of d.challenges) {
-      const b = document.createElement("button"); b.className = "pick";
-      b.innerHTML = `<span class="lvl">${c.runs} AI runs</span><span class="t">${c.title}</span><br><span class="vs">against ${c.models.join(" · ")}</span><span class="d">${c.blurb}</span>`;
-      b.onclick = () => start(c.id, b); box.appendChild(b);
-    }
-  }).catch(() => ($("#picks").innerHTML = '<span class="bad">Could not reach the game server.</span>'));
+    const c = d.challenges[0], b = $("#startBtn");
+    $("#vs").textContent = `You against ${c.runs} AI runs (${c.models.join(", ")}) and the reference planner: same morning, same briefing, same 5 actions a day, same simulator.`;
+    b.disabled = false; b.onclick = () => start(c.id, b);
+  }).catch(() => ($("#vs").innerHTML = '<span class="bad">Could not reach the game server.</span>'));
 
   async function start(cid, btn) {
-    document.querySelectorAll(".pick").forEach((b) => (b.disabled = true));
-    btn.insertAdjacentHTML("beforeend", '<span class="d warn"><span class="spin"></span> opening the greenhouse…</span>');
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> opening the greenhouse…';
     try { G = await post("/api/challenge/start", { challenge: cid }); }
-    catch (e) { btn.insertAdjacentHTML("beforeend", `<span class="d bad">${e.message}</span>`); document.querySelectorAll(".pick").forEach((b) => (b.disabled = false)); return; }
+    catch (e) { btn.disabled = false; btn.textContent = "Start ▶"; $("#vs").innerHTML = `<span class="bad">${e.message}</span>`; return; }
     R = G.rules; B = G.briefing; ids = Object.keys(G.compartments).sort(); seed = G.seed;
     meta.compartments = G.compartments;
     meta.shift = (B.status.business.staff.shift || "07:00-15:00").split("-").map((x) => parseInt(x, 10));
@@ -373,12 +369,12 @@
       <h4>Your two mornings</h4>${good}${mine}
       <h4>Where the AIs slipped</h4>${aiHtml}
       <h4>Every check · you, and how many AI runs passed it</h4>${grid}
-      <p class="note">Same seed, same first morning, same briefing, same 5 actions a day, same simulator. ▶ replays that AI's two days. The 42-day scores are each run's real benchmark result (the reference planner scores 0.80).</p>
+      <p class="note">Same first morning, same briefing, same 5 actions a day, same simulator. ▶ replays that AI's two days. The 42-day scores are each run's real benchmark result (the reference planner scores 0.80).</p>
       <div class="row" style="margin-top:12px"><button class="primary" onclick="location.reload()">Play again</button><button id="share">Share</button></div>`;
     $("#end").style.display = "flex";
     document.querySelectorAll("button.mini").forEach((b) => (b.onclick = () => watchRun(b.dataset.run)));
     $("#share").onclick = async () => {
-      const txt = `Lettuce Bench, ${final.challenge.title}: I passed ${you.checks_passed}/${you.checks_total} checks and placed #${place} of ${all.length} against ${models.length} AI runs.`;
+      const txt = `LettuceBench: I passed ${you.checks_passed}/${you.checks_total} checks and placed #${place} of ${all.length} against ${models.length} AI runs.`;
       try { if (navigator.share) await navigator.share({ text: txt, url: location.href }); else { await navigator.clipboard.writeText(txt + " " + location.href); toast("Copied"); } } catch (e) { /* dismissed */ }
     };
   }

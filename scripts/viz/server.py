@@ -615,7 +615,7 @@ def game_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
 
 DAYS_PLAYED = 2
 NICE = {"gemini-4-hydrogen": "Gemini 4 Hydrogen", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5"}
-SEED_TITLES = {1: "Seed 1: a storm on day 1", 2: "Seed 2: the cold start", 3: "Seed 3: a windy first week"}
+GAME_SEED = 1     # the phone game is one simulation: the seed with the most model runs (7, all three models)
 AI_CACHE: dict[int, Any] = {}
 AI_LOCK = threading.Lock()
 
@@ -635,10 +635,10 @@ def _model_runs(seed: int) -> list[dict[str, Any]]:
 
 def _challenges() -> list[dict[str, Any]]:
     out = []
-    for seed in (1, 2, 3):
+    for seed in (GAME_SEED,):
         runs = _model_runs(seed)
         models = sorted({r["model"] for r in runs})
-        out.append({"id": f"s{seed}", "seed": seed, "day": 0, "title": SEED_TITLES.get(seed, f"Seed {seed}"),
+        out.append({"id": f"s{seed}", "seed": seed, "day": 0, "title": "The first two days",
                     "model": f"{len(runs)} AI runs", "models": models, "runs": len(runs),
                     "blurb": f"Days 0-1 of a 42-day winter. You against {len(runs)} recorded runs by "
                              f"{', '.join(models)}, and the reference planner."})
@@ -956,5 +956,6 @@ if __name__ == "__main__":
     a = ap.parse_args()
     SCENARIO = ROOT / "scenarios" / f"{a.scenario}.toml"
     POOL = ProcessPoolExecutor(max_workers=max(1, a.jobs))
+    threading.Thread(target=_ai_side, args=(GAME_SEED,), daemon=True).start()   # the phone game's comparison, ready early
     print(f"Greenhouse viewer on http://localhost:{a.port}  (play: /play.html)  ({a.scenario}, {a.jobs} worker(s); Ctrl+C to stop)")
     ThreadingHTTPServer((a.host, a.port), Handler).serve_forever()

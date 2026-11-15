@@ -1,7 +1,8 @@
 # Two days vs the AIs (phone game)
 
-A person plays the first two mornings of a seed on a phone and is ranked against every recorded AI
-run on that seed and the reference planner, on the same checks.
+One simulation: a person plays the first two mornings of seed 1 on a phone and is ranked against every
+recorded AI run on that seed (7 runs: Gemini 4 Hydrogen, Claude Sonnet 5.5, Claude Haiku 5.5) and the
+reference planner, on the same checks. The comparison is computed when the server starts.
 
     bash scripts/phone.sh        # starts the server and prints the link to open on the phone
 
@@ -11,8 +12,8 @@ for phones on the same Wi-Fi. If `cloudflared` is installed (`brew install cloud
 iPhone; with `qrencode` installed it prints QR codes. Everything the page needs is served by the laptop
 (three.js r128 is vendored in `scripts/viz/vendor/`), so it works without other internet access.
 
-1. **Pick a seed** (1, 2 or 3). Every recorded model run on that seed (`runs/normal-winter/`: 5 to 7 runs by
-   Gemini 4 Hydrogen, Claude Sonnet 5.5 and Claude Haiku 5.5) started from this same morning.
+1. **Start.** Every recorded model run on seed 1 (`runs/normal-winter/`) started from this same morning
+   (`GAME_SEED` in `scripts/viz/server.py`).
 2. **Play two mornings:** the same briefing, the same `submit_day` tool and the same limit of 5 actions the
    models had. The phone shows the briefing in plain words (what is ready and worth how much, what each crop's
    buyers still want this week, seed in stock and on the way, cold houses, damage, news) and offers the actions
