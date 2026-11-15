@@ -56,3 +56,30 @@ Options (design decisions for the team, not done here):
   selling 2 t into a full window for EUR 2) is the same phenomenon. A pitch built on "frontier models
   match a planner on average but are unreliable run to run, with these concrete failure modes" is
   consistent with the leading benchmark in this genre, and honest about our means.
+
+## 4. Reliability (pass^k, from tau-bench) on our 17 runs
+
+tau-bench (arXiv 2406.12045) defines pass^k as the chance that *all* k i.i.d. trials of a task succeed,
+averaged over tasks (unbiased estimate C(c,k)/C(n,k) per task); it showed agents with ~60 % pass^1
+dropping to ~25 % at pass^8. ReliabilityBench (arXiv 2601.06112) reports pass@1 overestimating
+reliability by 20-40 %.
+
+Applied to `runs/ANALYSIS.md` on main e5f87b9 (task = seed; 2-3 runs per seed; reference is
+deterministic, 0.80 every time):
+
+| Success means | Gemini 4 Hydrogen | Claude Sonnet 5.5 | Claude Haiku 5.5 |
+|---|---|---|---|
+| score >= 0.80 (matches the reference) | pass^1 0.28, pass^2 0.00 | pass^1 0.39, pass^2 0.11 | pass^1 0.00 |
+| score >= 0.75 | pass^1 0.89, pass^2 0.78 | pass^1 0.72, pass^2 0.44 | pass^1 0.00 |
+| worst / best run | 0.724 / 0.861 | 0.176 / 0.816 | 0.539 / 0.668 |
+
+Reading: a frontier model matches the reference planner on a given seed about a third of the time,
+and essentially never twice in a row on the same seed, while the planner does it every time. That is
+an honest, measurable "gap" in reliability even though the means are close (0.78 / 0.70 vs 0.80).
+Caveats to state with it: 2-3 runs per seed is small; the result depends on the threshold (at 0.75
+Gemini is mostly reliable); the reference was tuned partly on seeds 1-3 (held-out 101-108 check
+recommended before claiming).
+
+Suggested README line (honest): "The reference planner reaches 0.80 on every seed, every time. Gemini
+and Sonnet match it in about a third of runs and never twice on the same seed (pass^2 at 0.80 of
+0.00 and 0.11 over 2-3 runs per seed); their worst runs fall to 0.72 and 0.18."
