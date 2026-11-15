@@ -47,12 +47,12 @@
   },
   "exploit:harvest-early": {
    "components": {
-    "profit": 0.3794
+    "profit": 0.3982
    },
    "metrics": {
-    "profit_eur": 108622.0467
+    "profit_eur": 103134.2675
    },
-   "reward": 0.3794
+   "reward": 0.3982
   },
   "exploit:never-harvest": {
    "components": {
@@ -104,7 +104,7 @@
     "profit": 0.8
    },
    "metrics": {
-    "profit_eur": 237263.4475
+    "profit_eur": 214700.1255
    },
    "reward": 0.8
   },
@@ -119,18 +119,18 @@
   },
   "stop-early": {
    "components": {
-    "profit": 0.3074
+    "profit": 0.3386
    },
    "metrics": {
     "profit_eur": 86593.9216
    },
-   "reward": 0.3074
+   "reward": 0.3386
   }
  },
- "bundle": "bd49d1e4aff666ec",
+ "bundle": "9a855d22f7610f62",
  "components": {
   "profit": {
-   "scale": 305850.76,
+   "scale": 277646.61,
    "zero": -7417.1596
   }
  },
