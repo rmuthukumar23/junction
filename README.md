@@ -21,7 +21,7 @@ Agent" (Junction 2026). Harbor task, MCP sidecar, trace-replay verifier.
 - **On average, the frontier models land just under the planner, with a wide spread.** Gemini scores 0.72-0.86
   and Sonnet 0.73-0.82 (seeds 1-3). Five of 14 runs beat the reference, so it is not a ceiling. The best
   run (Gemini, seed 2, EUR 963 k) staggered several partial sales a week, each timed to land as an older
-  sale left the rolling demand window. The other nine leave EUR 37-86 k on the table against it.
+  sale left the rolling demand window. Eight of the other nine leave EUR 37-86 k on the table against it (the ninth ended on day 9).
 - **The market is the failure mode.** Demand is a published, uneven order book counted over a rolling
   week. Runs that sell into a window the previous week already filled get nothing for it. Haiku sold
   2.1 t of radish for EUR 2 and 2.2 t of broccoli for EUR 0 (seed 2), and met only 61-78 % of demand at
