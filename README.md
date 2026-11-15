@@ -1,8 +1,7 @@
 # Greenhouse Bench
 
 **An AI agent runs a Dutch winter greenhouse for 42 days. One decision each morning, real weather and
-energy prices, scored on profit against a scripted planner.** Built for AfterQuery's *Break the Agent*
-(Junction 2026), as a Harbor task.
+energy prices, scored on profit against a scripted planner.**
 
 ![Six growers on the same seed: the reference planner, a Gemini run, and the scripted baselines, each greenhouse drawn from the real simulator](docs/img/viewer.png)
 
@@ -13,23 +12,93 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 >
 > - **Harbor:** each seed is a standard Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/)). `harbor run -p tasks/normal-winter-s1 -a opencode -m <model>`, or `bash scripts/judge.sh` for the full protocol. All 17 model runs below are Harbor 0.26 + OpenCode 1.19.5 trials.
 > - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
-> - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([gallery](#failure-gallery)).
+> - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([other failures](#other-failures-we-found)).
 
 ## Why a greenhouse is like chess against Stockfish
 
-The best language models know the rules of chess and play moves that look like chess. Against
-Stockfish they still lose. Not because a rule is hidden, but because a game is many moves that
-interact: a piece left hanging ten moves ago, a threat the last move created, a plan that was
-started and never finished. Stockfish does not know more than the model. It just never stops
-checking.
+### The analogy
 
-A greenhouse plays the same way. Every rule the agent needs is in its instructions: the growth
-equations, prices, lead times and the buyers' weekly order book. The scripted reference planner is
-our small Stockfish. It prices every possible cut against the published market rule and plans its
-sowings with a dynamic programme. Language models get close to it on average, and some runs beat it.
-When they lose, they lose in the three ways the research on agents keeps finding:
+Chess strength is measured in Elo. The expected score of player $A$ against player $B$ is
 
-![Three failure patterns and where they show up](docs/img/three-patterns.svg)
+$$
+E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}
+$$
+
+Stockfish plays at around 3600 Elo. The best language models know every rule of chess and play moves
+that look like chess, yet against Stockfish they score close to nothing: a 1000-point gap gives
+$E \approx 0.003$. Stockfish does not know more rules. It never stops checking how its moves interact.
+
+A greenhouse has the same shape. Every rule the agent needs is in its instructions: the growth
+equations, prices, lead times and the buyers' weekly order book. Our scripted reference planner plays
+the part of Stockfish. It prices every possible harvest against the published market rule and plans
+its sowings with a dynamic programme.
+
+Count each model run as a game against the planner on the same seed: a win if it earns more. Then
+$E = \text{wins} / \text{games}$ and the rating gap is
+
+$$
+\Delta R = 400 \, \log_{10}\left(\frac{1 - E}{E}\right)
+$$
+
+| Model | Games | Wins | $E$ | Elo below the planner |
+|---|---:|---:|---:|---:|
+| Claude Sonnet 5.5 | 7 | 3 | 0.43 | $\approx 50$ |
+| Gemini 4 Hydrogen | 7 | 2 | 0.29 | $\approx 160$ |
+| Claude Haiku 5.5 | 3 | 0 | 0 | lost every game |
+
+<sub>Few games per model, so these gaps are rough; the score table below has the confidence intervals.</sub>
+
+Frontier models are not 1000 points behind here. They are close, and sometimes win. When they lose,
+they lose in the same three ways.
+
+### Three ways a strong model loses to a planner
+
+**1. Missing interacting constraints**
+
+- **What it is:** each rule is followed on its own, but not the way rules combine.
+- **How it shows up here:** demand is counted over a rolling week, seed takes 10 days to arrive, a crop
+  keeps its top grade for about 2 days, and sowing closes 8-12 days before the end. A good harvest
+  decision has to respect all four at once.
+- **What we measured:** Haiku sold 2.2 t of broccoli for €0 into a week that was already full (figure
+  below). 6 of 17 runs held radish past its biggest week, losing about €40 k each.
+
+**2. Not revising after new information**
+
+- **What it is:** the plan made yesterday is kept after the world changed.
+- **How it shows up here:** every morning's briefing lists outages, refused actions and what sold.
+  Nothing changes unless the agent acts on it.
+- **What we measured:** 8 of 17 runs left a tripped boiler broken for over a week (Sonnet 6 of 7), with
+  the outage in every briefing. The planner books the repair the next morning.
+
+**3. Losing track of unfinished work**
+
+- **What it is:** something started is forgotten before it is finished.
+- **How it shows up here:** 42 turns of up to 5 actions, with orders in transit, batches ripening and
+  sowings planned 10 days ahead of the week they sell in.
+- **What we measured:** 10 of 17 runs planted before their seed had landed. One run spent its whole
+  output budget reasoning on day 9 and never acted again.
+
+### Why this matters for this benchmark
+
+A benchmark only measures planning if the planner's edge comes from the same information the agent
+has. Nothing here is hidden, no tool is broken, and the planner reads exactly the briefing the agent
+reads. So every euro between them is a decision, and the three patterns say which kind of decision.
+These are the failures that matter when agents run real operations: inventory with lead times,
+schedules with deadlines, equipment that breaks while nobody is watching.
+
+### How we found the problem
+
+1. **The first version was too forgiving.** Selling 20 % over the week's demand still paid about 80 % of the price, so
+   "grow plenty" was enough and the top models tied the old reference (0.79 vs 0.80).
+2. **We made oversupply costly.** The price now reaches zero at 1.25x the week's demand. On the first
+   runs Gemini scored 0.99 and Sonnet 1.00: they had beaten our reference.
+3. **The trajectories showed why.** Logging every sale showed that the models sold in weekly bursts,
+   while the reference sold a steady stream into weeks that were already full. The old reference was
+   weak, not the models strong.
+4. **We rebuilt the planner around that.** It now prices every harvest against the rolling window and
+   plans sowings with a dynamic programme: +14 % profit on held-out seeds it was never tuned on.
+5. **Then we ran 17 model trials on it and read every trajectory.** The losses fell into the three
+   patterns above.
 
 ## What the runs show
 
@@ -55,14 +124,14 @@ week; anything sold while the window is already full fetches almost nothing:
 <sub>The planner keeps the blue area (sold in the last 7 days) under the green line (demand in force). Haiku
 sold 6.2 t in week 3, then cut 2.2 t more in week 4 while that was still in the window: €0.</sub>
 
-### Failure gallery
+### Other failures we found
 
-One example per failure, linked to that run's day-by-day log (the full Harbor trajectory is
-`trajectory.json` in the same folder).
+The market figure above is the biggest loss. These are the other failures we found reading the
+trajectories, one example each, linked to the day it happens in that run's log (the full Harbor
+trajectory is `trajectory.json` in the same folder).
 
 | Pattern | Example | What happened | Cost |
 |---|---|---|---|
-| 1 Interacting constraints | [Haiku, seed 2, days 29-30](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Sold 6.2 t of broccoli in week 3, then cut 2.2 t more on days 29-30; week 4 wants 2.8 t and the window still held week 3 | 2.2 t sold for €0 |
 | 1 Interacting constraints | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1; it held two of four starting batches into week 1, behind the window (6 of 17 runs did this) | 2.1 t sold for €2 |
 | 2 Not revising | [Sonnet, seed 1, from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22 and the outage was in every briefing after; no repair was booked in 20 days (8 of 17 runs left it over a week) | 20 days without the boiler |
 | 2 Not revising | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`, so the whole order, seed included, was refused (Gemini sent malformed actions in 6 of 7 runs) | seed a day late |

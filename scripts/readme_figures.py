@@ -4,7 +4,6 @@
 
 docs/img/market-window.svg: broccoli sales against the rolling-week demand, the reference
 planner and one model run on the same seed, replayed in the real simulator.
-docs/img/three-patterns.svg: the three failure patterns and where each shows up in the game.
 """
 from __future__ import annotations
 
@@ -106,42 +105,7 @@ def market_window() -> None:
     (IMG / "market-window.svg").write_text("\n".join(out) + "\n")
 
 
-def three_patterns() -> None:
-    rows = [
-        ("1", "Missing interacting constraints",
-         ["Demand is counted over a rolling week, seed", "takes 10 days, a crop keeps top grade 2 days,", "sowing closes 8-12 days before the end."],
-         ["Haiku sold 2.2 t of broccoli for €0 into a", "window already full; 6 of 17 runs held radish", "past its biggest week (about €40 k each)."]),
-        ("2", "Not revising after new information",
-         ["Every morning's briefing lists outages,", "refusals and what sold. Nothing changes", "unless the agent acts on it."],
-         ["8 of 17 runs left a tripped boiler broken", "for over a week (Sonnet 6 of 7). The planner", "books the repair the next morning."]),
-        ("3", "Losing track of unfinished work",
-         ["42 turns of 5 actions: orders in transit,", "batches ripening, sowings planned 10 days", "ahead of the week they sell in."],
-         ["10 of 17 runs planted before their seed had", "landed. One run spent its output budget on", "reasoning on day 9 and never acted again."]),
-    ]
-    w, rh = 1000, 128
-    H = 70 + rh * len(rows)
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {H}" {FONT}>', f'<rect width="{w}" height="{H}" rx="8" fill="{BG}"/>',
-           f'<text x="20" y="30" fill="{FG}" font-size="15" font-weight="bold">Three ways a strong model loses to a planner</text>',
-           f'<text x="330" y="56" fill="{MUTED}" font-size="11">where it bites in the greenhouse</text>',
-           f'<text x="665" y="56" fill="{MUTED}" font-size="11">measured in the 17 model runs</text>']
-    for i, (n, name, game, seen) in enumerate(rows):
-        y = 70 + i * rh
-        out.append(f'<rect x="14" y="{y}" width="{w - 28}" height="{rh - 12}" rx="6" fill="#161b26" stroke="{GRID}"/>')
-        out.append(f'<text x="34" y="{y + 44}" fill="{MID}" font-size="30" font-weight="bold">{n}</text>')
-        words = name.split(" ")
-        half = (len(words) + 1) // 2
-        out.append(f'<text x="70" y="{y + 38}" fill="{FG}" font-size="14" font-weight="bold">{" ".join(words[:half])}</text>')
-        out.append(f'<text x="70" y="{y + 58}" fill="{FG}" font-size="14" font-weight="bold">{" ".join(words[half:])}</text>')
-        for j, t in enumerate(game):
-            out.append(f'<text x="330" y="{y + 34 + 18 * j}" fill="{FG}" font-size="11">{t}</text>')
-        for j, t in enumerate(seen):
-            out.append(f'<text x="665" y="{y + 34 + 18 * j}" fill="#ffb4a2" font-size="11">{t}</text>')
-    out.append("</svg>")
-    (IMG / "three-patterns.svg").write_text("\n".join(out) + "\n")
-
-
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
-    three_patterns()
     market_window()
-    print("wrote docs/img/three-patterns.svg, docs/img/market-window.svg")
+    print("wrote docs/img/market-window.svg")
