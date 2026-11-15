@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0b1020">
-<title>Lettuce Bench: one day vs the AI</title>
+<link rel="icon" href="data:,">
+<title>Lettuce Bench: two days vs the AIs</title>
 <style>
   :root { --bg: #0b1020; --ink: #eef2ff; --dim: #9aa6c8; --card: rgba(13, 19, 38, .94); --line: rgba(255,255,255,.12);
           --ok: #7bd88f; --bad: #ff6b5b; --warn: #ffd166; --acc: #6cc4ff; --gold: #f4c24f; --chip: #18233f; --chipon: #23518a;
@@ -83,6 +84,9 @@
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
   .who { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
   .fl { margin: 3px 0; color: #ffd0c8; } .gd { margin: 3px 0; color: #c9f5d2; }
+  button.mini { padding: 4px 9px; font-size: 12px; border-radius: 8px; }
+  table.grid { font-size: 11px; } table.grid td { padding: 3px 4px; text-align: center; } table.grid td:first-child { text-align: left; }
+  .ck { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--acc); border-radius: 50%; animation: sp 1s linear infinite; vertical-align: -2px; }
   @keyframes sp { to { transform: rotate(360deg); } }
 </style>
@@ -92,7 +96,7 @@
 <div id="stage"><canvas id="cv"></canvas></div>
 
 <div id="hud">
-  <div class="pill" id="clock"><div class="t">Lettuce Bench</div><div class="s">one day vs the AI</div></div>
+  <div class="pill" id="clock"><div class="t">Lettuce Bench</div><div class="s">two days vs the AIs</div></div>
   <div class="pill" id="money" style="display:none"><div class="v num">€0</div><div class="s">profit so far</div></div>
 </div>
 <div id="alerts"></div>
@@ -112,19 +116,20 @@
 <div id="toast"></div>
 
 <div id="intro" class="overlay"><div class="box">
-  <h1>🌱 One day in the greenhouse</h1>
-  <p>You run a 3-house microgreen greenhouse for one winter day, starting from a real morning an AI model faced in our benchmark.</p>
+  <h1>🌱 Two days in the greenhouse</h1>
+  <p>You run a 3-house microgreen greenhouse for the first two days of a winter season: the same morning every AI model in our benchmark started from.</p>
   <ol class="steps">
     <li>Read the morning briefing.</li>
     <li>Choose up to <b>5 actions</b>: sell, plant, order seed, set the climate.</li>
-    <li>Watch the day play out, then see your mistakes next to the AI's.</li>
+    <li>Watch each day play out, morning to evening.</li>
+    <li>See how you rank against every AI run on the same seed.</li>
   </ol>
   <p class="note">Same simulator, same briefing, same 5-action limit the AI had.</p>
   <div id="picks" class="picks"><span class="note"><span class="spin"></span> loading mornings…</span></div>
 </div></div>
 <div id="end" class="overlay" style="display:none"><div class="box" id="endbox"></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="vendor/three.min.js"></script>
 <script src="scene.js"></script>
 <script src="play.js"></script>
 </body>

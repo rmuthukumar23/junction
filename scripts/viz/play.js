@@ -1,21 +1,20 @@
-// One playable day on a phone, against a model. A real morning from a recorded model run: you get
-// the model's briefing and its 5 actions (the same submit_day tool), the day plays out from morning
-// to evening on the viewer's 3D site, and meanwhile the server replays the model's own morning on a
-// copy from the same state. Then both are checked for the same failure patterns
-// (scripts/viz/failures.py), and the reference planner finishes both seasons so each morning also
-// gets a season score. Endpoints: /api/challenges, /api/challenge/start, /api/challenge/day,
-// /api/challenge/report.
+// Two playable days on a phone, against every AI that played the same seed. The person plays the
+// first two mornings of a seed (the same briefing, the same submit_day tool and 5-action limit the
+// models had); each day plays out from morning to evening on the viewer's 3D site. Every recorded
+// model run on that seed started from the same morning, so the report ranks the person against all
+// of them and the reference planner on the same checks (scripts/viz/failures.py) and on the profit of
+// those two days, and shows each run's real 42-day score for scale. Endpoints: /api/challenges,
+// /api/challenge/start, /api/challenge/day, /api/challenge/report, /api/challenge/frames.
 (() => {
   const $ = (s) => document.querySelector(s);
   const eur = (v) => (v < 0 ? "−" : "") + "€" + Math.round(Math.abs(v)).toLocaleString("en-US");
   const keur = (v) => (v < 0 ? "−" : "") + "€" + (Math.abs(v) >= 1e6 ? (Math.abs(v) / 1e6).toFixed(2) + "M" : Math.abs(v) >= 1e3 ? Math.round(Math.abs(v) / 1e3) + "k" : Math.round(Math.abs(v)));
   const kfmt = (v) => (Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + "M" : Math.abs(v) >= 1e3 ? (v / 1e3).toFixed(v >= 1e4 ? 0 : 1) + "k" : Math.round(v));
   const DAY_RATE = 2.4, NIGHT_RATE = 14;          // simulated hours per second: 06-18 in ~5 s, the night in ~1 s
-  const LEVEL = { first: "hard", radish: "medium", broccoli: "medium" };
 
   let G = null, R = null, B = null, F = [], ids = [], seed = 0, final = null, result = null;
   let hf = 0, target = 0, playing = false, last = 0, lastH = -1, zoom = 1.05, phase = "intro", lampsOn = true;
-  let plan = freshPlan(), viewing = "you";
+  let plan = freshPlan(), viewing = "you", dayNo = 1, watchRun = null;
   const scene = makeScene({ pix: 2, zoom, transparent: true });
   scene.init($("#cv"));
   const meta = { compartments: {}, maxW: {}, snowAt: [], shift: [7, 15], maxLamp: {}, maxHeat: {}, maxBuffer: 1,
@@ -34,14 +33,14 @@
     const box = $("#picks"); box.innerHTML = "";
     for (const c of d.challenges) {
       const b = document.createElement("button"); b.className = "pick";
-      b.innerHTML = `<span class="lvl">${LEVEL[c.id] || ""}</span><span class="t">${c.title}</span><br><span class="vs">Day ${c.day} · against ${c.model}</span><span class="d">${c.blurb}</span>`;
+      b.innerHTML = `<span class="lvl">${c.runs} AI runs</span><span class="t">${c.title}</span><br><span class="vs">against ${c.models.join(" · ")}</span><span class="d">${c.blurb}</span>`;
       b.onclick = () => start(c.id, b); box.appendChild(b);
     }
   }).catch(() => ($("#picks").innerHTML = '<span class="bad">Could not reach the game server.</span>'));
 
   async function start(cid, btn) {
     document.querySelectorAll(".pick").forEach((b) => (b.disabled = true));
-    btn.insertAdjacentHTML("beforeend", '<span class="d warn"><span class="spin"></span> replaying the AI\'s run up to this morning…</span>');
+    btn.insertAdjacentHTML("beforeend", '<span class="d warn"><span class="spin"></span> opening the greenhouse…</span>');
     try { G = await post("/api/challenge/start", { challenge: cid }); }
     catch (e) { btn.insertAdjacentHTML("beforeend", `<span class="d bad">${e.message}</span>`); document.querySelectorAll(".pick").forEach((b) => (b.disabled = false)); return; }
     R = G.rules; B = G.briefing; ids = Object.keys(G.compartments).sort(); seed = G.seed;
@@ -57,7 +56,8 @@
     hf = target = G.frames[G.frames.length - 1].h; lastH = Math.floor(hf);
     scene.setData(meta);
     $("#intro").style.display = "none"; $("#tools").style.display = "flex"; $("#money").style.display = "block";
-    phase = "morning"; renderSheet(); hud(); sheet(true);
+    phase = "morning"; dayNo = 1; renderSheet(false); hud(); sheet(true);
+    toast(`Day 1 of ${G.days_to_play}: read the briefing, then pick up to 5 actions.`, 4500);
   }
 
   function addFrames(frames) {
@@ -122,13 +122,13 @@
     return lines;
   }
 
-  function renderSheet() {
-    const body = $("#body"); body.innerHTML = "";
+  function renderSheet(keepScroll) {
+    const body = $("#body"), top = body.scrollTop; body.innerHTML = "";
     const sec = (title, tag = "") => { const h = document.createElement("h3"); h.innerHTML = `<span>${title}</span><span class="tag">${tag}</span>`; body.appendChild(h); const r = document.createElement("div"); r.className = "row"; body.appendChild(r); return r; };
     const chip = (html, on, fn, cls = "") => { const b = document.createElement("button"); b.className = "chip " + cls + (on ? " on" : ""); b.innerHTML = html; b.onclick = fn; return b; };
 
     const bf = document.createElement("div"); bf.className = "brief";
-    bf.innerHTML = `<div class="note">Day ${day()} · 06:00 · morning briefing</div>` + briefing().map((l) => `<div>${l}</div>`).join("");
+    bf.innerHTML = `<div class="note">Morning ${dayNo} of ${G.days_to_play} · day ${day()} · 06:00 briefing</div>` + briefing().map((l) => `<div>${l}</div>`).join("");
     body.appendChild(bf);
 
     // sell
@@ -208,11 +208,12 @@
         <span class="note">sold ${kfmt(sold)} · today ${kfmt(pl)} · demand ${kfmt(dm)}</span></div>`);
     }
     planBar();
+    body.scrollTop = keepScroll === false ? 0 : top;
   }
   function planBar() {
     const a = actions(), n = count();
     $("#plan").innerHTML = n ? `<b>${n} / ${limit()}</b> · ${a.map(describe).join(" · ")}` : `<b>0 / ${limit()}</b> actions · tap cards to plan your morning`;
-    $("#go").textContent = n ? "Start the day ▶" : "Do nothing ▶";
+    $("#go").textContent = (n ? "Start day " : "Skip day ") + dayNo + " ▶";
   }
 
   function actions() {
@@ -273,7 +274,7 @@
     let r;
     try { r = await post("/api/challenge/day", { id: G.id, actions: acts }); }
     catch (e) { toast('<span class="bad">' + e.message + "</span>"); $("#go").disabled = false; planBar(); return; }
-    phase = "day"; result = r;
+    phase = "day"; result = r; $("#go").disabled = false;
     addFrames(r.frames || []);
     const rf = refusals(r.results);
     $("#toast").style.display = "none";
@@ -281,7 +282,7 @@
     G.alarmList = r.alarms || [];
     target = r.frames && r.frames.length ? r.frames[r.frames.length - 1].h : target;
     playing = true; sheet(false); $("#skip").style.display = "block";
-    pollReport();
+    if (r.day >= r.days_to_play) pollReport();
   };
   $("#skip").onclick = () => { hf = target - 0.01; };
   async function pollReport() {
@@ -330,9 +331,15 @@
   requestAnimationFrame(loop);
   function afterDay() {
     if (viewing === "model") { viewing = "you"; restoreYou(); return showReport(); }
+    if (result && result.day < result.days_to_play) {         // the next morning
+      B = result.briefing; plan = freshPlan(); dayNo = result.day + 1; phase = "morning";
+      renderSheet(false); hud(); sheet(true);
+      toast(`Morning ${dayNo} of ${result.days_to_play}. What changed overnight is in the briefing.`, 4500);
+      return;
+    }
     phase = "waiting";
     if (final) return showReport();
-    $("#endbox").innerHTML = `<h2>Day done</h2><p><span class="spin"></span> Now replaying ${G.model}'s own morning from the same state and checking both for mistakes…</p>`;
+    $("#endbox").innerHTML = `<h2>Both days done</h2><p><span class="spin"></span> Checking your two mornings and every AI's on the same seed…</p>`;
     $("#end").style.display = "flex";
   }
 
@@ -340,52 +347,55 @@
   function showReport() {
     phase = "report";
     if (final.error) { $("#endbox").innerHTML = `<h2 class="bad">Could not compare</h2><p>${final.error}</p><button onclick="location.reload()">Start again</button>`; $("#end").style.display = "flex"; return; }
-    const you = final.you, m = final.model, name = final.challenge.model;
+    const you = final.you, ais = final.ais, all = [you, ...ais];
+    const rank = [...all].sort((a, b) => b.checks_passed - a.checks_passed || b.two_day_profit - a.two_day_profit);
+    const place = rank.indexOf(you) + 1, models = ais.filter((a) => a.kind === "model");
+    const beat = models.filter((a) => a.checks_passed < you.checks_passed).length, tied = models.filter((a) => a.checks_passed === you.checks_passed).length;
+    const col = you.checks_passed === you.checks_total ? "ok" : beat >= models.length / 2 ? "warn" : "bad";
+    const head = you.checks_passed === you.checks_total ? `Flawless: ${you.checks_passed}/${you.checks_total} checks` : `${you.checks_passed}/${you.checks_total} checks passed`;
+    const sub = `You placed <b>#${place} of ${all.length}</b>. You made fewer mistakes than ${beat} of ${models.length} AI runs${tied ? ` and tied ${tied}` : ""}.`;
     const pname = { constraints: "Missing interacting constraints", revising: "Not revising after new information",
                     tracking: "Losing track of unfinished work", mechanics: "Action mechanics" };
-    const nY = you.failures.length, nM = m.failures.length;
-    const head = nY === 0 && nM === 0 ? "A clean morning, for both of you" : nY === 0 ? `Clean morning. ${name} slipped ${nM}×.`
-      : nY < nM ? `${nY} slip${nY > 1 ? "s" : ""}, ${name} made ${nM}` : nY === nM ? `${nY} slip${nY > 1 ? "s" : ""} each` : `${nY} slip${nY > 1 ? "s" : ""}. ${name} made ${nM || "none"}.`;
-    const col = nY === 0 ? "ok" : nY <= nM ? "warn" : "bad";
-    const cell = (arr, cls) => arr.length ? arr.map((x) => `<div class="${cls}">${typeof x === "string" ? x : x.text}</div>`).join("") : '<div class="note">none</div>';
-    const groups = Object.keys(pname).filter((g) => you.failures.some((x) => x.pattern === g) || m.failures.some((x) => x.pattern === g));
-    const failHtml = groups.map((g) => `<div class="pat"><div class="pn">${pname[g]}</div><div class="two">
-        <div><div class="who">You</div>${cell(you.failures.filter((x) => x.pattern === g), "fl")}</div>
-        <div><div class="who">${name}</div>${cell(m.failures.filter((x) => x.pattern === g), "fl")}</div></div></div>`).join("");
-    const goodHtml = (you.good.length || m.good.length) ? `<div class="pat"><div class="pn ok">Good calls</div><div class="two">
-        <div><div class="who">You</div>${cell(you.good, "gd")}</div><div><div class="who">${name}</div>${cell(m.good, "gd")}</div></div></div>` : "";
-    const diff = you.profit - m.profit;
-    const list = (acts) => acts && acts.length ? acts.map((a) => `<div>· ${describe(a)}</div>`).join("") : '<div class="note">· nothing</div>';
-    $("#endbox").innerHTML = `<h2 class="${col}">${head}</h2>
-      <p class="note">${final.challenge.title} · day ${final.challenge.day} · same briefing, same 5 actions, same simulator as ${name}.</p>
-      <table><tr><td></td><td class="note">today's profit</td></tr>
-        <tr class="you"><td>You</td><td class="num">${eur(you.day_profit)}</td></tr><tr><td>${name}</td><td class="num">${eur(m.day_profit)}</td></tr></table>
-      ${goodHtml}${failHtml || '<p class="note">Neither morning tripped a failure check.</p>'}
-      <h4>If the season went on</h4>
-      <p class="note">The reference planner finished the season after your morning and after ${name}'s: your morning is worth
-        <b class="${Math.abs(diff) < 500 ? "" : diff > 0 ? "ok" : "bad"}">${Math.abs(diff) < 500 ? "about the same" : eur(Math.abs(diff)) + (diff > 0 ? " more" : " less")}</b> (benchmark score <span class="num">${(you.score ?? 0).toFixed(3)}</span> vs <span class="num">${(m.score ?? 0).toFixed(3)}</span>).
-        ${name}'s whole real run scored <span class="num">${(final.model_real.score ?? 0).toFixed(3)}</span>; the planner's own season <span class="num">0.800</span>.</p>
-      <div class="two"><div><h4>You did</h4>${list(you.days[0].actions)}</div><div><h4>${name} did</h4>${list(m.days[0].actions)}</div></div>
-      <div class="row" style="margin-top:14px"><button class="primary" onclick="location.reload()">Play another morning</button>
-        <button id="watchAI">🤖 Watch ${name}'s day</button><button id="share">Share</button></div>`;
+    const board = rank.map((e, i) => `<tr class="${e.kind === "you" ? "you" : ""}"><td>${i + 1}. ${e.name}${e.kind === "model" ? ` <span class="note">${e.run.split("-").pop()}</span>` : ""}
+        ${e.real ? `<div class="note">its 42-day score ${(e.real.score ?? 0).toFixed(2)}</div>` : '<div class="note">you</div>'}</td>
+        <td class="num">${e.checks_passed}/${e.checks_total}<div class="note">${eur(e.two_day_profit)}</div></td>
+        <td>${e.kind === "model" ? `<button class="mini" data-run="${e.run}">▶</button>` : ""}</td></tr>`).join("");
+    const mine = you.failures.map((x) => `<div class="fl">✗ <b>${pname[x.pattern]}:</b> ${x.text}</div>`).join("") || '<div class="gd">No mistakes found.</div>';
+    const good = you.good.map((x) => `<div class="gd">✓ ${x}</div>`).join("");
+    const aiFails = models.flatMap((a) => a.failures.map((x) => ({ ...x, who: a.name })));
+    const byPat = Object.keys(pname).map((p) => [p, aiFails.filter((x) => x.pattern === p)]).filter(([, xs]) => xs.length);
+    const aiHtml = byPat.length ? byPat.map(([p, xs]) => `<div class="pat"><div class="pn">${pname[p]} <span class="note">· ${xs.length}</span></div>${xs.slice(0, 4).map((x) => `<div class="fl"><b>${x.who}:</b> ${x.text}</div>`).join("")}</div>`).join("")
+      : '<p class="note">None of the AI runs tripped a check in these two days.</p>';
+    const grid = you.checks.map((c, i) => { const ok = models.filter((m) => m.checks[i].ok).length;
+      return `<div class="ck"><span>${c.ok ? '<span class="ok">✓</span>' : '<span class="bad">✗</span>'} ${c.name}</span><span class="note">AIs ${ok}/${models.length}</span></div>`; }).join("");
+    $("#endbox").innerHTML = `<h2 class="${col}">${head}</h2><p>${sub}</p>
+      <h4>Ranking · checks passed, then profit over the two days</h4><table>${board}</table>
+      <h4>Your two mornings</h4>${good}${mine}
+      <h4>Where the AIs slipped</h4>${aiHtml}
+      <h4>Every check · you, and how many AI runs passed it</h4>${grid}
+      <p class="note">Same seed, same first morning, same briefing, same 5 actions a day, same simulator. ▶ replays that AI's two days. The 42-day scores are each run's real benchmark result (the reference planner scores 0.80).</p>
+      <div class="row" style="margin-top:12px"><button class="primary" onclick="location.reload()">Play again</button><button id="share">Share</button></div>`;
     $("#end").style.display = "flex";
-    $("#watchAI").onclick = watchModel;
+    document.querySelectorAll("button.mini").forEach((b) => (b.onclick = () => watchRun(b.dataset.run)));
     $("#share").onclick = async () => {
-      const txt = `Lettuce Bench, "${final.challenge.title}": I made ${nY} mistake${nY === 1 ? "" : "s"}, ${name} made ${nM}. Season score ${(you.score ?? 0).toFixed(3)} vs ${(m.score ?? 0).toFixed(3)}.`;
+      const txt = `Lettuce Bench, ${final.challenge.title}: I passed ${you.checks_passed}/${you.checks_total} checks and placed #${place} of ${all.length} against ${models.length} AI runs.`;
       try { if (navigator.share) await navigator.share({ text: txt, url: location.href }); else { await navigator.clipboard.writeText(txt + " " + location.href); toast("Copied"); } } catch (e) { /* dismissed */ }
     };
   }
   let youFrames = null;
-  function watchModel() {
-    if (!final.model_frames || !final.model_frames.length) return toast("No frames for the AI's day.");
+  watchRun = async (run) => {
+    let d;
+    try { d = await fetch(`/api/challenge/frames?seed=${seed}&run=${encodeURIComponent(run)}`).then((x) => x.json()); if (d.error) throw new Error(d.error); }
+    catch (e) { return toast("Could not load that run: " + e.message); }
+    if (!d.frames.length) return toast("No frames for that run.");
     $("#end").style.display = "none";
-    youFrames = final.model_frames.map((f) => F[f.h]);
-    for (const f of final.model_frames) F[f.h] = f;
-    viewing = "model"; scene.reset();
-    hf = final.model_frames[0].h - 1; lastH = Math.floor(hf); target = final.model_frames[final.model_frames.length - 1].h;
+    youFrames = d.frames.map((f) => F[f.h]);
+    for (const f of d.frames) F[f.h] = f;
+    viewing = "model"; G.model = d.name; scene.reset();
+    hf = d.frames[0].h; lastH = Math.floor(hf); target = d.frames[d.frames.length - 1].h;
     G.alarmList = []; playing = true; $("#skip").style.display = "block";
-    toast(`🤖 ${final.challenge.model}'s day: ${final.model.days[0].actions.map(describe).join(" · ") || "it did nothing"}`, 6000);
-  }
+    toast(`🤖 ${d.name}: ${d.days.map((x, i) => `day ${i}: ${x.actions.map(describe).join(", ") || "nothing"}`).join(" · ")}`, 7000);
+  };
   function restoreYou() { if (youFrames) youFrames.forEach((f) => f && (F[f.h] = f)); hf = target; lastH = -1; }
 
   // ---------------- camera, zoom, pinch ----------------
