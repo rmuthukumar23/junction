@@ -8,13 +8,13 @@ artifacts = [
 
 [task]
 name = "junction/normal-winter-s3"
-description = "Greenhouse Bench: run a winter greenhouse facility for 42 days"
+description = "Lettuce Bench: run a winter greenhouse facility for 42 days"
 keywords = ["envkit", "mcp", "simulation"]
 
 [metadata]
 scenario = "normal-winter"
 seed = 3
-bundle = "a765e8ef9400a50d"
+bundle = "f302811b881b2cbd"
 
 [agent]
 timeout_sec = 10800.0

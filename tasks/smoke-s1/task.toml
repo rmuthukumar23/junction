@@ -8,13 +8,13 @@ artifacts = [
 
 [task]
 name = "junction/smoke-s1"
-description = "Greenhouse Bench smoke run"
+description = "Lettuce Bench smoke run"
 keywords = ["envkit", "mcp", "simulation"]
 
 [metadata]
 scenario = "smoke"
 seed = 1
-bundle = "5e63c2e198c6dbee"
+bundle = "2ef894ce20193365"
 
 [agent]
 timeout_sec = 300.0

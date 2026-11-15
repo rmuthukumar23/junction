@@ -8,7 +8,7 @@
 
 [task]
 id = "smoke"
-title = "Greenhouse Bench smoke run"
+title = "Lettuce Bench smoke run"
 env = "greenhouse.env:GreenhouseBench"
 seeds = [1]
 reference = "reference"

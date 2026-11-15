@@ -1,4 +1,4 @@
-# Greenhouse Bench: Project Context
+# Lettuce Bench: Project Context
 
 Status: decisions and research as of 14 Nov 2026 (Junction 2026, AfterQuery "Break the Agent" challenge).
 Purpose of this file: give full context on what we are building and why. It describes the environment, the scenario, the scoring and the benchmarking approach. It does not prescribe code structure or implementation.

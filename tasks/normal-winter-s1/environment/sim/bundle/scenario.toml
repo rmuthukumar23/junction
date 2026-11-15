@@ -1,4 +1,4 @@
-# Greenhouse Bench: a normal Dutch winter, 42 days, three compartments on one energy centre:
+# Lettuce Bench: a normal Dutch winter, 42 days, three compartments on one energy centre:
 # two of broccoli microgreens and one of radish microgreens.
 # Format: src/envkit/scenario.py. Data files: docs/GREENHOUSE_SPEC.md section 3.
 # A benchmark task: its tasks/ and calibration are generated at benchmark time only
@@ -6,7 +6,7 @@
 
 [task]
 id = "normal-winter"
-title = "Greenhouse Bench: run a winter greenhouse facility for 42 days"
+title = "Lettuce Bench: run a winter greenhouse facility for 42 days"
 env = "greenhouse.env:GreenhouseBench"
 benchmark = true
 # Development seeds. Evaluation seeds 101-108 use separate recorded weather and price

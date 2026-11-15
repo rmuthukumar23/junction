@@ -1,4 +1,4 @@
-"""Greenhouse Bench served by envkit: the tools (spec 5 and 14).
+"""Lettuce Bench served by envkit: the tools (spec 5 and 14).
 
 One window is one simulated hour. The agent plays one turn a day, at 06:00
 (round 3, the daily turn decided 14 Nov 2026):

@@ -1,4 +1,4 @@
-# Greenhouse Bench: v1 build spec
+# Lettuce Bench: v1 build spec
 
 Status: draft for team agreement, 14 Nov 2026. Branch `docs/greenhouse-bench-spec`.
 Background and reasoning: [GREENHOUSE_BENCH_CONTEXT.md](GREENHOUSE_BENCH_CONTEXT.md). This file fixes the interfaces so work can split up. Anything marked **DECIDE** needs a yes/no from the team before the workstream that depends on it starts.
