@@ -50,12 +50,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.3065
+       "profit": 0.2674
       },
       "metrics": {
        "profit_eur": 103739.3298
       },
-      "reward": 0.3065
+      "reward": 0.2674
      },
      "exploit:never-harvest": {
       "components": {
@@ -107,7 +107,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 283287.5843
+       "profit_eur": 325880.8129
       },
       "reward": 0.8
      },
@@ -122,18 +122,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2539
+       "profit": 0.1038
       },
       "metrics": {
-       "profit_eur": 84605.5286
+       "profit_eur": 35499.5207
       },
-      "reward": 0.2539
+      "reward": 0.1038
      }
     },
-    "bundle": "ddcd514f191ec973",
+    "bundle": "db6daf6953a864af",
     "components": {
      "profit": {
-      "scale": 363823.43,
+      "scale": 417064.97,
       "zero": -7771.1629
      }
     },
@@ -190,12 +190,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.3072
+       "profit": 0.2632
       },
       "metrics": {
        "profit_eur": 103134.2675
       },
-      "reward": 0.3072
+      "reward": 0.2632
      },
      "exploit:never-harvest": {
       "components": {
@@ -247,7 +247,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 280494.6806
+       "profit_eur": 328600.6043
       },
       "reward": 0.8
      },
@@ -262,18 +262,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2613
+       "profit": 0.1574
       },
       "metrics": {
-       "profit_eur": 86608.3384
+       "profit_eur": 58696.4132
       },
-      "reward": 0.2613
+      "reward": 0.1574
      }
     },
-    "bundle": "ddcd514f191ec973",
+    "bundle": "db6daf6953a864af",
     "components": {
      "profit": {
-      "scale": 359889.8,
+      "scale": 420022.2,
       "zero": -7417.1596
      }
     },
@@ -330,12 +330,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.3787
+       "profit": 0.2584
       },
       "metrics": {
        "profit_eur": 105449.7682
       },
-      "reward": 0.3787
+      "reward": 0.2584
      },
      "exploit:never-harvest": {
       "components": {
@@ -387,7 +387,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 231509.4693
+       "profit_eur": 342860.8099
       },
       "reward": 0.8
      },
@@ -402,18 +402,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.3536
+       "profit": 0.1691
       },
       "metrics": {
-       "profit_eur": 97967.6398
+       "profit_eur": 66310.7232
       },
-      "reward": 0.3536
+      "reward": 0.1691
      }
     },
-    "bundle": "ddcd514f191ec973",
+    "bundle": "db6daf6953a864af",
     "components": {
      "profit": {
-      "scale": 299184.12,
+      "scale": 438373.29,
       "zero": -7837.8234
      }
     },
@@ -472,12 +472,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.1076
+       "profit": 0.0994
       },
       "metrics": {
        "profit_eur": 88789.1034
       },
-      "reward": 0.1076
+      "reward": 0.0994
      },
      "exploit:never-harvest": {
       "components": {
@@ -529,7 +529,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 806927.95
+       "profit_eur": 875467.6834
       },
       "reward": 0.8
      },
@@ -544,18 +544,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2165
+       "profit": 0.2372
       },
       "metrics": {
-       "profit_eur": 201732.1723
+       "profit_eur": 243577.9492
       },
-      "reward": 0.2165
+      "reward": 0.2372
      }
     },
-    "bundle": "ef8ec45e9151d894",
+    "bundle": "e7aab7d490414a52",
     "components": {
      "profit": {
-      "scale": 1037166.9,
+      "scale": 1122841.57,
       "zero": -22805.5736
      }
     },
@@ -612,12 +612,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.1087
+       "profit": 0.0975
       },
       "metrics": {
        "profit_eur": 88350.2675
       },
-      "reward": 0.1087
+      "reward": 0.0975
      },
      "exploit:never-harvest": {
       "components": {
@@ -669,7 +669,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 791640.9203
+       "profit_eur": 884732.1904
       },
       "reward": 0.8
      },
@@ -684,18 +684,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.2182
+       "profit": 0.2398
       },
       "metrics": {
-       "profit_eur": 199774.9321
+       "profit_eur": 249617.7585
       },
-      "reward": 0.2182
+      "reward": 0.2398
      }
     },
-    "bundle": "ef8ec45e9151d894",
+    "bundle": "e7aab7d490414a52",
     "components": {
      "profit": {
-      "scale": 1017302.6,
+      "scale": 1133666.69,
       "zero": -22201.1596
      }
     },
@@ -752,12 +752,12 @@
      },
      "exploit:harvest-early": {
       "components": {
-       "profit": 0.1205
+       "profit": 0.0978
       },
       "metrics": {
        "profit_eur": 90453.1588
       },
-      "reward": 0.1205
+      "reward": 0.0978
      },
      "exploit:never-harvest": {
       "components": {
@@ -809,7 +809,7 @@
        "profit": 0.8
       },
       "metrics": {
-       "profit_eur": 730169.6008
+       "profit_eur": 904162.9024
       },
       "reward": 0.8
      },
@@ -824,18 +824,18 @@
      },
      "stop-early": {
       "components": {
-       "profit": 0.1802
+       "profit": 0.2435
       },
       "metrics": {
-       "profit_eur": 146726.0755
+       "profit_eur": 259293.7449
       },
-      "reward": 0.1802
+      "reward": 0.2435
      }
     },
-    "bundle": "ef8ec45e9151d894",
+    "bundle": "e7aab7d490414a52",
     "components": {
      "profit": {
-      "scale": 941387.83,
+      "scale": 1158879.46,
       "zero": -22940.6654
      }
     },
@@ -884,7 +884,7 @@
       "reward": 0.0417
      }
     },
-    "bundle": "40d835a131da76e8",
+    "bundle": "168e1e3a71a82050",
     "components": {},
     "oracle": "reference",
     "seed": 1,

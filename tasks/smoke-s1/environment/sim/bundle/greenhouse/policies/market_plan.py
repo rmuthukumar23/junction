@@ -28,8 +28,8 @@ from typing import Any
 class MarketPlan:
     # -- policy choices (tuned on development seeds 4-6) --
     burst_over = 1.1              # sow for this multiple of a week's demand (selling a little into the glut pays)
-    burst_yield = 1.2             # expected kg per m2 at the cut, as a share of ready weight x sowing density
-    grow_frac = 0.65              # sow-to-ready time as a share of nominal days, until the crop's own is measured
+    burst_yield = 1.05            # expected kg per m2 at the cut, as a share of ready weight x sowing density
+    grow_frac = 0.7               # sow-to-ready time as a share of nominal days, until the crop's own is measured
     grade_safety_days = 0.3       # treat a batch as this much older when checking it keeps a grade
     ready_lead_days = 0.5         # aim to be ready this long before the target week starts
     max_hold_days = 6             # look this many mornings ahead when timing a cut

@@ -65,14 +65,14 @@ class Reference(MarketPlan, ToolPolicy):
     light_safety_mol = 1.0        # head-room under that for forecast error
     limited_dark_hours = 2        # dearest hours left dark, crop with a light limit
     free_dark_hours = 0           # dearest hours left dark, crop without one
-    free_intensity_pct = 100.0    # lamp intensity for a crop without a light limit
-    slow_until_h = 0              # before this hour, keep more lamp hours dark (slows the starting batches)
-    slow_dark_hours = 0           # ... this many
+    free_intensity_pct = 85.0     # lamp intensity for a crop without a light limit
+    slow_dark_hours = 10          # lamp hours kept dark while the starting batches are held back (hold_back)
     sell_margin = 0.22            # cut a per-unit crop at (1 + this) x its minimum sellable weight
     replant_weight_frac = 0.0     # order seedlings for batches at least this share of that weight at the start
     grade_margin_h = 30.0         # finish a repeated cut this long before the top grade is lost
     end_margin = 0.08             # spare crew capacity kept when timing the last harvests
     start_hires = 0               # workers hired in the first hour
+    start_release = 0             # workers released in the first hour
     end_crew = 3                  # crew size for the last harvests (harvest labour is small: no extra hire)
     end_hire_days = 7.0           # that crew is hired this many days before the end
     co2_reorder_kg = 1500.0       # reorder CO2 below this store level
@@ -175,6 +175,8 @@ class Reference(MarketPlan, ToolPolicy):
         self.order_seedlings(status)
         if self.start_hires > 0:
             self.call("hire", workers=self.start_hires)
+        if self.start_release > 0:
+            self.call("release", workers=self.start_release)
 
     def measure_lamps(self, status: dict[str, Any]) -> None:
         """The last hour's lamp power, at the intensity that was set, tells what the lamps
@@ -210,6 +212,22 @@ class Reference(MarketPlan, ToolPolicy):
             if plants > 0:
                 self.call("place_order", item=item,
                           quantity=max(plants, math.ceil(float(self.items[item].get("min_quantity", 0)))))
+
+    def hold_back(self, compartment: str, hour: int) -> bool:
+        """Slow the starting batches (fewer lamp hours) while nothing new can be sown yet and
+        the market wants this crop more next week than this week: they then ripen into the
+        bigger week instead of a glut. It also saves power."""
+        crop_id = self.crop_in.get(compartment, "")
+        if hour >= self.seed_lead_h() or not self.sells_by_demand(crop_id):
+            return False
+        week = int(hour // self.window_h())
+        return (self.week_demand(crop_id, week + 1) or 0.0) > (self.week_demand(crop_id, week) or 0.0)
+
+    def seed_lead_h(self) -> float:
+        """Shortest published seed lead time: before it, nothing new can be sown."""
+        leads = [max(v) if isinstance(v, list) else float(v) for i, spec in self.items.items()
+                 if i.startswith("seedlings:") for v in [spec.get("lead_time_h", 0)]]
+        return min(leads) if leads else 0.0
 
     def plant_deadline(self, crop: dict[str, Any]) -> float:
         """Last episode hour at which planting this crop is still accepted."""
@@ -424,7 +442,7 @@ class Reference(MarketPlan, ToolPolicy):
             limit = self.light_limit(self.crop(c))
             par = self.lamp_par.get(c, 0.0)
             if limit is None or par <= 0:
-                n_dark = self.slow_dark_hours if hour < self.slow_until_h else self.free_dark_hours
+                n_dark = self.slow_dark_hours if self.hold_back(c, hour) else self.free_dark_hours
                 dark = set(dear[:n_dark])
                 self.call("set_climate", compartment=c, lamp_hours=[h for h in range(24) if h not in dark],
                           lamp_intensity_pct=self.free_intensity_pct)
