@@ -77,7 +77,7 @@ class Reference(ToolPolicy):
     early_crew = 3                # crew to hire up to on the first morning (3 = the starting crew, no hire)
     early_hired = False
     sell_point = 0.85             # where in the sow-to-sale cycle the sale is expected (1 = at the end)
-    hold_frac = 0.0               # hold ready batches while week sales + this batch exceed this share of demand (0 = off)
+    hold_frac = 1.0               # hold ready batches while week sales + this batch exceed this share of demand (0 = off)
     hold_margin_days = 1.5        # ... and only while the top grade lasts this many days more
     stagger = 99.0                # at most this many cycles' worth of the demand area sown a day (99 = off)
     demand_target = 1.0           # sow for this share of the published demand

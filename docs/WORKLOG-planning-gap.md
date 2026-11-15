@@ -36,5 +36,11 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
 - Tuned on seeds 4-6 only (models are scored on 1-3): EUR 672 k -> 711 k with holding.
 - Finding: days 9-17 have no sales for anyone (10-day seed + growth); unavoidable, same for every player.
 
-## In flight
-- 2 model runs on the current rules (Gemini, Sonnet; normal-winter seed 1) to see whether the gap opens.
+## Result of the first run on the current rules (2026-11-15)
+- Gemini 4 Hydrogen, seed 1: **0.99**, profit EUR 823 k vs reference EUR 710 k. The gap did NOT open;
+  Gemini beat the reference.
+- Ledger vs reference: revenue 913 k vs 839 k, seedlings 34 k vs 51 k, electricity 17 k vs 33 k,
+  23 harvests vs 52. Gemini sowed few large plantings (days 13, 20, 26, 28, 34) and cut whole batches late.
+- So the reference is not near optimal: it spends more seed and power for less revenue. Next: find
+  where its revenue is lost (weight at cut vs price/glut) and fix the reference, then re-check.
+- Sonnet seed 1 still running.
