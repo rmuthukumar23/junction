@@ -87,7 +87,7 @@
     await Promise.all(panels.map(loadPanel));
     const q = new URLSearchParams(location.search);    // ?at=400&focus=2&open=A jump straight to a moment
     if (q.get("focus")) select(Math.max(0, Math.min(5, +q.get("focus") - 1)));
-    if (q.get("layout")) setLayout(q.get("layout"), focus, q.get("with") ? +q.get("with") - 1 : undefined);
+    setLayout(q.get("layout") || "focus", focus, q.get("with") ? +q.get("with") - 1 : undefined);   // demo opens on the planner, maximized
     if (q.get("at")) seek(+q.get("at"));
     if (q.get("open")) openDrawer(q.get("open"));
     playing = !q.get("pause"); setPlayIcon();
