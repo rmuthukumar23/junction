@@ -14,7 +14,7 @@ keywords = ["envkit", "mcp", "simulation"]
 [metadata]
 scenario = "dev-winter"
 seed = 1
-bundle = "a3f86d740eb065c0"
+bundle = "ddcd514f191ec973"
 
 [agent]
 timeout_sec = 10800.0

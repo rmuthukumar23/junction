@@ -43,4 +43,27 @@ hidden or broken. Pushed every ~30 min; newest entries at the bottom.
   23 harvests vs 52. Gemini sowed few large plantings (days 13, 20, 26, 28, 34) and cut whole batches late.
 - So the reference is not near optimal: it spends more seed and power for less revenue. Next: find
   where its revenue is lost (weight at cut vs price/glut) and fix the reference, then re-check.
-- Sonnet seed 1 still running.
+- Sonnet 5.5, seed 1: **1.00**, profit EUR 883 k (revenue 969 k). Both models beat the reference.
+
+## Why the models won (sales logged per harvest, `artifacts/an/sales.py`)
+- The demand is counted over a rolling 168 h window. After a big week, the reference kept selling a
+  steady stream into the next (small) week while the window still held the big week's sales: glut
+  prices (e.g. 2.5 t radish for EUR 8 k in week 3).
+- Sonnet and Gemini sold in **bursts**: one big cut per crop per week, sized to that week's demand,
+  timed after the window cleared, and nothing in between (Sonnet sold no radish at all in weeks 1 and 3).
+- They also spent less: electricity EUR 17 k vs 30-33 k (lamps 16 h, not 24 h), wages 17-18 k vs 23.5 k
+  (released a worker; harvest labour is small), seed 34 k vs 51 k.
+
+## Change 3: the reference sells in bursts (`policies/market_plan.py`, new)
+- Cut timing: each morning the ready batches (most urgent first) are priced at every hour they could
+  still sell (today or a later morning while they keep a grade) against its own sales log and the
+  published rule; cut today only if today is best. Quality from the ready alarm, not the noisy estimate.
+- Sowing: a small dynamic programme picks the burst hours (one window apart, within the planting
+  deadline) that sell the most at full price; each burst is sown so it is ready just before its hour.
+  Grow time is measured from its own sowings (default 0.65 x nominal days at full light).
+- No hire for the last harvests (labour is small).
+- Result: reference EUR 807 / 792 / 730 k on seeds 1-3 (was 710-ish), mean 780 k on seeds 1-6.
+- Rescored model runs (seed 1): Gemini 0.815, Sonnet 0.873. **Still above the reference.**
+- Known weak spots of the reference: the starting batches ripen into a glut in weeks 0-1 (models
+  ran fewer lamp hours, which slows them); a burst that finishes an hour earlier than last week's
+  is blocked by the window and slips a day (knife edge of the rolling window); lamp hours.

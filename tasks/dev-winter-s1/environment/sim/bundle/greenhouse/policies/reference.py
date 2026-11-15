@@ -33,11 +33,10 @@ What it does that the rule-based grower does not:
   * The shift rules (spec 14.1): one planning round each morning at 06:00, the night
     schedule set to the day settings, then submit the day. Damage is always repaired: the
     contractor is booked and the parts ordered the morning it is seen.
-  * Sow to the market. Buyers take a published volume a week at full price and the price
-    falls beyond it, so it keeps only the bench area sown whose output meets that demand
-    (demand x cycle length / (ready weight x sowing density)) and leaves the rest dark.
-  * Seed in hand. Seed is ordered for the beds that free within the lead time plus a few
-    days, with several orders in flight, so a harvested bed is resown the next morning.
+  * Sell to the market (market_plan.py). Buyers take a published volume in any rolling
+    week at full price and the price falls beyond it, so it sows one burst per week sized
+    to that week's demand and times each cut to the hour that sells it best.
+  * Seed in hand. Seed is ordered for the sowings due within the lead time plus a few days.
   * Nothing for an empty house: once a compartment holds no crop and none can be
     planted any more, its lamps, CO2 and heating are turned down.
 """
@@ -47,12 +46,13 @@ import math
 from typing import Any
 
 from .common import ToolPolicy, import_prices, repair_damage, result
+from .market_plan import MarketPlan
 
 STANDING = ("growing", "ready")
 _MOL_PER_UMOL_H = 3600.0 / 1e6      # umol m-2 s-1 held for one hour -> mol m-2 (unit conversion)
 
 
-class Reference(ToolPolicy):
+class Reference(MarketPlan, ToolPolicy):
     name = "reference"
 
     # -- policy choices (tuned on development seeds 1-6; none is a fact about the world) --
@@ -66,25 +66,18 @@ class Reference(ToolPolicy):
     limited_dark_hours = 2        # dearest hours left dark, crop with a light limit
     free_dark_hours = 0           # dearest hours left dark, crop without one
     free_intensity_pct = 100.0    # lamp intensity for a crop without a light limit
+    slow_until_h = 0              # before this hour, keep more lamp hours dark (slows the starting batches)
+    slow_dark_hours = 0           # ... this many
     sell_margin = 0.22            # cut a per-unit crop at (1 + this) x its minimum sellable weight
     replant_weight_frac = 0.0     # order seedlings for batches at least this share of that weight at the start
     grade_margin_h = 30.0         # finish a repeated cut this long before the top grade is lost
     end_margin = 0.08             # spare crew capacity kept when timing the last harvests
     start_hires = 0               # workers hired in the first hour
-    end_crew = 5                  # crew size for the last harvests
+    end_crew = 3                  # crew size for the last harvests (harvest labour is small: no extra hire)
     end_hire_days = 7.0           # that crew is hired this many days before the end
     co2_reorder_kg = 1500.0       # reorder CO2 below this store level
     early_crew = 3                # crew to hire up to on the first morning (3 = the starting crew, no hire)
     early_hired = False
-    sell_point = 0.85             # where in the sow-to-sale cycle the sale is expected (1 = at the end)
-    hold_frac = 1.0               # hold ready batches while week sales + this batch exceed this share of demand (0 = off)
-    hold_margin_days = 1.5        # ... and only while the top grade lasts this many days more
-    stagger = 99.0                # at most this many cycles' worth of the demand area sown a day (99 = off)
-    demand_target = 1.0           # sow for this share of the published demand
-    yield_factor = 0.55           # expected harvest per m2 as a share of ready weight x sowing density
-    cycle_factor = 0.75           # expected sow-to-sale time as a share of the crop's nominal days
-    cut_weight_frac = 1.0
-    cut_age_frac = 1.0            # ... or once its age reaches this share of the crop's nominal days         # a by-weight single crop is cut at this share of its ready weight
     seed_cover_days = 3.0         # seed ordered for beds that free within the lead time plus this many days
     repair_faults = True          # damage persists until repaired (round 3), so it is always fixed
     lamp_probe_pct = 100.0        # intensity used for the first hour, to measure the lamps
@@ -207,7 +200,7 @@ class Reference(ToolPolicy):
                 continue
             lead_h = self.items[item].get("lead_time_h", 0)
             lead_h = max(lead_h) if isinstance(lead_h, list) else float(lead_h)
-            if lead_h >= self.plant_deadline(crop) or self.daily_area(crop_id, 0) is not None:
+            if lead_h >= self.plant_deadline(crop) or self.sells_by_demand(crop_id):
                 continue                         # demand crops are ordered by the daily plan
             floor_g = float(crop["market"]["min_sellable_fresh_weight_g"]) * self.replant_weight_frac
             area = sum(b["area_m2"] for b in status["batches"]
@@ -238,6 +231,7 @@ class Reference(ToolPolicy):
                 if b["status"] != "ready":
                     self.ready_hour.pop(b["id"], None)
 
+        self.watch_growth(status, hour)
         if self.repair_faults:
             repair_damage(self, status)
 
@@ -298,24 +292,18 @@ class Reference(ToolPolicy):
         backlog = self.backlog(status)
         step = 24                                   # the next planning round is at most a day away
         standing = [b for b in batches if b["status"] in STANDING and not b.get("harvest_queued")]
+        backlog = self.market_cuts(status, hour, standing, backlog)
 
         # Cut once. Sold per unit: once safely above the minimum sellable weight. Sold by
         # weight: when ready, since the weight grows until then.
         for b in standing:
             crop = self.crops[b["crop"]]
-            if crop["cycle"]["harvest_mode"] != "single":
+            if crop["cycle"]["harvest_mode"] != "single" or b.get("harvest_queued") or self.sells_by_demand(b["crop"]):
                 continue
             if crop["market"]["unit"] == "kg":
-                # Sold by weight: growth slows as the canopy closes, so cutting a little before
-                # "ready" and resowing at once earns more per day of bench space.
-                ready_g = float(crop["cycle"].get("ready_fresh_weight_g") or 0.0)
-                nominal = float(crop["cycle"].get("nominal_days") or 0.0)
-                due = b["status"] == "ready" or (nominal > 0 and b.get("age_days", 0.0) >= self.cut_age_frac * nominal) or (self.cut_weight_frac < 1 and ready_g > 0 and self.plant_weight_g(b) >= ready_g * self.cut_weight_frac
-                                                 and self.plant_weight_g(b) >= float(crop["market"]["min_sellable_fresh_weight_g"]))
+                due = b["status"] == "ready"         # sold by weight: the weight grows until ready
             else:
                 due = self.plant_weight_g(b) >= float(crop["market"]["min_sellable_fresh_weight_g"]) * (1 + self.sell_margin)
-            if due and crop["market"]["unit"] == "kg" and self.hold_for_market(status, b, crop, hour):
-                continue
             if due:
                 if self.call("harvest", batch_id=b["id"]).get("ok"):
                     backlog += self.harvest_hours(b)
@@ -350,27 +338,6 @@ class Reference(ToolPolicy):
             for b in order:
                 self.call("harvest", batch_id=b["id"])
 
-    def hold_for_market(self, status: dict[str, Any], b: dict[str, Any], crop: dict[str, Any], hour: int) -> bool:
-        """Hold a ready batch while this week's sales already meet the published demand and
-        its top grade lasts: selling into a full market only lowers the price."""
-        demand = (self.rules.get("business", {}).get("demand", {}).get("demand_per_week", {}) or {}).get(b["crop"])
-        if not demand or self.hold_frac <= 0:
-            return False
-        demand = sum(demand) / 2 if isinstance(demand, list) else float(demand)
-        sold = float(status["business"].get("sold_last_7_days", {}).get(b["crop"], 0.0))
-        queued = sum(self.batch_kg(x) for x in status.get("batches", []) if x.get("harvest_queued") and x["crop"] == b["crop"])
-        if sold + queued + self.batch_kg(b) <= demand * self.hold_frac:
-            return False
-        loss = float(crop["stress"].get("ready_loss_per_day", 0.0))
-        top = float(crop["market"]["grades"][0]["min_quality"])
-        quality = float(b.get("estimate", {}).get("quality") or 1.0)
-        days_left = (quality - top) / loss if loss > 0 else 0.0
-        return days_left > self.hold_margin_days          # still top grade by tomorrow's round
-
-    def batch_kg(self, b: dict[str, Any]) -> float:
-        crop = self.crops[b["crop"]]
-        return float(b["area_m2"]) * float(crop["cycle"]["ready_fresh_weight_g"]) * float(crop["planting"]["density_per_m2"]) / 1000.0
-
     def last_cut_floor(self, batch: dict[str, Any]) -> float:
         crop = self.crops[batch["crop"]]
         floor = float(crop["market"]["min_sellable_fresh_weight_g"])
@@ -378,51 +345,9 @@ class Reference(ToolPolicy):
 
     # -- planting, stock ---------------------------------------------------------------------------
 
-    @property
-    def sown_today(self) -> dict:
-        if not hasattr(self, "_sown"):
-            self._sown = {}
-        return self._sown
-
-    def demand_area(self, crop_id: str, hour: float | None = None) -> float | None:
-        """Bench area (m2) whose output meets the crop's published weekly demand: demand per
-        week x cycle length in weeks / yield per m2 (ready weight x sowing density). None if
-        the crop has no demand limit."""
-        demand = (self.rules.get("business", {}).get("demand", {}).get("demand_per_week", {}) or {}).get(crop_id)
-        crop = self.crops[crop_id]
-        if not demand or crop["market"]["unit"] != "kg":
-            return None
-        demand = sum(demand) / 2 if isinstance(demand, list) else float(demand)
-        kg_m2 = float(crop["cycle"]["ready_fresh_weight_g"]) * float(crop["planting"]["density_per_m2"]) / 1000.0
-        cycle_days = float(crop["cycle"]["nominal_days"]) * self.cycle_factor
-        factors = (self.rules.get("business", {}).get("demand", {}).get("week_factors", {}) or {}).get(crop_id)
-        if factors and hour is not None:
-            # Sow for the demand in the week this sowing will be sold, not this week's.
-            week = int((hour + 24.0 * cycle_days * self.sell_point) // 168)
-            demand *= float(factors[min(week, len(factors) - 1)])
-        return self.demand_target * demand * cycle_days / 7.0 / kg_m2
-
-    def daily_area(self, crop_id: str, hour: float) -> float | None:
-        """Bench area (m2) to sow on the day starting at `hour`, for a crop sold against a
-        published weekly demand: the harvest of this sowing comes about one cycle later, so
-        sow 1/7 of the demand of that future week, divided by the yield per m2 (ready weight
-        x sowing density). None if the crop has no demand limit."""
-        crop = self.crops[crop_id]
-        demand = (self.rules.get("business", {}).get("demand", {}).get("demand_per_week", {}) or {}).get(crop_id)
-        if not demand or crop["market"]["unit"] != "kg":
-            return None
-        demand = sum(demand) / 2 if isinstance(demand, list) else float(demand)
-        cycle_days = float(crop["cycle"]["nominal_days"]) * self.cycle_factor
-        factors = (self.rules.get("business", {}).get("demand", {}).get("week_factors", {}) or {}).get(crop_id)
-        if factors:
-            week = int((hour + 24.0 * cycle_days * self.sell_point) // 168)
-            demand *= float(factors[min(week, len(factors) - 1)])
-        kg_m2 = float(crop["cycle"]["ready_fresh_weight_g"]) * float(crop["planting"]["density_per_m2"]) / 1000.0
-        return self.demand_target * demand / 7.0 / (kg_m2 * self.yield_factor)
-
     def planting(self, status: dict[str, Any], hour: int) -> None:
-        """A crop sold against a weekly demand gets a daily sowing that tracks the demand one
-        cycle ahead (an even stream of harvests); any other crop fills its free bench."""
+        """A crop sold against a weekly demand is sown in weekly bursts (market_plan.py); any
+        other crop fills its free bench."""
         stock = status["business"].get("stock", {})
         planned: dict[str, float] = {}
         for c, free in status.get("free_area_m2", {}).items():
@@ -431,15 +356,16 @@ class Reference(ToolPolicy):
             if free <= 0.5 or have <= 0 or hour > self.plant_deadline(crop):
                 continue
             room = float(free)
-            want = self.daily_area(crop_id, hour)
-            if want is not None:
-                room = min(room, want - planned.get(crop_id, 0.0))
+            if self.sells_by_demand(crop_id):
+                room = min(room, self.burst_area(crop_id, hour))
             seeds_for = math.floor((have - planned.get(crop_id, 0.0) * float(crop["planting"]["density_per_m2"]))
                                    / float(crop["planting"]["density_per_m2"]) * 10) / 10
             area = min(room, seeds_for)
             if area > 0.5:
                 planned[crop_id] = planned.get(crop_id, 0.0) + area
-                self.call("plant", compartment=c, area_m2=area)
+                if self.call("plant", compartment=c, area_m2=area).get("ok") and self.sells_by_demand(crop_id):
+                    self.record_sowing(crop_id, hour, area)
+                    self.note_planting(c, hour)
 
     def reorder_seedlings(self, status: dict[str, Any], hour: int) -> None:
         """Each day: order seedlings for the space that is free or frees within the lead time,
@@ -461,12 +387,10 @@ class Reference(ToolPolicy):
             if hour + lead_h > self.plant_deadline(crop):
                 continue
             density = float(crop["planting"]["density_per_m2"])
-            if self.daily_area(crop_id, hour) is not None:
-                # The sowing plan from today until a new order would land, plus a few days' cover.
+            if self.sells_by_demand(crop_id):
+                # The sowings due from today until a new order would land, plus a few days' cover.
                 days = int(lead_h // 24 + self.seed_cover_days) + 1
-                plan = sum(self.daily_area(crop_id, hour + 24 * k) for k in range(days)
-                           if hour + 24 * k <= self.plant_deadline(crop))
-                need[item] = max(need.get(item, 0.0), plan * density)       # one plan per crop
+                need[item] = max(need.get(item, 0.0), self.seed_plan(crop_id, hour, days) * density)
                 continue
             area = float(status["free_area_m2"].get(c, 0.0)) + sum(
                 b["area_m2"] for b in status["batches"] if b["compartment"] == c and b["status"] in STANDING
@@ -500,7 +424,8 @@ class Reference(ToolPolicy):
             limit = self.light_limit(self.crop(c))
             par = self.lamp_par.get(c, 0.0)
             if limit is None or par <= 0:
-                dark = set(dear[:self.free_dark_hours])
+                n_dark = self.slow_dark_hours if hour < self.slow_until_h else self.free_dark_hours
+                dark = set(dear[:n_dark])
                 self.call("set_climate", compartment=c, lamp_hours=[h for h in range(24) if h not in dark],
                           lamp_intensity_pct=self.free_intensity_pct)
                 continue
