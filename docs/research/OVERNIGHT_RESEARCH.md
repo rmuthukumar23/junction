@@ -83,3 +83,16 @@ recommended before claiming).
 Suggested README line (honest): "The reference planner reaches 0.80 on every seed, every time. Gemini
 and Sonnet match it in about a third of runs and never twice on the same seed (pass^2 at 0.80 of
 0.00 and 0.11 over 2-3 runs per seed); their worst runs fall to 0.72 and 0.18."
+
+## 5. What AfterQuery values (for the pitch)
+
+- Third-party analyst notes (Sacra) describe AfterQuery as selling behaviour change inside real work:
+  simulated workplaces where the model uses terminals, browsers, MCP servers and APIs, with the reward
+  coming from whether the job actually gets done; it sells training data, RL environments and evals.
+- Pitch implication: emphasise that Greenhouse Bench is an *RL environment* as much as an eval:
+  deterministic per seed, MCP tool, reward = profit replayed by a separate verifier, and per-run
+  failure-mode labels (glut selling, seed stock-outs, malformed actions, early session end) that say
+  *which behaviour* to correct, plus the reliability gap (item 4). Avoid claiming a large mean gap.
+- No public page with the "Break the Agent" rubric was found; the rubric in
+  docs/GREENHOUSE_BENCH_CONTEXT.md (gap 30, difficulty 30, reward integrity 25, craft 15; 10-min demo,
+  rerun reference + 3 agent runs + do-nothing + stop-early, 15-min exploit hunt) remains the source.
