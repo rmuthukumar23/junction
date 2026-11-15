@@ -8,6 +8,8 @@ Per trial it keeps the evidence a judge needs, gzip-free and small enough for gi
   reward.txt        the number Harbor read
   trajectory.json   the agent's full trajectory (Harbor ATIF: messages, reasoning, tool calls)
   meta.json         model, seed, bundle, timing
+  harbor/           Harbor's own record of the trial: result.json (model, timing, reward),
+                    config.json, trial.log, and the verifier's reward.txt
 """
 from __future__ import annotations
 
@@ -18,6 +20,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "runs" / "normal-winter"
+
+
+def keep_harbor_log(trial: Path, dest: Path) -> None:
+    """Harbor's own files for the trial. They name the provider key only as a ${VAR}
+    placeholder; a file that looks like it holds a real key is refused."""
+    out = dest / "harbor"
+    out.mkdir(exist_ok=True)
+    for name in ("result.json", "config.json", "trial.log"):
+        src = trial / name
+        if src.exists():
+            text = src.read_text(errors="replace")
+            if any(sig in text for sig in ("AIza", "sk-ant-", "sk-proj-")):
+                raise SystemExit(f"{src} looks like it contains an API key; not copied")
+            (out / name).write_text(text)
+    if (trial / "verifier" / "reward.txt").exists():
+        shutil.copy(trial / "verifier" / "reward.txt", out / "reward.txt")
 
 
 def main(dirs: list[str]) -> int:
@@ -42,6 +60,7 @@ def main(dirs: list[str]) -> int:
             slim = {k: v for k, v in s.items() if k != "timeline"}     # the hourly timeline is 9 MB; replay rebuilds it
             (dest / "score.json").write_text(json.dumps(slim, indent=1) + "\n")
             shutil.copy(trial / "verifier" / "reward.txt", dest / "reward.txt")
+            keep_harbor_log(trial, dest)
             if (trial / "agent" / "trajectory.json").exists():
                 shutil.copy(trial / "agent" / "trajectory.json", dest / "trajectory.json")
             (dest / "meta.json").write_text(json.dumps({

@@ -1,0 +1,139 @@
+{
+    "schema_version": 1,
+    "id": "3209e48f-2b70-430a-92d1-f23e26ba35e3",
+    "task_name": "junction/normal-winter-s2",
+    "trial_name": "normal-winter-s2__wWifJqq",
+    "trial_uri": "file:///Users/emre/junction/artifacts/v5b-gemini-s2/trials/s2-agent/normal-winter-s2__wWifJqq",
+    "task_id": {
+        "path": "artifacts/v5b-gemini-s2/tasks/normal-winter-s2"
+    },
+    "source": null,
+    "task_checksum": "d6e86de2d613c91b3068d05c7c16d81201b59dcb16e4dee5ebeabe3277a45a66",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "artifacts/v5b-gemini-s2/tasks/normal-winter-s2",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "normal-winter-s2__wWifJqq",
+        "trials_dir": "artifacts/v5b-gemini-s2/trials/s2-agent",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "opencode",
+            "import_path": null,
+            "model_name": "google/gemini-4-hydrogen",
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "1.19.5"
+            },
+            "env": {
+                "GOOGLE_GENERATIVE_AI_API_KEY": "${GEMINI_API_KEY}"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "46c5ffa1-6d9c-458e-aefe-4515cddd0f68",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "opencode",
+        "version": "1.19.5",
+        "model_info": {
+            "name": "google/gemini-4-hydrogen",
+            "provider": null
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 15706573,
+        "n_cache_tokens": 15095367,
+        "n_output_tokens": 21778,
+        "cost_usd": 3.016671525,
+        "model_usage": {
+            "google/gemini-4-hydrogen": {
+                "n_input_tokens": 15706573,
+                "n_cache_tokens": 15095367,
+                "n_output_tokens": 21778,
+                "cost_usd": 3.016671525
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.768
+        }
+    },
+    "verifier_environment_mode": "separate",
+    "exception_info": null,
+    "started_at": "2026-11-15T01:01:10.532190Z",
+    "finished_at": "2026-11-15T01:13:53.883276Z",
+    "environment_setup": {
+        "started_at": "2026-11-15T01:01:11.969366Z",
+        "finished_at": "2026-11-15T01:01:27.194129Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-15T01:01:27.194468Z",
+        "finished_at": "2026-11-15T01:02:24.959536Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-15T01:02:24.976684Z",
+        "finished_at": "2026-11-15T01:13:23.849026Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-15T01:13:36.608990Z",
+        "finished_at": "2026-11-15T01:13:53.882778Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}
