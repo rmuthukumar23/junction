@@ -5,12 +5,21 @@
 set -u
 cd "$(dirname "$0")/.."
 PORT="${PORT:-8765}"
+if lsof -ti :"$PORT" >/dev/null 2>&1; then
+  echo "  Port $PORT is already in use (an earlier server?). Stop it with:  lsof -ti :$PORT | xargs kill"
+  echo "  or use another port:  PORT=8766 bash scripts/phone.sh"
+  exit 1
+fi
 IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')"
 uv run python scripts/viz/server.py --host 0.0.0.0 --port "$PORT" --jobs 2 &
 SERVER=$!
 TUNNEL=""
 trap 'kill $SERVER $TUNNEL 2>/dev/null' EXIT INT TERM
-for _ in $(seq 1 30); do curl -s -o /dev/null "http://localhost:$PORT/api/challenges" && break; sleep 1; done
+for _ in $(seq 1 60); do
+  kill -0 $SERVER 2>/dev/null || { echo "  The server did not start (see the error above)."; exit 1; }
+  curl -s -o /dev/null "http://localhost:$PORT/api/challenges" && break
+  sleep 1
+done
 show() {  # a link, and a QR code if qrencode is installed (brew install qrencode)
   echo "  $1"
   command -v qrencode >/dev/null && qrencode -t ANSIUTF8 -m 1 "$2"
