@@ -16,39 +16,73 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 
 ## Getting started
 
-**You need:** Python 3.12+, [uv](https://docs.astral.sh/uv/), and Git. On Windows, run the `bash`
-commands below from Git Bash or WSL. Docker or Podman is needed only for Harbor runs and the judge
-command, not for the install, the tests or the viewer.
+**You need:** Python 3.12+, [uv](https://docs.astral.sh/uv/) and Git. On Windows, run the `bash`
+commands from Git Bash or WSL. For agent runs you also need **one provider key** and **either
+Docker/Podman or a Modal account** (below). The install, tests and viewer need none of these.
+
+### 1. Install and test (no key, no containers)
 
 ```bash
 git clone <this repo> && cd junction
-uv sync --locked --extra eval --extra mcp --extra harbor   # install the pinned environment
-bash scripts/quick.sh                                      # run all the tests, about 30 s
+uv sync --locked --extra eval --extra mcp --extra harbor   # the pinned environment
+bash scripts/quick.sh                                      # all tests, about 30 s; if it passes, setup works
+uv run python scripts/viz/server.py                        # the viewer at http://localhost:8765
 ```
 
-`scripts/quick.sh` is the check to run after every change. It compiles the code, runs the whole test
-suite, rebuilds the quick tasks and confirms they are current. It plays only the 1-day `smoke`
-scenario, so it is fast and needs no API key. If it passes, your setup works.
+`quick.sh` is the check to run after every change. It plays only the 1-day `smoke` scenario.
 
-Then try it:
+### 2. Benchmark a model
 
 ```bash
-uv run python scripts/viz/server.py                        # the viewer, at http://localhost:8765
-uv run --no-sync envkit play normal-winter                 # play the 42 days yourself in the terminal
+cp .env.example .env     # git-ignored. Fill in ONE key, and set the model:
+#   GEMINI_API_KEY=...      for google/...     (or ANTHROPIC_API_KEY for anthropic/..., OPENAI_API_KEY for openai/...)
+#   AFTERQUERY_MODEL=google/gemini-4-hydrogen    # or pass --model <provider/model> to any command below
+
+bash scripts/model-smoke.sh                  # 1 agent attempt on the 1-day task, ~3 min: checks the chain works
+bash scripts/benchmark.sh --full --runs 3    # the benchmark: 3 attempts in parallel on normal-winter (42 days), seed 1
+bash scripts/benchmark.sh --full --seeds 101 --runs 3   # a held-out evaluation seed
 ```
 
-**Slow checks.** These play whole 42-day episodes (minutes each). Run them only when you are
-benchmarking, not after every change:
+`benchmark.sh` runs the agent through Harbor and OpenCode, replays its calls in a separate verifier and
+writes `artifacts/benchmark-<time>/benchmark.md`: score against the reference and the scripted
+players, the gap, and where the money went. A single 42-day run takes about 20 minutes. Without
+`--full` it plays the 14-day `dev-winter`, which only checks that the model can play. Use a fresh output
+folder each time. Development seeds are 1-6, evaluation seeds 101-108. Keys are read from `.env` or
+your shell and are never printed or put on a command line.
+
+> `benchmark.sh` and `model-smoke.sh` currently refuse to start unless `GEMINI_API_KEY` is set, even
+> for another provider. For a Claude or OpenAI model, set that key to any placeholder or call
+> `scripts/judge.sh --model anthropic/... --agent-only --runs 3 --output artifacts/NAME` directly.
+
+### 3. Run on Modal instead of local Docker (optional)
+
+Modal runs the containers in the cloud. Use it when you have no Docker, or to run many attempts at
+once: in our test of three concurrent attempts (an earlier, shorter task) all three finished on Modal,
+while on one laptop two hit infrastructure timeouts ([MODAL](docs/MODAL.md)). Modal is installed with the
+`harbor` extra above.
+
+```bash
+uv run --no-sync modal setup            # once; or set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in your shell
+bash scripts/benchmark.sh --full --runs 6 --backend modal
+```
+
+If you have a Modal login, `benchmark.sh` picks Modal on its own; pass `--backend docker` to force local
+containers. Team members without a Modal seat use the shared token described in [MODAL](docs/MODAL.md).
+`--runs N` is the number of parallel attempts.
+
+### 4. Slow checks (whole 42-day episodes, minutes each)
+
+Run them only when you are benchmarking, not after every change:
 
 ```bash
 ENVKIT_TEST_SCENARIO=normal-winter uv run --no-sync python -m pytest tests -q   # tests incl. the 42-day scenario
-uv run --no-sync envkit audit normal-winter                # reward-integrity audit
-uv run --no-sync envkit anchors normal-winter              # every scripted policy's score, per seed
-uv run --no-sync python scripts/release_check.py           # before a merge to main, about 4 min
+uv run --no-sync envkit audit normal-winter       # reward-integrity audit
+uv run --no-sync envkit anchors normal-winter     # every scripted policy's score, per seed
+uv run --no-sync python scripts/release_check.py  # before a merge to main, about 4 min
+bash scripts/judge.sh --output artifacts/judge-1  # the judge command: reference and baselines on every seed (needs containers)
 ```
 
-**Agent runs** need a provider key (`cp .env.example .env`, then edit it; it is git-ignored) and a
-running container engine. The commands are in the collapsed "Run it" section at the bottom of this README.
+Play it yourself in the terminal: `uv run --no-sync envkit play normal-winter`.
 
 ## What the agent has to do
 
@@ -273,8 +307,8 @@ sidecar reachable only over MCP, and a separate verifier container replays the r
 <details>
 <summary><b>Run it: agents, the judge and every check</b></summary>
 
-Install and the quick check are in [Getting started](#getting-started). This section needs Docker or
-Podman running for the Harbor and judge commands.
+Install, keys, benchmarks and Modal are in [Getting started](#getting-started). These are the lower-level
+judge commands; they need Docker or Podman running, or `--backend modal`.
 
 ```bash
 cp .env.example .env        # put your provider key in it; it is git-ignored
