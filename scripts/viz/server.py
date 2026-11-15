@@ -495,7 +495,7 @@ def job_view(j: dict[str, Any]) -> dict[str, Any]:
         tail = (j["dir"] / "launch.log").read_text(errors="replace").splitlines()[-6:]
     except OSError:
         tail = []
-    status = "running" if code is None else ("finished" if traces else "failed")
+    status = "running" if code is None else ("finished" if code == 0 and traces else "failed")
     return {"id": j["id"], "model": j["model"], "seed": j["seed"], "scenario": j["scenario"], "backend": j["backend"],
             "status": status, "exit": code, "elapsed_s": round(time.time() - j["started"]), "traces": traces,
             "log": tail, "cmd": j["cmd"]}
