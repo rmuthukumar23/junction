@@ -11,3 +11,6 @@ artifacts/
 .DS_Store
 *.egg-info/
 jobs/
+
+# Harbor run logs committed with each run
+!runs/**/harbor/trial.log
