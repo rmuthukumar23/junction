@@ -1,68 +1,83 @@
 # Greenhouse Bench
 
-An agent runs a Dutch winter greenhouse for 42 simulated days, one decision a morning, and is
-scored on net profit against a scripted production planner. Built for AfterQuery's "Break the
-Agent" (Junction 2026). Harbor task, MCP sidecar, trace-replay verifier.
+**An AI agent runs a Dutch winter greenhouse for 42 days. One decision each morning, real weather and
+energy prices, scored on profit against a scripted planner.** Built for AfterQuery's *Break the Agent*
+(Junction 2026), as a Harbor task.
+
+![Six growers on the same seed: the reference planner, a Gemini run, and the scripted baselines, each greenhouse drawn from the real simulator](docs/img/viewer.png)
+
+<sub>The viewer (`uv run python scripts/viz/server.py`): six growers side by side on the same weather,
+prices and storms. Every frame is the real simulator; model runs are replayed from their recorded calls.</sub>
 
 > **For judges: where each ask lives**
-> - **Harbor:** every seed is a standard Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/): `instruction.md`, `task.toml`, `environment/`, `tests/test.sh`, `solution/solve.sh`). Run `harbor run -p tasks/normal-winter-s1 -a opencode -m <model>`, or `bash scripts/judge.sh` for the full protocol. All 17 model runs below were Harbor 0.26 + OpenCode 1.19.5 trials.
-> - **Trajectories:** every run is committed with its Harbor trajectory (`trajectory.json`), the verifier's trace and a readable day-by-day log (`DAYS.md`). Index: [runs/TRAJECTORIES.md](runs/TRAJECTORIES.md). Example: [Gemini seed 2, EUR 963 k](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md).
-> - **True failure modes:** measured by replaying every run hour by hour ([runs/ANALYSIS.md](runs/ANALYSIS.md)). The [failure gallery](#failure-gallery) below links each one to the day it happens.
+>
+> - **Harbor:** each seed is a standard Harbor task ([tasks/normal-winter-s1/](tasks/normal-winter-s1/)). `harbor run -p tasks/normal-winter-s1 -a opencode -m <model>`, or `bash scripts/judge.sh` for the full protocol. All 17 model runs below are Harbor 0.26 + OpenCode 1.19.5 trials.
+> - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
+> - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([gallery](#failure-gallery)).
+
+## Why a greenhouse is like chess against Stockfish
+
+The best language models know the rules of chess and play moves that look like chess. Against
+Stockfish they still lose. Not because a rule is hidden, but because a game is many moves that
+interact: a piece left hanging ten moves ago, a threat the last move created, a plan that was
+started and never finished. Stockfish does not know more than the model. It just never stops
+checking.
+
+A greenhouse plays the same way. Every rule the agent needs is in its instructions: the growth
+equations, prices, lead times and the buyers' weekly order book. The scripted reference planner is
+our small Stockfish. It prices every possible cut against the published market rule and plans its
+sowings with a dynamic programme. Language models get close to it on average, and some runs beat it.
+When they lose, they lose in the three ways the research on agents keeps finding:
+
+![Three failure patterns and where they show up](docs/img/three-patterns.svg)
+
+## What the runs show
 
 ![Score by seed and grower](docs/img/matrix.svg)
 
-**Leaderboard** (normal-winter, seeds 1-3, Harbor 0.26 + OpenCode 1.19.5; 95 % bootstrap CI over runs):
-
-| Grower | Score | 95% CI | Runs | Runs above the reference |
+| Grower | Mean score | 95% CI | Runs | Beat the planner |
 |---|---:|---|---:|---:|
 | Reference planner (scripted) | 0.800 | deterministic | 3 | – |
 | Gemini 4 Hydrogen | 0.781 | 0.751 – 0.814 | 7 | 2 of 7 |
-| Claude Sonnet 5.5 | 0.695 (0.781 without the run that ended on day 9) | 0.518 – 0.799 | 7 | 3 of 7 |
+| Claude Sonnet 5.5 | 0.695* | 0.518 – 0.799 | 7 | 3 of 7 |
 | Claude Haiku 5.5 | 0.622 | 0.539 – 0.668 | 3 | 0 of 3 |
 | Stop-early / harvest-early / naive / nobody | 0.24 / 0.10 / 0 / 0 | deterministic | 3 each | – |
 
-**What we found** ([runs/ANALYSIS.md](runs/ANALYSIS.md), every run replayed hour by hour):
+<sub>* 0.781 without the run whose session ended on day 9. 0 = nobody acts, 0.8 = the planner, capped at 1. Seeds 1-3; held-out seeds 101-108 use other weather and prices.</sub>
 
-- **On average, the frontier models land just under the planner, with a wide spread.** Gemini scores 0.72-0.86
-  and Sonnet 0.73-0.82 (seeds 1-3). Five of 14 runs beat the reference, so it is not a ceiling. The best
-  run (Gemini, seed 2, EUR 963 k) staggered several partial sales a week, each timed to land as an older
-  sale left the rolling demand window. Eight of the other nine leave EUR 37-86 k on the table against it (the ninth ended on day 9).
-- **The market is the main failure mode.** Demand is a published, uneven order book counted over a
-  rolling week. Runs that sell into a window the previous week already filled get nothing for it. Haiku
-  sold 2.1 t of radish for EUR 2 and 2.2 t of broccoli for EUR 0 (seed 2), and met only 61-78 % of demand
-  at full price (reference 85-87 %). 6 of 17 runs (all three Haiku) held back half the radish in week 0,
-  the crop's biggest week, and lost about EUR 40 k on it.
-- **Housekeeping slips under the daily turn.** 8 of 17 runs (Sonnet 6 of 7) left a tripped boiler broken
-  for over a week; the reference books the repair the morning it sees it. Gemini sent malformed actions in
-  6 of 7 runs. 10 of 17 runs tried to sow on day 11, a few hours before the day-1 seed order landed.
-- **One Sonnet run ended on day 9.** A single reasoning step used its whole 32 k-token output budget,
-  returned no tool call, and the harness ended the attempt. The farm then ran on unattended (score 0.18).
-  It is reported, not excluded.
+Frontier models land just under the planner on average, with a wide spread (Gemini 0.72-0.86, Sonnet
+0.73-0.82). The best run beat it, so the planner is not a ceiling. Haiku is clearly below. The money is
+lost in the market, where all three patterns meet. Buyers take a published volume within any rolling
+week; anything sold while the window is already full fetches almost nothing:
 
+![Broccoli sales against the rolling-week demand, the planner and a Haiku run on the same seed](docs/img/market-window.svg)
+
+<sub>The planner keeps the blue area (sold in the last 7 days) under the green line (demand in force). Haiku
+sold 6.2 t in week 3, then cut 2.2 t more in week 4 while that was still in the window: €0.</sub>
 
 ### Failure gallery
 
-One example per failure mode: the run, the day, what the agent did, what it cost. Each link opens that
-run's day-by-day log; the full Harbor trajectory is `trajectory.json` in the same folder.
+One example per failure, linked to that run's day-by-day log (the full Harbor trajectory is
+`trajectory.json` in the same folder).
 
-| Failure mode | Example | What happened | Cost |
+| Pattern | Example | What happened | Cost |
 |---|---|---|---|
-| Sells into a full window | [Haiku, seed 2, days 29-30](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Sold 6.2 t of broccoli on days 23 and 26 (week 3), then cut 2.2 t more on days 29-30; week 4's demand is 2.8 t and those sales were still in the rolling window | 2.2 t sold for EUR 0 |
-| Wrong week for the crop | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1. It cut two of the four starting radish batches in week 0 and held the other two into week 1, behind the window | 2.1 t sold for EUR 2 |
-| Boiler left broken | [Sonnet, seed 1 (score 0.82), from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22; no heating installer was booked for the remaining 20 days | 20 days without the boiler; the run still beat the reference |
-| Session ended early | [Sonnet, seed 2, day 9](runs/normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) | One reasoning step used the whole 32 k-token output budget and returned no tool call, so the harness ended the attempt; the farm ran on with nobody acting | score 0.18 (rerun: 0.76) |
-| Malformed action | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`; the whole order, seed included, was refused (`unknown item 'part'`) | seed order a day late |
-| Sows before the seed lands | [Sonnet, seed 1, day 11](runs/normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) | Ordered seed on day 1 (10-day lead) and planted on the morning of day 11, a few hours before it arrived; refused, planted the next day | one day of growth |
-| What good play looks like | [Gemini, seed 2](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) | Staggered partial sales so each landed as an older one left the window; served every week of demand | EUR 963 k, above the reference (EUR 894 k) |
+| 1 Interacting constraints | [Haiku, seed 2, days 29-30](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Sold 6.2 t of broccoli in week 3, then cut 2.2 t more on days 29-30; week 4 wants 2.8 t and the window still held week 3 | 2.2 t sold for €0 |
+| 1 Interacting constraints | [Haiku, seed 2, days 1-9](runs/normal-winter/claude-haiku-5-5-s2-sugfugl/DAYS.md) | Radish demand is 3.5 t in week 0 and 1.5 t in week 1; it held two of four starting batches into week 1, behind the window (6 of 17 runs did this) | 2.1 t sold for €2 |
+| 2 Not revising | [Sonnet, seed 1, from day 22](runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/DAYS.md) | The boiler tripped on day 22 and the outage was in every briefing after; no repair was booked in 20 days (8 of 17 runs left it over a week) | 20 days without the boiler |
+| 2 Not revising | [Gemini, seed 1, day 1](runs/normal-winter/gemini-4-hydrogen-s1-hiup4hw/DAYS.md) | Ordered `part` instead of `part:glass_pane`, so the whole order, seed included, was refused (Gemini sent malformed actions in 6 of 7 runs) | seed a day late |
+| 3 Unfinished work | [Sonnet, seed 1, day 11](runs/normal-winter/claude-sonnet-5-5-s1-qxhrmeh/DAYS.md) | Ordered seed on day 1 with a 10-day lead and planted on day 11, a few hours before it landed (10 of 17 runs) | one day of growth |
+| 3 Unfinished work | [Sonnet, seed 2, day 9](runs/normal-winter/claude-sonnet-5-5-s2-ny8magu/DAYS.md) | One reasoning step used the whole 32 k-token output budget and returned no action; the harness ended the attempt mid-season | score 0.18 (rerun 0.76) |
+| Good play | [Gemini, seed 2](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md) | Staggered partial sales so each landed as an older one left the window, and served every week of demand | €963 k, above the planner's €894 k |
 
 ```bash
-bash scripts/judge.sh --output artifacts/judge-1                                   # reference + baselines, every seed
+bash scripts/judge.sh --output artifacts/judge-1                                     # planner + baselines, every seed
 bash scripts/judge.sh --model anthropic/claude-sonnet-5-5 --output artifacts/judge-2 # plus 3 agent attempts (key in .env)
 ```
 
-Every number above is reproducible: model runs are committed with their Harbor trajectory, the
-verifier's trace and a day-by-day log ([runs/TRAJECTORIES.md](runs/TRAJECTORIES.md)), and
-[runs/ANALYSIS.md](runs/ANALYSIS.md) replays each one hour by hour (`scripts/analyze_runs.py`).
+Every number here is reproducible: `scripts/analyze_runs.py` replays each committed run hour by hour,
+and `scripts/readme_figures.py` redraws the figures above.
+
 
 <details>
 <summary><b>The task</b>: what the agent controls and sees</summary>
