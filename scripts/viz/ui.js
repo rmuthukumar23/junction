@@ -561,7 +561,7 @@
   }
 
   // ---------------- control windows ----------------
-  let fps = 0, frames = 0, fpsT = 0, outlines = true, jobPanel = {}, assigned = new Set();
+  let fps = 0, frames = 0, fpsT = 0, outlines = false, jobPanel = {}, assigned = new Set();
   function applyView() {
     const kind = $("v-field").value, op = +$("v-op").value;
     for (const p of panels) p.scene.settings({ field: { kind, opacity: kind === "none" ? 0 : op }, fog: $("v-fog").checked, pix: +$("v-pix").value,
