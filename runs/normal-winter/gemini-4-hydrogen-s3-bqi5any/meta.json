@@ -1,0 +1,10 @@
+{
+ "model": "gemini-4-hydrogen",
+ "seed": 3,
+ "bundle": "e7aab7d490414a52",
+ "reward": 0.7592,
+ "profit_eur": 856930.312,
+ "started_at": "2026-11-15T00:44:49.402357Z",
+ "finished_at": "2026-11-15T00:58:56.353226Z",
+ "harbor_trial": "artifacts/v5-gemini-s3/trials/s3-agent/normal-winter-s3__bQi5aNY"
+}

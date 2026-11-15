@@ -1,0 +1,11 @@
+{
+ "model": "gemini-4-hydrogen",
+ "seed": 1,
+ "bundle": "968bed37c3defe06",
+ "reward": 0.9905,
+ "profit_eur": 822570.5339,
+ "started_at": "2026-11-15T00:00:26.088183Z",
+ "finished_at": "2026-11-15T00:13:46.436055Z",
+ "harbor_trial": "artifacts/v4-gemini-s1/trials/s1-agent/normal-winter-s1__hiuP4hW",
+ "note": "played on the current rules before the reference was improved; the verifier reward is against the earlier reference, the analysis rescores it"
+}

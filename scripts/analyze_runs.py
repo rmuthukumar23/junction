@@ -83,13 +83,13 @@ def measure(run: dict[str, Any]) -> dict[str, Any]:
 FAILURE_MODES = [   # (name, flagged when, test on measure())
     ("Floods the market", "sells more than 1.3x the published weekly demand, so its own harvests crash the price",
      lambda m: (m["supply_ratio"] or 0) > 1.3),
-    ("Leaves money to the market", "over 15% of harvest value lost to selling above demand",
-     lambda m: m["market_loss_pct"] > 15),
+    ("Sells into a glut", "over 8% of harvest value lost to selling above the rolling week's demand (the reference loses about 3%)",
+     lambda m: m["market_loss_pct"] > 8),
     ("Misses the demand", "under 75% of the published demand sold at full price (wrong week, too little, or into a full window)",
      lambda m: m["demand_met_pct"] < 75),
-    ("Idle benches", "over 40% of the floor empty on average", lambda m: m["empty_area_pct"] > 40),
     ("Seed stock-outs", "tries to sow with no seed in stock (did not order ahead of the lead time)", lambda m: m["seed_stockouts"] > 0),
-    ("Stops managing", "no action on 10 or more of the last 21 days", lambda m: m["idle_days_late"] >= 10),
+    ("Session ended early", "the agent stopped calling before day 42 (e.g. a reasoning step hit the output limit with no "
+     "tool call, so the harness ended the attempt); the farm ran on unattended", lambda m: m["days_played"] < 42),
     ("Malformed actions", "actions refused for unknown items or invalid arguments", lambda m: m["malformed"] > 0),
     ("Damage left standing", "storm or boiler damage unrepaired for over 2 weeks", lambda m: m["damage_hours"] > 336),
 ]
