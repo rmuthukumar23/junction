@@ -527,7 +527,228 @@ def run_for(spec: str, seed: int) -> dict[str, Any]:
     return game
 
 
+# ---------------------------------------------------------------- a person plays (play.html)
+#
+# A live game in this process: the page sends one day's actions, the real simulator runs the
+# day and night, and the page gets back the next morning's briefing and the hours it played.
+# Same Episode and the same submit_day tool the agents use; nothing is scored differently.
+
+GAMES: dict[str, dict[str, Any]] = {}
+
+
+def game_new(seed: int) -> dict[str, Any]:
+    import secrets
+    sc = load_scenario(SCENARIO)
+    ep = Episode(sc, seed, Trace(None), "")
+    sim = ep.env.sim
+    frames = [frame(sim)]
+    inner = sim.run_hour
+
+    def run_hour():
+        alarms = inner()
+        frames.append(frame(sim))
+        return alarms
+
+    sim.run_hour = run_hour
+    gid = secrets.token_hex(6)
+    from greenhouse import views
+    rl = views.rules(sim)
+    crops = {cid: {k: d.get(k) for k in ("name", "climate_targets", "harvest", "market") if k in d}
+             for cid, d in rl["crops"].items() if isinstance(d, dict)}
+    compartments = {cid: {"crop": next((b.crop_id for b in sim.batches.values() if b.compartment_id == cid), "")}
+                    for cid in sim.facility.compartment_ids}
+    while len(GAMES) > 20:                                 # keep memory bounded
+        GAMES.pop(next(iter(GAMES)))
+    GAMES[gid] = {"ep": ep, "client": InProcessClient(ep), "frames": frames, "sent": 0, "alarms": 0,
+                  "seed": seed, "lock": threading.Lock(), "log": []}
+    out = {"id": gid, "seed": seed, "scenario": sc.id, "briefing": ep.opening.get("briefing"),
+           "rules": ep.opening.get("rules"), "compartments": compartments, "crops": crops,
+           "hours": sim.horizon_h, "first_hour": frames[0]["h"]}
+    out.update(game_take(GAMES[gid]))
+    return out
+
+
+def game_take(g: dict[str, Any]) -> dict[str, Any]:
+    """Frames and alarms the page has not seen yet."""
+    sim = g["ep"].env.sim
+    frames, alarms = g["frames"][g["sent"]:], sim.alarms[g["alarms"]:]
+    g["sent"], g["alarms"] = len(g["frames"]), len(sim.alarms)
+    return {"frames": frames, "alarms": [{"h": a.hour, "kind": a.kind, "target": a.target, "text": a.text} for a in alarms]}
+
+
+def game_day(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+    g = GAMES.get(gid)
+    if g is None:
+        raise ValueError("no such game (the server restarted?): start a new one")
+    with g["lock"]:
+        ep, client = g["ep"], g["client"]
+        if ep.done:
+            raise ValueError("this game is over")
+        resp = client.call("submit_day", actions=actions)
+        res = resp.get("result") or {}
+        g["log"].append({"day": len(g["log"]), "actions": actions, "ok": resp.get("ok"),
+                         "results": res.get("results"), "error": resp.get("error")})
+        out = {"ok": bool(resp.get("ok")), "error": resp.get("error"), "results": res.get("results", []),
+               "briefing": res.get("briefing"), "done": bool(ep.done)}
+        out.update(game_take(g))
+        if ep.done:
+            ep.finalize()
+            sc = load_scenario(SCENARIO)
+            ledger = ep.result()
+            profit = float(ledger.get("profit_eur", ep.env.sim.business.profit_eur()))
+            anchors = submit(anchor_profits, g["seed"], str(SCENARIO)).result()
+            out["final"] = {"profit": round(profit, 2), "score": official_score(sc, profit, anchors),
+                            "anchors": anchors, "bankrupt": bool(ledger.get("bankrupt")),
+                            "end_reason": ledger.get("end_reason"), "days": len(g["log"])}
+        return out
+
+
+# ---------------------------------------------------------------- one-day challenge (play.html)
+#
+# A real morning from a recorded model run. The person picks that morning's actions; the game is
+# copied three ways from the same state (you, the model's actual call that morning, the reference
+# planner's own choice), each plays the day, and then the reference planner plays the rest of the
+# season in all three, so each morning gets a season profit and the official score.
+
+CHALLENGES = [
+    {"id": "radish", "trace": "runs/normal-winter/claude-haiku-5-5-s2-sugfugl/trace.jsonl", "day": 2,
+     "model": "Claude Haiku 5.5", "title": "Radish week",
+     "blurb": "Week 0 is radish's biggest week (3.5 t at full price); next week it drops to 1.5 t. Haiku held half its radish back. What do you cut today?"},
+    {"id": "boiler", "trace": "runs/normal-winter/claude-sonnet-5-5-s1-lbtq2lu/trace.jsonl", "day": 22,
+     "model": "Claude Sonnet 5.5", "title": "The boiler is down",
+     "blurb": "The boiler tripped. It is in the briefing every morning. What do you do today?"},
+    {"id": "first", "trace": "runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/trace.jsonl", "day": 0,
+     "model": "Gemini 4 Hydrogen", "title": "The first morning",
+     "blurb": "Day 0: the houses are at 5 °C, seed takes 10 days, a storm warning is in the news. Gemini's best run started here."},
+]
+
+
+class _StopAfterFirst(InProcessClient):
+    """Gives a scripted policy a game already under way and records its first day's actions only."""
+
+    def __init__(self, episode: Episode, opening: dict[str, Any], record: list):
+        super().__init__(episode)
+        self._opening, self.record = opening, record
+
+    def opening(self) -> Any:
+        return self._opening
+
+    def call(self, tool: str, **args: Any) -> dict[str, Any]:
+        self.record.append(args.get("actions", []))
+        raise StopPolicy()
+
+
+class _Resume(InProcessClient):
+    """Lets a scripted policy pick up a game that is already under way."""
+
+    def __init__(self, episode: Episode, opening: dict[str, Any], record: list | None = None):
+        super().__init__(episode)
+        self._opening, self.record = opening, record
+
+    def opening(self) -> Any:
+        return self._opening
+
+    @property
+    def done(self) -> bool:
+        return self._episode.done
+
+    def call(self, tool: str, **args: Any) -> dict[str, Any]:
+        if self.record is not None and not self.record:
+            self.record.append(args.get("actions", []))
+        return super().call(tool, **args)
+
+
+def challenge_start(cid: str) -> dict[str, Any]:
+    import copy
+    import secrets
+    ch = next(c for c in CHALLENGES if c["id"] == cid)
+    records = read_trace(resolve_trace("trace:" + ch["trace"]))
+    header = next((rec for rec in records if rec.get("k") == "header"), {})
+    calls = [rec for rec in records if rec.get("k") == "call"]
+    sc = load_scenario(ROOT / "scenarios" / f"{header.get('scenario', 'normal-winter')}.toml")
+    seed = int(header.get("seed", 1))
+    ep = Episode(sc, seed, Trace(None), "")
+    sim = ep.env.sim
+    frames = [frame(sim)]
+    inner = sim.run_hour
+    sim.run_hour = lambda: (lambda a: (frames.append(frame(sim)), a)[1])(inner())
+    client, briefing = InProcessClient(ep), ep.opening.get("briefing")
+    for c in calls[:ch["day"]]:
+        briefing = client.call(c["tool"], **c["args"])["result"]["briefing"]
+    sim.run_hour = inner
+    state = copy.deepcopy(ep)
+    gid = secrets.token_hex(6)
+    while len(GAMES) > 20:
+        GAMES.pop(next(iter(GAMES)))
+    model_actions = calls[ch["day"]]["args"].get("actions", []) if ch["day"] < len(calls) else []
+    GAMES[gid] = {"state": state, "briefing": briefing, "rules": ep.opening.get("rules"), "sc": sc, "seed": seed,
+                  "model_actions": model_actions, "rest": calls[ch["day"] + 1:], "ch": ch, "lock": threading.Lock(),
+                  "real_profit": None}
+    from greenhouse import views
+    rl = views.rules(sim)
+    crops = {k: {kk: d.get(kk) for kk in ("name", "climate_targets", "harvest", "market", "planting") if kk in d}
+             for k, d in rl["crops"].items() if isinstance(d, dict)}
+    compartments = {cid_: {"crop": next((b.crop_id for b in sim.batches.values() if b.compartment_id == cid_), "")}
+                    for cid_ in sim.facility.compartment_ids}
+    frames = frames[-30:]
+    return {"id": gid, "challenge": ch, "seed": seed, "briefing": briefing, "rules": ep.opening.get("rules"),
+            "compartments": compartments, "crops": crops, "frames": frames, "alarms": [], "hours": sim.horizon_h,
+            "first_hour": frames[0]["h"], "model": ch["model"]}
+
+
+def challenge_play(gid: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+    import copy
+    g = GAMES.get(gid)
+    if g is None or "state" not in g:
+        raise ValueError("no such challenge (the server restarted?): start again")
+    sc, seed, opening_rules = g["sc"], g["seed"], g["rules"]
+    anchors = submit(anchor_profits, seed, str(ROOT / "scenarios" / f"{sc.id}.toml")).result()
+
+    def branch(acts: list | None, keep_frames: bool) -> dict[str, Any]:
+        ep = copy.deepcopy(g["state"])
+        sim = ep.env.sim
+        frames: list = []
+        start = sim.business.profit_eur()
+        out: dict[str, Any] = {}
+        if acts is None:                                     # the planner chooses this morning's actions itself
+            first: list = []
+            probe = copy.deepcopy(g["state"])
+            pol = make_policy("reference", sc)
+            try:
+                pol.run(_StopAfterFirst(probe, {"rules": opening_rules, "briefing": g["briefing"]}, first))
+            except StopPolicy:
+                pass
+            acts = first[0] if first else []
+        inner = sim.run_hour
+        if keep_frames:
+            sim.run_hour = lambda: (lambda a: (frames.append(frame(sim)), a)[1])(inner())
+        client = InProcessClient(ep)
+        r = client.call("submit_day", actions=acts)
+        sim.run_hour = inner
+        res = r.get("result") or {}
+        out["actions"], out["results"], out["error"] = acts, res.get("results"), r.get("error")
+        out["cash_after_day"] = round(sim.business.profit_eur() - start, 2)
+        for c in g["rest"]:                                  # then the model's own remaining days, as recorded
+            if ep.done:
+                break
+            client.call(c["tool"], **c["args"])
+        ep.finalize()
+        profit = float(ep.result().get("profit_eur", sim.business.profit_eur()))
+        out.update({"profit": round(profit, 2), "score": official_score(sc, profit, anchors)})
+        if keep_frames:
+            out["frames"] = frames[:24]
+        return out
+
+    with g["lock"]:
+        you = branch(actions, True)
+        model = branch(g["model_actions"], False)
+    planner = {"profit": round(max(anchors[n] for c in sc.components if c.kind == "anchored" for n in c.top_anchors), 2),
+               "score": official_score(sc, max(anchors[n] for c in sc.components if c.kind == "anchored" for n in c.top_anchors), anchors)}
+    return {"you": you, "model": model, "planner": planner, "challenge": g["ch"]}
+
+
 STATIC = {"index.html": "text/html; charset=utf-8", "scene.js": "text/javascript; charset=utf-8",
+          "play.html": "text/html; charset=utf-8", "play.js": "text/javascript; charset=utf-8",
           "ui.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}
 
 
@@ -568,6 +789,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"scenario": sc.id, "title": sc.title, "builtin": builtin, "traces": traces,
                              "slots": ["reference", model, "rule-based", "naive", half, "do-nothing"]})
             return
+        if u.path == "/api/challenges":
+            self._json(200, {"challenges": CHALLENGES})
+            return
         if u.path == "/api/jobs":
             self._json(200, {"jobs": [job_view(j) for j in sorted(JOBS.values(), key=lambda j: -j["started"])],
                              "env_model": env_model(), "backend": default_backend()})
@@ -591,7 +815,37 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path != "/api/launch":
+        path = urlparse(self.path).path
+        if path in ("/api/challenge/start", "/api/challenge/play"):
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
+                if path == "/api/challenge/start":
+                    self._json(200, challenge_start(str(body.get("challenge", "glut"))))
+                else:
+                    acts = body.get("actions") or []
+                    if not isinstance(acts, list) or len(acts) > 10:
+                        raise ValueError("actions must be a list")
+                    self._json(200, challenge_play(str(body.get("id", "")), acts))
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if path in ("/api/game/new", "/api/game/day"):
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
+                if path == "/api/game/new":
+                    seed = int(body.get("seed", 1))
+                    if not 1 <= seed <= 9999:
+                        raise ValueError("seed 1-9999")
+                    self._json(200, game_new(seed))
+                else:
+                    acts = body.get("actions") or []
+                    if not isinstance(acts, list) or len(acts) > 10:
+                        raise ValueError("actions must be a list")
+                    self._json(200, game_day(str(body.get("id", "")), acts))
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if path != "/api/launch":
             self._send(404, b"not found", "text/plain")
             return
         try:
@@ -615,10 +869,11 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to reach it from a phone on the same Wi-Fi")
     ap.add_argument("--scenario", default="normal-winter", help="scenario the scripted growers play")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="games simulated at once")
     a = ap.parse_args()
     SCENARIO = ROOT / "scenarios" / f"{a.scenario}.toml"
     POOL = ProcessPoolExecutor(max_workers=max(1, a.jobs))
-    print(f"Greenhouse viewer on http://localhost:{a.port}  ({a.scenario}, {a.jobs} worker(s); Ctrl+C to stop)")
-    ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
+    print(f"Greenhouse viewer on http://localhost:{a.port}  (play: /play.html)  ({a.scenario}, {a.jobs} worker(s); Ctrl+C to stop)")
+    ThreadingHTTPServer((a.host, a.port), Handler).serve_forever()
