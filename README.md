@@ -14,71 +14,38 @@ prices and storms. Every frame is the real simulator; model runs are replayed fr
 > - **Trajectories:** every run is committed with its Harbor `trajectory.json`, the verifier's trace and a readable day-by-day `DAYS.md` ([index](runs/TRAJECTORIES.md); [the best run](runs/normal-winter/gemini-4-hydrogen-s2-2tvqbki/DAYS.md)).
 > - **True failure modes:** three patterns, each measured by replaying the runs hour by hour ([analysis](runs/ANALYSIS.md)) and linked to the day it happens ([other failures](#other-failures-we-found)).
 
-## Why a greenhouse is like chess against Stockfish
+## Why talk about chess?
 
-### The analogy
-
-Chess strength is measured in Elo. The expected score of player $A$ against player $B$ is
+The best language models play chess at about **2000 Elo**. Stockfish plays at about **3600**. The
+expected score of player $A$ against player $B$ is
 
 $$
 E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}
 $$
 
-Stockfish plays at around 3600 Elo. The best language models know every rule of chess and play moves
-that look like chess, yet against Stockfish they score close to nothing: a 1000-point gap gives
-$E \approx 0.003$. Stockfish does not know more rules. It never stops checking how its moves interact.
+so a 1600-point gap means the model scores about $0.0001$: it essentially never wins.
 
-A greenhouse has the same shape. Every rule the agent needs is in its instructions: the growth
-equations, prices, lead times and the buyers' weekly order book. Our scripted reference planner plays
-the part of Stockfish. It prices every possible harvest against the published market rule and plans
-its sowings with a dynamic programme.
+The model knows every rule. It loses because a game is many moves that interact, and an engine never
+stops checking them. The research points to three failure patterns:
 
-Count each model run as a game against the planner on the same seed: a win if it earns more. Then
-$E = \text{wins} / \text{games}$ and the rating gap is
+1. **Missing interacting constraints**
+2. **Not revising after new information**
+3. **Losing track of unfinished work**
 
-$$
-\Delta R = 400 \, \log_{10}\left(\frac{1 - E}{E}\right)
-$$
+## What we noticed in our greenhouse
 
-| Model | Games | Wins | $E$ | Elo below the planner |
-|---|---:|---:|---:|---:|
-| Claude Sonnet 5.5 | 7 | 3 | 0.43 | $\approx 50$ |
-| Gemini 4 Hydrogen | 7 | 2 | 0.29 | $\approx 160$ |
-| Claude Haiku 5.5 | 3 | 0 | 0 | lost every game |
+Every rule is in the agent's instructions, and our scripted planner reads the same briefing the agent
+reads. The same three patterns showed up in the 17 model runs:
 
-<sub>Few games per model, so these gaps are rough; the score table below has the confidence intervals.</sub>
+1. **Missing interacting constraints.** Demand is counted over a rolling week, seed takes 10 days and a
+   crop keeps its top grade for about 2 days. Haiku sold 2.2 t of broccoli for €0 into a week that was
+   already full (figure below).
+2. **Not revising after new information.** The boiler outage was in every morning's briefing, yet 8 of
+   17 runs left it broken for over a week. The planner books the repair the next morning.
+3. **Losing track of unfinished work.** 10 of 17 runs planted before their seed order had landed, and
+   one run stopped acting on day 9, mid-plan.
 
-Frontier models are not 1000 points behind here. They are close, and sometimes win. When they lose,
-they lose in the same three ways.
-
-### Three ways a strong model loses to a planner
-
-**1. Missing interacting constraints**
-
-- **What it is:** each rule is followed on its own, but not the way rules combine.
-- **How it shows up here:** demand is counted over a rolling week, seed takes 10 days to arrive, a crop
-  keeps its top grade for about 2 days, and sowing closes 8-12 days before the end. A good harvest
-  decision has to respect all four at once.
-- **What we measured:** Haiku sold 2.2 t of broccoli for €0 into a week that was already full (figure
-  below). 6 of 17 runs held radish past its biggest week, losing about €40 k each.
-
-**2. Not revising after new information**
-
-- **What it is:** the plan made yesterday is kept after the world changed.
-- **How it shows up here:** every morning's briefing lists outages, refused actions and what sold.
-  Nothing changes unless the agent acts on it.
-- **What we measured:** 8 of 17 runs left a tripped boiler broken for over a week (Sonnet 6 of 7), with
-  the outage in every briefing. The planner books the repair the next morning.
-
-**3. Losing track of unfinished work**
-
-- **What it is:** something started is forgotten before it is finished.
-- **How it shows up here:** 42 turns of up to 5 actions, with orders in transit, batches ripening and
-  sowings planned 10 days ahead of the week they sell in.
-- **What we measured:** 10 of 17 runs planted before their seed had landed. One run spent its whole
-  output budget reasoning on day 9 and never acted again.
-
-### Why this matters for this benchmark
+### Why this matters
 
 A benchmark only measures planning if the planner's edge comes from the same information the agent
 has. Nothing here is hidden, no tool is broken, and the planner reads exactly the briefing the agent
